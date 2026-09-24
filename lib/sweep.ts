@@ -1,4 +1,4 @@
-import { RULES } from "@/config/rules";
+import { listAutomations } from "@/lib/automations";
 import { ruleAppliesToMedia } from "@/lib/match";
 import { listComments, listRecentMedia } from "@/lib/instagram";
 import { processComment, type Result } from "@/lib/processor";
@@ -7,7 +7,7 @@ import { processComment, type Result } from "@/lib/processor";
 export async function sweep(): Promise<{ media: number; comments: number; results: Partial<Record<Result, number>>; errors: string[] }> {
   const since = Date.now() - 7 * 864e5;
   const media = (await listRecentMedia(25)).filter((m) => !m.timestamp || Date.parse(m.timestamp) >= since);
-  const active = RULES.filter((r) => r.active !== false);
+  const active = (await listAutomations()).filter((r) => r.active !== false);
   const results: Partial<Record<Result, number>> = {};
   const errors: string[] = [];
   let count = 0;

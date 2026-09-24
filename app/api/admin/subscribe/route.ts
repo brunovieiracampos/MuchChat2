@@ -1,4 +1,4 @@
-import { isAuthorized } from "@/lib/auth";
+import { isAdminRequest } from "@/lib/session";
 import { getToken } from "@/lib/instagram";
 
 export const runtime = "nodejs";
@@ -16,10 +16,10 @@ async function call(method: "GET" | "POST") {
 }
 
 export async function GET(req: Request) {
-  if (!isAuthorized(req, process.env.ADMIN_SECRET)) return new Response("unauthorized", { status: 401 });
+  if (!isAdminRequest(req)) return new Response("unauthorized", { status: 401 });
   return call("GET");
 }
 export async function POST(req: Request) {
-  if (!isAuthorized(req, process.env.ADMIN_SECRET)) return new Response("unauthorized", { status: 401 });
+  if (!isAdminRequest(req)) return new Response("unauthorized", { status: 401 });
   return call("POST");
 }

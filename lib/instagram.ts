@@ -62,7 +62,10 @@ async function call<T>(method: "GET" | "POST", path: string, params: Record<stri
   return json as T;
 }
 
-export type IgMedia = { id: string; shortcode?: string; permalink?: string; timestamp?: string; caption?: string };
+export type IgMedia = {
+  id: string; shortcode?: string; permalink?: string; timestamp?: string; caption?: string;
+  media_type?: string; media_url?: string; thumbnail_url?: string; comments_count?: number;
+};
 export type IgComment = { id: string; text?: string; timestamp?: string; username?: string; from?: { id: string; username?: string }; parent_id?: string };
 
 export async function getMedia(mediaId: string): Promise<IgMedia> {
@@ -71,7 +74,7 @@ export async function getMedia(mediaId: string): Promise<IgMedia> {
 
 export async function listRecentMedia(limit = 25): Promise<IgMedia[]> {
   const r = await call<{ data: IgMedia[] }>("GET", `${await igUserId()}/media`, {
-    fields: "id,shortcode,permalink,timestamp,caption",
+    fields: "id,shortcode,permalink,timestamp,caption,media_type,media_url,thumbnail_url,comments_count",
     limit: String(limit),
   });
   return r.data ?? [];
@@ -118,6 +121,19 @@ export async function refreshTokenIfNeeded(maxAgeDays = 7): Promise<"refreshed" 
   if (!res.ok || !json.access_token) throw new GraphError(res.status, json);
   await store.set(TOKEN_KEY, { token: json.access_token, refreshedAt: Date.now() } satisfies TokenRec);
   return "refreshed";
+}
+
+/** Quando o token atual foi obtido/renovado (null = usando IG_ACCESS_TOKEN do ambiente, ou sem token). */
+export async function getTokenInfo(): Promise<{ source: "painel" | "env" | "none"; refreshedAt: number | null }> {
+  const rec = await getStore().get<TokenRec>(TOKEN_KEY);
+  if (rec?.token) return { source: "painel", refreshedAt: rec.refreshedAt };
+  return { source: process.env.IG_ACCESS_TOKEN ? "env" : "none", refreshedAt: null };
+}
+
+/** Campos do webhook em que a conta está inscrita (ex.: ["comments"]). */
+export async function getSubscribedFields(): Promise<string[]> {
+  const r = await call<{ data?: { subscribed_fields?: string[] }[] }>("GET", "me/subscribed_apps");
+  return (r.data ?? []).flatMap((d) => d.subscribed_fields ?? []);
 }
 
 export function isDryRun() { return process.env.DRY_RUN === "true"; }

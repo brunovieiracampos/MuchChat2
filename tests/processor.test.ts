@@ -27,6 +27,7 @@ function deps(over: Partial<Deps> = {}): Deps & { dm: ReturnType<typeof vi.fn>; 
     getMedia: async (id: string) => ({ id, shortcode: id === "m1" ? "ABC123" : "OTHER" }),
     ownUserId: async () => "me",
     dryRun: () => false,
+    paused: async () => false,
     rules: () => [rule],
     now: () => NOW,
     random: () => 0,

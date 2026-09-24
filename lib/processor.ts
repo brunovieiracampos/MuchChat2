@@ -1,4 +1,5 @@
-import { DEFAULT_PUBLIC_REPLIES, RULES, type Rule } from "@/config/rules";
+import { DEFAULT_PUBLIC_REPLIES, type Rule } from "@/config/rules";
+import { isPaused, listAutomations, renderDm } from "@/lib/automations";
 import { findRule, rulesNeedShortcode } from "@/lib/match";
 import { getStore } from "@/lib/store";
 import * as ig from "@/lib/instagram";
@@ -20,7 +21,8 @@ export type Deps = {
   getMedia: (mediaId: string) => Promise<{ id: string; shortcode?: string }>;
   ownUserId: () => Promise<string | undefined>;
   dryRun: () => boolean;
-  rules: () => Rule[];
+  paused: () => Promise<boolean>;
+  rules: () => Rule[] | Promise<Rule[]>;
   now: () => number;
   random: () => number;
 };
@@ -31,7 +33,8 @@ export const defaultDeps: Deps = {
   getMedia: ig.getMedia,
   ownUserId: () => ig.igUserId().catch(() => undefined),
   dryRun: ig.isDryRun,
-  rules: () => RULES,
+  paused: isPaused,
+  rules: listAutomations,
   now: () => Date.now(),
   random: Math.random,
 };
@@ -113,7 +116,7 @@ function isPermanent(e: unknown) {
 }
 
 export type Result =
-  | "own" | "no-match" | "expired" | "locked" | "done" | "dry-run"
+  | "own" | "paused" | "no-match" | "expired" | "locked" | "done" | "dry-run"
   | "dm-sent" | "dm-error" | "dm-failed" | "reply-error";
 
 export async function processComment(c: IncomingComment, source: string, deps: Deps = defaultDeps): Promise<Result> {
@@ -122,8 +125,10 @@ export async function processComment(c: IncomingComment, source: string, deps: D
   const own = await deps.ownUserId();
   if (own && c.fromId === own) return "own";
   if (!c.text) return "no-match";
+  // Sem registro nem log: ao retomar, a próxima varredura pega o que ficou para trás (dentro dos 7 dias).
+  if (await deps.paused()) return "paused";
 
-  const rules = deps.rules();
+  const rules = await deps.rules();
   const shortcode = rulesNeedShortcode(rules) ? await resolveShortcode(c.mediaId, deps) : undefined;
   const rule = findRule(c.text, { id: c.mediaId, shortcode }, rules);
   if (!rule) return "no-match";
@@ -143,7 +148,7 @@ export async function processComment(c: IncomingComment, source: string, deps: D
   }
 
   if (deps.dryRun()) {
-    await log({ ...base, action: "dry-run", detail: rule.dm.replace("{link}", rule.link).slice(0, 200) }, now);
+    await log({ ...base, action: "dry-run", detail: renderDm(rule, c.username).slice(0, 200) }, now);
     return "dry-run";
   }
 
@@ -157,7 +162,7 @@ export async function processComment(c: IncomingComment, source: string, deps: D
 
     // 1) DM (Private Reply) — vem primeiro para a resposta pública nunca prometer algo que não chegou.
     if (state.dm !== "sent") {
-      const text = rule.dm.replaceAll("{link}", rule.link);
+      const text = renderDm(rule, c.username);
       try {
         await deps.sendPrivateReply(c.id, text);
         await store.hset(key, { dm: "sent", dmAt: now });

@@ -38,6 +38,6 @@ export async function GET(req: Request) {
   await saveConnection(long.access_token, String(me.user_id ?? userId));
   return new Response(null, {
     status: 302,
-    headers: { Location: "/admin?connected=1", "Set-Cookie": "ig_oauth_state=; Path=/; Max-Age=0" },
+    headers: { Location: "/painel/configuracoes?conectado=1", "Set-Cookie": "ig_oauth_state=; Path=/; Max-Age=0" },
   });
 }

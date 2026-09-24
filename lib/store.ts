@@ -85,7 +85,9 @@ export function getStore(): Store {
   } else {
     if (process.env.VERCEL) throw new Error("Redis não configurado (KV_REST_API_URL / KV_REST_API_TOKEN).");
     console.warn("[store] Sem Redis: usando memória (só para desenvolvimento).");
-    _store = new MemoryStore();
+    // No `next dev` rotas e páginas podem carregar cópias separadas deste módulo; a memória fica no globalThis.
+    const g = globalThis as { __dmMemoryStore?: MemoryStore };
+    _store = g.__dmMemoryStore ??= new MemoryStore();
   }
   return _store;
 }

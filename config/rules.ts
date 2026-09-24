@@ -1,4 +1,7 @@
 /**
+ * Regras iniciais. O painel (/painel/automacoes) grava as automações no Redis;
+ * esta lista só é usada para popular o Redis na primeira vez.
+ *
  * Regras de automação: post + palavra-chave → DM com link.
  *
  * posts: URLs dos posts (https://www.instagram.com/p/XXXX/), shortcodes (XXXX),
@@ -10,12 +13,16 @@
  */
 export type Rule = {
   id: string;
+  /** Nome exibido no painel. */
+  name?: string;
   posts: string[];
   keywords: string[];
   link: string;
   dm: string;
   publicReplies?: string[];
   active?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
 };
 
 export const DEFAULT_PUBLIC_REPLIES = [
@@ -32,6 +39,7 @@ export const DEFAULT_PUBLIC_REPLIES = [
 export const RULES: Rule[] = [
   {
     id: "contador-2026-09-24",
+    name: "Prompts para contador",
     // TODO: troque "*" pela URL do carrossel CONTADOR assim que tiver
     // (ex.: "https://www.instagram.com/p/ABC123xyz/"). Com "*", vale para qualquer post.
     posts: ["*"],
