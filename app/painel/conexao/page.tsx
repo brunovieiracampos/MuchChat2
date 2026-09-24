@@ -29,7 +29,7 @@ export default async function Conexao() {
       action: fields && !webhookOk ? { href: "/painel/configuracoes", label: "Abrir" } : undefined,
     },
     { label: "Sair do modo de teste", hint: flags.dryRun ? "Mude DRY_RUN para false na Vercel quando os testes estiverem ok" : "DRY_RUN desligado: envios reais", ok: !flags.dryRun },
-    { label: "Aprovação da Meta (App Review)", hint: "Necessária para responder quem não é testador do app. Acompanhe no painel da Meta.", ok: null },
+    { label: "Aprovação da Meta (App Review)", hint: "Até a aprovação, a Meta só mostra ao app comentários de testadores do Instagram (nem o webhook nem a varredura veem os outros).", ok: null },
   ];
 
   const color = ok ? "#2FA37A" : conn.state === "error" ? "#E0A526" : "#E4544F";

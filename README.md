@@ -93,11 +93,11 @@ curl -X POST "https://SEU-DOMINIO/api/admin/subscribe?key=ADMIN_SECRET"
 **Conta de teste em modo dev:** App roles → Roles → **Add Instagram Tester** (outra conta sua); aceite o convite no app do Instagram dessa conta (Configurações → Apps e sites → Convites de testador).
 
 ### 6. Frequência da varredura
-O `vercel.json` roda a varredura 1×/dia (é o limite do plano Hobby). Para ficar mais perto do tempo real enquanto o webhook não está liberado, crie um agendamento gratuito em cron-job.org chamando
+O `vercel.json` roda a varredura 1×/dia (é o limite do plano Hobby). Se quiser uma rede de segurança para eventos que o webhook perder, crie um agendamento gratuito em cron-job.org chamando
 `https://SEU-DOMINIO/api/cron/sweep?key=ADMIN_SECRET` a cada 5–10 min.
 
 ## Importante: modo desenvolvimento × App Review
-- O webhook de **comments** exige **app em modo Live + Advanced Access** em `instagram_business_manage_comments`. Antes disso a Meta não entrega webhook de comentário de seguidores comuns. **A varredura (polling) não depende do webhook** e cobre esse período.
+- Em **modo de desenvolvimento** a Meta só mostra comentários de contas com papel no app (você e **Testadores do Instagram** que aceitaram o convite). Isso vale para o webhook **e** para a varredura: a API devolve a lista de comentários vazia para os demais (o `comments_count` do post continua contando). Para funcionar com qualquer seguidor é preciso **app em modo Live + Advanced Access** em `instagram_business_manage_comments` e `instagram_business_manage_messages` (App Review).
 - A Private Reply para quem **não tem papel no app** provavelmente só funciona com Advanced Access em `instagram_business_manage_messages`. Se falhar, o log mostra `dm-failed` e **a resposta pública não é feita**.
 - Quando o App Review sair: `curl -X POST "https://SEU-DOMINIO/api/admin/log?key=ADMIN_SECRET&action=retry-failed"` e depois rode a varredura. Todo comentário que ainda estiver dentro dos 7 dias recebe a DM.
 
