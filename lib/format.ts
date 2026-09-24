@@ -34,6 +34,7 @@ export function num(n: number): string {
 export const EXEC_STATUS: Record<ExecStatus, { label: string; tone: "green" | "amber" | "violet" | "red" | "" }> = {
   concluida: { label: "Concluída", tone: "green" },
   andamento: { label: "Em andamento", tone: "violet" },
+  aguardando: { label: "Aguardando clique", tone: "violet" },
   falhou: { label: "Falhou", tone: "red" },
   simulacao: { label: "Simulação", tone: "amber" },
   expirada: { label: "Expirada", tone: "" },

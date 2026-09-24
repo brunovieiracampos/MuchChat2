@@ -72,12 +72,18 @@ export async function getMedia(mediaId: string): Promise<IgMedia> {
   return call<IgMedia>("GET", mediaId, { fields: "id,shortcode,permalink,timestamp" });
 }
 
+const MEDIA_FIELDS = "id,shortcode,permalink,timestamp,caption,media_type,media_url,thumbnail_url,comments_count";
+
 export async function listRecentMedia(limit = 25): Promise<IgMedia[]> {
-  const r = await call<{ data: IgMedia[] }>("GET", `${await igUserId()}/media`, {
-    fields: "id,shortcode,permalink,timestamp,caption,media_type,media_url,thumbnail_url,comments_count",
-    limit: String(limit),
-  });
-  return r.data ?? [];
+  return (await listMediaPage(limit)).items;
+}
+
+/** Posts do perfil, do mais novo para o mais antigo, página por página. */
+export async function listMediaPage(limit = 24, after?: string): Promise<{ items: IgMedia[]; next?: string }> {
+  const params: Record<string, string> = { fields: MEDIA_FIELDS, limit: String(limit) };
+  if (after) params.after = after;
+  const r = await call<{ data: IgMedia[]; paging?: { cursors?: { after?: string }; next?: string } }>("GET", `${await igUserId()}/media`, params);
+  return { items: r.data ?? [], next: r.paging?.next ? r.paging.cursors?.after : undefined };
 }
 
 export async function listComments(mediaId: string, maxPages = 10): Promise<IgComment[]> {
@@ -101,9 +107,34 @@ export async function replyToComment(commentId: string, message: string): Promis
   return call<{ id: string }>("POST", `${commentId}/replies`, { message });
 }
 
-/** Private Reply: 1 DM por comentário, até 7 dias após o comentário. */
-export async function sendPrivateReply(commentId: string, text: string): Promise<{ recipient_id?: string; message_id?: string }> {
-  return call("POST", `${await igUserId()}/messages`, {}, { recipient: { comment_id: commentId }, message: { text } });
+/** Mensagem do direct: texto simples ou texto com até 3 botões (button template). */
+export type OutMessage = {
+  text: string;
+  buttons?: ({ type: "postback"; title: string; payload: string } | { type: "web_url"; title: string; url: string })[];
+};
+
+function toGraphMessage(m: OutMessage) {
+  if (!m.buttons?.length) return { text: m.text };
+  return { attachment: { type: "template", payload: { template_type: "button", text: m.text, buttons: m.buttons } } };
+}
+
+export type SendResult = { recipient_id?: string; message_id?: string };
+
+/** Private Reply: 1 mensagem por comentário, até 7 dias após o comentário. */
+export async function sendPrivateReply(commentId: string, message: OutMessage): Promise<SendResult> {
+  return call("POST", `${await igUserId()}/messages`, {}, { recipient: { comment_id: commentId }, message: toGraphMessage(message) });
+}
+
+/** Mensagem para quem já interagiu na conversa (até 24h depois da interação). */
+export async function sendMessage(igsid: string, message: OutMessage): Promise<SendResult> {
+  return call("POST", `${await igUserId()}/messages`, {}, { recipient: { id: igsid }, message: toGraphMessage(message) });
+}
+
+/** Se a pessoa segue o perfil. Só funciona depois que ela interagiu na conversa. */
+export async function isFollower(igsid: string): Promise<boolean> {
+  const r = await call<{ is_user_follow_business?: boolean }>("GET", igsid, { fields: "is_user_follow_business" });
+  if (typeof r.is_user_follow_business !== "boolean") throw new Error("A API não informou se a pessoa segue o perfil.");
+  return r.is_user_follow_business;
 }
 
 /** Renova o token de longa duração (válido por 60 dias; só renova se tiver 24h+). */

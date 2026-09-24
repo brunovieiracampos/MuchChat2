@@ -299,3 +299,33 @@ button.pn-list-row { cursor: pointer; }
 
 .pn-btn.is-warn-solid { background: var(--amber); border-color: var(--amber); color: #1B1405; font-weight: 500; }
 .pn-btn.is-danger-solid { background: var(--red); border-color: var(--red); color: #fff; font-weight: 500; }
+
+/* ---------- fluxo em blocos ---------- */
+.pn-post-cap { white-space: pre-line; }
+.pn-node { position: relative; }
+.pn-node-tools { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity .12s; }
+.pn-node:hover .pn-node-tools, .pn-node.is-sel .pn-node-tools, .pn-node:focus-within .pn-node-tools { opacity: 1; }
+.pn-node-tools button { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line-3); background: var(--card-3); color: var(--text-3); font-size: 12px; cursor: pointer; line-height: 1; padding: 0; }
+.pn-node-tools button:hover:not(:disabled) { background: #22222B; color: var(--text); }
+.pn-node-tools button:disabled { opacity: .35; cursor: default; }
+@media (hover: none) { .pn-node-tools { opacity: 1; } }
+.pn-edge-add { position: absolute; left: -9px; top: 13px; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--line-3); background: #121218; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; padding: 0; z-index: 2; }
+.pn-edge-add:hover, .pn-edge-add[aria-expanded="true"] { border-color: var(--violet); color: #fff; background: var(--violet); }
+.pn-add-menu { position: absolute; left: 20px; top: 4px; z-index: 5; width: 250px; background: #111117; border: 1px solid var(--line-3); border-radius: 10px; padding: 5px; box-shadow: 0 16px 40px rgba(0,0,0,.55); animation: pn-in .12s ease; }
+.pn-add-menu button { display: flex; gap: 9px; align-items: flex-start; width: 100%; text-align: left; background: transparent; border: none; color: var(--text); font-size: 12.5px; padding: 8px 9px; border-radius: 7px; cursor: pointer; line-height: 1.35; }
+.pn-add-menu button:hover { background: #1B1B23; }
+.pn-add-menu .pn-dot { margin-top: 5px; }
+.pn-templates { width: 100%; max-width: 620px; margin-bottom: 26px; }
+.pn-templates-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.pn-template { text-align: left; border: 1px solid var(--line-2); background: var(--card); color: var(--text); border-radius: 10px; padding: 10px 11px; cursor: pointer; font: inherit; }
+.pn-template:hover { border-color: var(--violet-line); background: #16121F; }
+
+.pn-sim-label { font-size: 10.5px; color: var(--muted-2); margin: 12px 0 6px; }
+.pn-sim-label:first-child { margin-top: 0; }
+.pn-sim-note { font-size: 10.5px; color: var(--muted-2); text-align: center; margin: 10px 0 4px; }
+.pn-bubble.is-reply { margin-top: 6px; margin-left: 16px; background: #1E1E26; }
+.pn-bubble.is-click { margin-top: 8px; background: var(--violet); border-radius: 16px 16px 4px 16px; width: fit-content; }
+.pn-bubble + .pn-bubble { margin-top: 6px; }
+.pn-sim-btn { display: block; width: 100%; margin-top: 9px; background: rgba(255,255,255,.12); border: none; border-radius: 9px; color: #fff !important; font-size: 12.5px; font-weight: 500; padding: 8px 10px; text-align: center; cursor: pointer; font-family: inherit; }
+.pn-sim-btn:hover:not(:disabled) { background: rgba(255,255,255,.2); }
+.pn-sim-btn:disabled { cursor: default; opacity: .75; }

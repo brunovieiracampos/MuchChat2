@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryStore, setStoreForTests } from "@/lib/store";
-import { normalizeInput, renderDm, validateAutomation, type AutomationInput } from "@/lib/automation-input";
+import { normalizeInput, validateAutomation, type AutomationInput } from "@/lib/automation-input";
+import { renderText, type Step } from "@/lib/flow";
 import { listAutomations, saveAutomation, setAutomationActive, setPaused, duplicateAutomation, deleteAutomation } from "@/lib/automations";
 import { buildContacts, buildExecutions, summarize } from "@/lib/activity";
 import { processComment, type LogEntry } from "@/lib/processor";
@@ -11,8 +12,7 @@ const base: AutomationInput = {
   posts: ["https://www.instagram.com/p/XYZ789/"],
   keywords: ["advogado"],
   link: "https://exemplo.com/material",
-  dm: "Oi {usuario}! {link}",
-  publicReplies: [],
+  steps: [{ id: "s1", type: "dm", text: "Oi {usuario}! {link}" }, { id: "s2", type: "reply", replies: ["Enviado!"] }],
   active: true,
 };
 
@@ -26,15 +26,15 @@ describe("validação do formulário", () => {
   });
 
   it("rascunho só exige nome; publicar exige tudo", () => {
-    const empty = { ...base, posts: [], keywords: [], link: "", dm: "" };
+    const empty: AutomationInput = { ...base, posts: [], keywords: [], link: "", steps: [] };
     expect(validateAutomation({ ...empty, active: false })).toEqual([]);
     const fields = validateAutomation(empty).map((i) => i.field);
-    expect(fields).toEqual(expect.arrayContaining(["posts", "keywords", "dm"]));
+    expect(fields).toEqual(expect.arrayContaining(["posts", "keywords", "steps"]));
     expect(validateAutomation({ ...empty, name: "", active: false }).map((i) => i.field)).toEqual(["name"]);
   });
 
-  it("aponta link sem {link}, link inválido e palavra com espaço", () => {
-    expect(validateAutomation({ ...base, dm: "sem link" }).some((i) => i.field === "dm")).toBe(true);
+  it("aponta link vazio usado na mensagem, link inválido e palavra com espaço", () => {
+    expect(validateAutomation({ ...base, link: "" }).some((i) => i.field === "steps" && i.stepId === "s1")).toBe(true);
     expect(validateAutomation({ ...base, link: "exemplo.com" }).some((i) => i.field === "link")).toBe(true);
     expect(validateAutomation({ ...base, keywords: ["DUAS PALAVRAS"] }).some((i) => i.field === "keywords")).toBe(true);
   });
@@ -45,8 +45,17 @@ describe("validação do formulário", () => {
     expect(validateAutomation(normalizeInput(base), [{ ...other, active: false }])).toEqual([]);
   });
 
-  it("renderDm troca {link} e {usuario}", () => {
-    expect(renderDm(base, "fulano")).toBe("Oi @fulano! https://exemplo.com/material");
+  it("renderText troca {link} e {usuario}", () => {
+    expect(renderText("Oi {usuario}! {link}", base.link, "fulano")).toBe("Oi @fulano! https://exemplo.com/material");
+  });
+
+  it("segunda mensagem exige botão “continuar” antes", () => {
+    const two: Step[] = [{ id: "a", type: "dm", text: "um" }, { id: "b", type: "dm", text: "dois" }];
+    expect(validateAutomation({ ...base, steps: two }).map((i) => i.stepId)).toContain("b");
+    const ok: Step[] = [{ id: "a", type: "dm", text: "um", button: { kind: "continue", title: "Quero" } }, { id: "b", type: "dm", text: "dois" }];
+    expect(validateAutomation({ ...base, steps: ok })).toEqual([]);
+    const longTitle: Step[] = [{ id: "a", type: "dm", text: "um", button: { kind: "continue", title: "Um botão com texto longo demais" } }];
+    expect(validateAutomation({ ...base, steps: longTitle }).some((i) => i.stepId === "a")).toBe(true);
   });
 });
 
@@ -79,7 +88,7 @@ describe("armazenamento das automações", () => {
   });
 
   it("não ativa automação incompleta", async () => {
-    const r = await saveAutomation({ ...base, dm: "", active: false });
+    const r = await saveAutomation({ ...base, steps: [{ id: "x", type: "dm", text: "" }], active: false });
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const res = await setAutomationActive(r.automation.id, true);
@@ -90,13 +99,13 @@ describe("armazenamento das automações", () => {
     await setPaused(true);
     const dm = vi.fn(async () => ({}));
     const deps = {
-      sendPrivateReply: dm, replyToComment: vi.fn(), getMedia: async (id: string) => ({ id }),
+      sendPrivateReply: dm, sendMessage: vi.fn(), isFollower: vi.fn(), replyToComment: vi.fn(), getMedia: async (id: string) => ({ id }),
       ownUserId: async () => "me", dryRun: () => false, paused: async () => true,
       rules: () => [{ id: "r", posts: ["*"], keywords: ["X"], link: "", dm: "oi" }], now: () => Date.now(), random: () => 0,
     };
     expect(await processComment({ id: "c1", text: "x", mediaId: "m" }, "sweep", deps)).toBe("paused");
     expect(dm).not.toHaveBeenCalled();
-    expect(await processComment({ id: "c1", text: "x", mediaId: "m" }, "sweep", { ...deps, paused: async () => false })).toBe("dm-sent");
+    expect(await processComment({ id: "c1", text: "x", mediaId: "m" }, "sweep", { ...deps, paused: async () => false })).toBe("completed");
   });
 });
 
@@ -109,7 +118,7 @@ describe("execuções a partir do log", () => {
   const log = [
     e("c3", "dry-run", 50), e("c3", "dry-run", 40),
     e("c2", "dm-failed", 30, { username: "bia", detail: "(#10) sem permissão" }),
-    e("c1", "reply-sent", 2), e("c1", "dm-sent", 1),
+    e("c1", "flow-done", 3), e("c1", "reply-sent", 2), e("c1", "dm-sent", 1),
   ];
 
   it("agrupa por comentário e define o status", () => {

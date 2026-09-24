@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import { RULES, type Rule } from "@/config/rules";
-import { normalizeInput, validateAutomation, type AutomationInput, type Issue } from "@/lib/automation-input";
+import { normalizeInput, toInput, validateAutomation, type AutomationInput, type Issue } from "@/lib/automation-input";
+import { stepsOf } from "@/lib/flow";
 import { getStore } from "@/lib/store";
 
-export { renderDm, type AutomationInput, type Issue } from "@/lib/automation-input";
+export { toInput, type AutomationInput, type Issue } from "@/lib/automation-input";
 
 const KEY = "automations";
 const PAUSED_KEY = "paused";
@@ -14,7 +15,7 @@ export async function listAutomations(): Promise<Rule[]> {
   const saved = await store.get<Rule[]>(KEY);
   if (saved) return saved;
   const now = Date.now();
-  const seed = RULES.map((r) => ({ active: true, createdAt: now, updatedAt: now, ...r }));
+  const seed = RULES.map((r) => ({ active: true, createdAt: now, updatedAt: now, ...r, steps: stepsOf(r) }));
   await store.set(KEY, seed);
   return seed;
 }
@@ -45,8 +46,8 @@ export async function saveAutomation(raw: AutomationInput): Promise<{ ok: true; 
     posts: input.posts,
     keywords: input.keywords,
     link: input.link,
-    dm: input.dm,
-    publicReplies: input.publicReplies.length ? input.publicReplies : undefined,
+    dm: "",
+    steps: input.steps,
     active: input.active,
     createdAt: prev?.createdAt ?? now,
     updatedAt: now,
@@ -79,19 +80,6 @@ export async function duplicateAutomation(id: string): Promise<Rule | null> {
 
 export async function deleteAutomation(id: string): Promise<void> {
   await writeAll((await listAutomations()).filter((a) => a.id !== id));
-}
-
-export function toInput(a: Rule): AutomationInput {
-  return {
-    id: a.id,
-    name: a.name ?? a.id,
-    posts: a.posts,
-    keywords: a.keywords,
-    link: a.link,
-    dm: a.dm,
-    publicReplies: a.publicReplies ?? [],
-    active: a.active !== false,
-  };
 }
 
 /** Pausa geral: nenhum comentário é processado; a varredura recupera o que ficou para trás ao retomar (até 7 dias). */

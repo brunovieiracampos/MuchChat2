@@ -23,6 +23,8 @@ function deps(over: Partial<Deps> = {}): Deps & { dm: ReturnType<typeof vi.fn>; 
   const reply = vi.fn(async () => ({ id: "r1" }));
   return {
     sendPrivateReply: dm,
+    sendMessage: vi.fn(async () => ({})),
+    isFollower: vi.fn(async () => true),
     replyToComment: reply,
     getMedia: async (id: string) => ({ id, shortcode: id === "m1" ? "ABC123" : "OTHER" }),
     ownUserId: async () => "me",
@@ -64,8 +66,8 @@ describe("match", () => {
 describe("processComment", () => {
   it("envia DM e depois resposta pública, uma única vez", async () => {
     const d = deps();
-    expect(await processComment(comment(), "webhook", d)).toBe("dm-sent");
-    expect(d.dm).toHaveBeenCalledWith("c1", "Oi! https://x.notion.site/y");
+    expect(await processComment(comment(), "webhook", d)).toBe("completed");
+    expect(d.dm).toHaveBeenCalledWith("c1", { text: "Oi! https://x.notion.site/y" });
     expect(d.reply).toHaveBeenCalledTimes(1);
     // webhook repetido + varredura: nada novo
     expect(await processComment(comment(), "webhook", d)).toBe("done");
@@ -77,7 +79,7 @@ describe("processComment", () => {
   it("concorrência webhook + varredura não duplica", async () => {
     const d = deps({ sendPrivateReply: vi.fn(async () => { await new Promise((r) => setTimeout(r, 20)); return {}; }) });
     const rs = await Promise.all([processComment(comment(), "webhook", d), processComment(comment(), "sweep", d)]);
-    expect(rs.sort()).toEqual(["dm-sent", "locked"]);
+    expect(rs.sort()).toEqual(["completed", "locked"]);
     expect(d.sendPrivateReply).toHaveBeenCalledTimes(1);
   });
 
@@ -99,7 +101,7 @@ describe("processComment", () => {
     const transient = new GraphError(500, { error: { code: 2, message: "tmp" } });
     const d1 = deps({ sendPrivateReply: vi.fn().mockRejectedValueOnce(transient).mockResolvedValue({}) });
     expect(await processComment(comment(), "webhook", d1)).toBe("dm-error");
-    expect(await processComment(comment(), "sweep", d1)).toBe("dm-sent");
+    expect(await processComment(comment(), "sweep", d1)).toBe("completed");
 
     setStoreForTests(new MemoryStore());
     const perm = new GraphError(400, { error: { code: 10, message: "no permission" } });
@@ -109,7 +111,7 @@ describe("processComment", () => {
     expect(await processComment(comment(), "sweep", d2)).toBe("done");
     expect(d2.reply).not.toHaveBeenCalled(); // não promete DM publicamente se falhou
     expect(await resetFailed()).toBe(1);
-    expect(await processComment(comment(), "sweep", d2)).toBe("dm-sent");
+    expect(await processComment(comment(), "sweep", d2)).toBe("completed");
     expect(dm).toHaveBeenCalledTimes(2);
   });
 
@@ -117,7 +119,7 @@ describe("processComment", () => {
     const reply = vi.fn().mockRejectedValueOnce(new GraphError(500, { error: { code: 2 } })).mockResolvedValue({ id: "x" });
     const d = deps({ replyToComment: reply });
     expect(await processComment(comment(), "webhook", d)).toBe("reply-error");
-    expect(await processComment(comment(), "sweep", d)).toBe("dm-sent");
+    expect(await processComment(comment(), "sweep", d)).toBe("completed");
     expect(d.dm).toHaveBeenCalledTimes(1);
     expect(reply).toHaveBeenCalledTimes(2);
   });

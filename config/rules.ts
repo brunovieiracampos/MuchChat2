@@ -11,6 +11,8 @@
  * dm: texto da DM. Use {link} onde o link deve entrar. Máx. 1000 caracteres.
  * publicReplies: opcional; se omitido, usa DEFAULT_PUBLIC_REPLIES.
  */
+import type { Step } from "@/lib/flow";
+
 export type Rule = {
   id: string;
   /** Nome exibido no painel. */
@@ -20,6 +22,8 @@ export type Rule = {
   link: string;
   dm: string;
   publicReplies?: string[];
+  /** Fluxo montado no painel. Sem ele, vale dm → resposta pública (formato antigo). */
+  steps?: Step[];
   active?: boolean;
   createdAt?: number;
   updatedAt?: number;

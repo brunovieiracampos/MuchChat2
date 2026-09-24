@@ -12,13 +12,22 @@ export default async function Conexao() {
   const fields = ok ? await getSubscribedFields().catch(() => null) : null;
   const hasApp = !!process.env.IG_APP_ID && !!process.env.IG_APP_SECRET;
   const active = rules.filter((r) => r.active !== false).length;
+  const webhookOk = !!fields && ["comments", "messages", "messaging_postbacks"].every((f) => fields.includes(f));
 
   const checklist: { label: string; hint: string; ok: boolean | null; action?: { href: string; label: string } }[] = [
     { label: "Configurar o app da Meta", hint: hasApp ? "IG_APP_ID e IG_APP_SECRET cadastrados na Vercel" : "Cadastre IG_APP_ID e IG_APP_SECRET na Vercel e faça redeploy", ok: hasApp },
     { label: "Conectar a conta profissional", hint: ok ? `@${conn.username} autorizada pelo login do Instagram` : "Entre com a conta @d.ia.riamente", ok, action: hasApp && !ok ? { href: "/api/auth/instagram", label: "Conectar" } : undefined },
     { label: "Publicar a primeira automação", hint: active ? `${active} automaç${active === 1 ? "ão ativa" : "ões ativas"}` : "Post + palavra-chave + mensagem do direct", ok: active > 0, action: active ? undefined : { href: "/painel/automacoes/nova", label: "Criar" } },
     { label: "Testar em modo de teste", hint: executions.length ? "Já há execuções registradas" : "Com DRY_RUN=true, comente a palavra-chave e rode a varredura", ok: executions.length > 0 },
-    { label: "Configurar o webhook", hint: fields === null ? "Não foi possível consultar a inscrição" : fields.includes("comments") ? "Conta inscrita no campo comments" : "Configure no painel da Meta e inscreva a conta em Configurações", ok: fields === null ? null : fields.includes("comments"), action: fields && !fields.includes("comments") ? { href: "/painel/configuracoes", label: "Abrir" } : undefined },
+    {
+      label: "Configurar o webhook",
+      hint: fields === null ? "Não foi possível consultar a inscrição"
+        : webhookOk ? "Conta inscrita em comentários, mensagens e cliques em botões"
+        : fields.includes("comments") ? "Falta inscrever em mensagens e cliques (necessário para botões): use Inscrever em Configurações"
+        : "Configure no painel da Meta e inscreva a conta em Configurações",
+      ok: fields === null ? null : webhookOk,
+      action: fields && !webhookOk ? { href: "/painel/configuracoes", label: "Abrir" } : undefined,
+    },
     { label: "Sair do modo de teste", hint: flags.dryRun ? "Mude DRY_RUN para false na Vercel quando os testes estiverem ok" : "DRY_RUN desligado: envios reais", ok: !flags.dryRun },
     { label: "Aprovação da Meta (App Review)", hint: "Necessária para responder quem não é testador do app. Acompanhe no painel da Meta.", ok: null },
   ];

@@ -33,6 +33,16 @@ Abra `https://SEU-DOMINIO/painel` e entre com a senha `ADMIN_SECRET` (o link ant
 | Métricas | 7/30/90 dias, palavras-chave mais usadas, execuções por automação |
 | Configurações / Conexão | Conta, token, webhook, varredura manual, pausa geral, checklist de setup |
 
+**Fluxo em blocos.** Cada automação é uma lista de blocos executados em ordem para cada comentário:
+- **Responder comentário**: resposta pública (uma frase sorteada entre as cadastradas).
+- **Enviar DM**: sem botão, com botão **Continuar o fluxo** (para até a pessoa clicar) ou com botão **Abrir link**.
+- **Verificar se segue**: se a pessoa segue o perfil, passa; senão pede para seguir e confere de novo a cada clique.
+
+Regras do Instagram: a primeira DM é a Private Reply (uma por comentário, até 7 dias); as seguintes só depois de um clique
+(a conversa fica aberta por 24h). Cliques chegam pelo webhook (`messages` e `messaging_postbacks`), então botões dependem
+do webhook de mensagens (e do App Review para quem não é testador). Se o Instagram recusar o botão, o sistema manda o texto
+com “Responda “Me envie” aqui” e aceita a palavra digitada como clique.
+
 As automações ficam no Redis (`automations`). Na primeira vez, o painel copia as regras de `config/rules.ts`; depois disso, edite pelo painel.
 Na mensagem da DM, `{link}` vira o link e `{usuario}` vira o @ de quem comentou.
 A palavra-chave ignora maiúsculas e acentos, mas tem que vir inteira: `contador!` dispara, `contadores` não.

@@ -16,7 +16,8 @@ export default async function EditarAutomacao({ params }: { params: Promise<{ id
     <Builder
       initial={toInput(rule)}
       updatedAt={rule.updatedAt}
-      media={media.map(toMediaOption)}
+      media={media.items.map(toMediaOption)}
+      mediaNext={media.next}
       connected={conn.state === "connected"}
       others={rules.map(toOther)}
       defaultReplies={DEFAULT_PUBLIC_REPLIES}

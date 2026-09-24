@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 async function call(method: "GET" | "POST") {
   const v = process.env.IG_GRAPH_VERSION || "v24.0";
   const url = new URL(`https://graph.instagram.com/${v}/me/subscribed_apps`);
-  if (method === "POST") url.searchParams.set("subscribed_fields", "comments");
+  if (method === "POST") url.searchParams.set("subscribed_fields", "comments,messages,messaging_postbacks");
   url.searchParams.set("access_token", await getToken());
   const res = await fetch(url, { method, cache: "no-store" });
   return Response.json(await res.json().catch(() => ({})), { status: res.status });

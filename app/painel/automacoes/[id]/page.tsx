@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DEFAULT_PUBLIC_REPLIES } from "@/config/rules";
-import { renderDm } from "@/lib/automation-input";
+import { STEP_META, renderText, stepsOf } from "@/lib/flow";
 import { relTime } from "@/lib/format";
 import { postKey } from "@/lib/match";
 import { getActivity } from "@/lib/panel";
 import { requireSession } from "@/lib/session";
 import { ExecBadge } from "../../_components/exec-badge";
-import { Badge } from "../../_components/ui";
+import { Badge, Dot } from "../../_components/ui";
 import { initials } from "../../_components/icons";
 import { DetailActions } from "./detail-actions";
 
@@ -26,7 +25,7 @@ export default async function DetalheAutomacao({ params }: { params: Promise<{ i
   const rate = sent + failed ? Math.round((sent / (sent + failed)) * 100) : null;
   const active = rule.active !== false;
   const anyPost = rule.posts.some((p) => postKey(p) === "*");
-  const replies = rule.publicReplies?.length ? rule.publicReplies : DEFAULT_PUBLIC_REPLIES;
+  const steps = stepsOf(rule);
 
   const kpis = [
     { label: "Comentários atendidos (7 dias)", value: String(week.length) },
@@ -45,7 +44,7 @@ export default async function DetalheAutomacao({ params }: { params: Promise<{ i
             <Badge tone={active ? "green" : "amber"}>{active ? "Ativa" : "Pausada"}</Badge>
           </div>
           <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, maxWidth: 560 }}>
-            Responde comentários com {rule.keywords.map((k) => `“${k}”`).join(" ou ")} {anyPost ? "em qualquer post" : `em ${rule.posts.length} post${rule.posts.length > 1 ? "s" : ""}`} e envia o material no direct.
+            Responde comentários com {rule.keywords.map((k) => `“${k}”`).join(" ou ")} {anyPost ? "em qualquer post" : `em ${rule.posts.length} post${rule.posts.length > 1 ? "s" : ""}`} e segue o fluxo abaixo.
           </div>
         </div>
         <DetailActions id={rule.id} name={rule.name ?? rule.id} active={active} />
@@ -91,11 +90,23 @@ export default async function DetalheAutomacao({ params }: { params: Promise<{ i
             <div className="pn-field-row"><div>Palavras-chave</div><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{rule.keywords.map((k) => <span className="pn-tag" key={k}>{k}</span>)}</div></div>
             <div className="pn-field-row"><div>Posts</div><div>{anyPost ? "Qualquer post ou Reels" : rule.posts.map((p) => <div key={p} className="pn-mono" style={{ fontSize: 11.5 }}>{/^https?:/.test(p) ? <a href={p} target="_blank" rel="noreferrer">{postKey(p)}</a> : postKey(p)}</div>)}</div></div>
             <div className="pn-field-row"><div>Link</div><div>{rule.link ? <a href={rule.link} target="_blank" rel="noreferrer" className="pn-ellipsis" style={{ display: "block" }}>{rule.link}</a> : "—"}</div></div>
-            <div className="pn-field-row"><div>Respostas públicas</div><div>{rule.publicReplies?.length ? `${replies.length} frases próprias` : `${replies.length} frases padrão`}</div></div>
             <div className="pn-field-row"><div>Alterada</div><div>{rule.updatedAt ? relTime(rule.updatedAt) : "—"}</div></div>
           </div>
-          <div className="pn-section-label" style={{ marginTop: 18 }}>Mensagem no direct</div>
-          <div className="pn-phone"><div className="pn-bubble">{renderDm(rule, "usuario")}</div></div>
+          <div className="pn-section-label" style={{ marginTop: 18 }}>Fluxo</div>
+          <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            {steps.map((s, i) => (
+              <li key={s.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12.5 }}>
+                <span className="pn-mono" style={{ fontSize: 11, color: "var(--muted-2)", width: 14, marginTop: 1 }}>{i + 1}</span>
+                <span style={{ marginTop: 5 }}><Dot color={STEP_META[s.type].color} size={7} /></span>
+                <div style={{ minWidth: 0 }}>
+                  <div>{STEP_META[s.type].label}{s.type === "dm" && s.button ? ` · botão “${s.button.title}”` : ""}</div>
+                  <div className="pn-ellipsis" style={{ fontSize: 11.5, color: "var(--muted)" }}>
+                    {s.type === "reply" ? `“${s.replies[0] ?? ""}”` : s.type === "dm" ? renderText(s.text, rule.link, "usuario") : `Botão “${s.button}”`}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
     </div>

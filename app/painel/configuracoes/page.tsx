@@ -67,11 +67,11 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
         { label: "Permissões pedidas", value: SCOPES.split(",").join(", ") },
       ]} />
 
-      <Group title="Webhook" desc="Endereço que recebe os comentários em tempo real (depende do App Review da Meta)." rows={[
+      <Group title="Webhook" desc="Endereço que recebe comentários e cliques em botões em tempo real (depende do App Review da Meta)." rows={[
         { label: "URL de callback", value: <span className="pn-mono">{url}/api/webhooks/instagram</span> },
         { label: "Verify token", value: "Mesmo valor de IG_VERIFY_TOKEN na Vercel", right: <Badge tone={process.env.IG_VERIFY_TOKEN ? "green" : "red"}>{process.env.IG_VERIFY_TOKEN ? "Configurado" : "Faltando"}</Badge> },
         { label: "Assinatura dos eventos", value: "Valida X-Hub-Signature-256 com IG_APP_SECRET", right: <Badge tone={process.env.IG_APP_SECRET ? "green" : "red"}>{process.env.IG_APP_SECRET ? "Configurado" : "Faltando"}</Badge> },
-        { label: "Inscrever a conta no campo comments", value: "Faça depois de configurar o webhook no painel da Meta.", right: ok ? <SubscribeButton /> : undefined },
+        { label: "Inscrever a conta (comentários, mensagens e cliques)", value: "Faça depois de configurar o webhook no painel da Meta. Mensagens e cliques são necessários para os botões dos fluxos.", right: ok ? <SubscribeButton /> : undefined },
       ]} />
 
       <Group title="Varredura" desc="Lê os comentários dos posts dos últimos 7 dias e responde o que o webhook não pegou." rows={[

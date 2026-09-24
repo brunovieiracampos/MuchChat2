@@ -9,7 +9,7 @@ import type { LogEntry } from "@/lib/processor";
 
 export const TZ = "America/Sao_Paulo";
 
-export type ExecStatus = "concluida" | "andamento" | "falhou" | "simulacao" | "expirada";
+export type ExecStatus = "concluida" | "andamento" | "aguardando" | "falhou" | "simulacao" | "expirada";
 
 export type Execution = {
   commentId: string;
@@ -28,7 +28,7 @@ export type Execution = {
 };
 
 const STEP_LABEL: Record<string, string> = {
-  "dry-run": "Simulação: a DM seria enviada",
+  "dry-run": "Simulação: nada foi enviado",
   expired: "Comentário com mais de 7 dias",
   "dm-sent": "Direct enviado",
   "dm-error": "Falha temporária no direct",
@@ -36,6 +36,12 @@ const STEP_LABEL: Record<string, string> = {
   "reply-sent": "Comentário respondido",
   "reply-error": "Falha temporária na resposta",
   "reply-failed": "Resposta pública recusada",
+  "waiting-click": "Esperando o clique",
+  clicked: "A pessoa clicou",
+  "follow-ok": "Segue o perfil",
+  "follow-no": "Ainda não segue",
+  "follow-unknown": "Não deu para conferir se segue; liberado",
+  "flow-done": "Fluxo concluído",
 };
 
 const FAIL = new Set(["dm-error", "dm-failed", "reply-error", "reply-failed", "expired"]);
@@ -44,17 +50,19 @@ export function dayKey(ms: number): string {
   return new Date(ms).toLocaleDateString("en-CA", { timeZone: TZ });
 }
 
-function statusOf(actions: Set<string>): { status: ExecStatus; step: string } {
-  if (actions.has("dm-failed")) return { status: "falhou", step: "Direct recusado" };
-  if (actions.has("expired")) return { status: "expirada", step: "Fora da janela de 7 dias" };
-  if (actions.has("dm-sent")) {
-    if (actions.has("reply-sent")) return { status: "concluida", step: "Comentário respondido" };
-    if (actions.has("reply-failed")) return { status: "concluida", step: "Direct enviado, resposta pública recusada" };
-    return { status: "andamento", step: "Aguardando resposta pública" };
+/** Status pelo último evento relevante (entradas em ordem cronológica). */
+function statusOf(chrono: LogEntry[]): { status: ExecStatus; step: string } {
+  const last = chrono[chrono.length - 1];
+  switch (last.action) {
+    case "flow-done": return { status: "concluida", step: last.detail ?? "Fluxo concluído" };
+    case "dm-failed": return { status: "falhou", step: "Mensagem recusada pelo Instagram" };
+    case "expired": return { status: "expirada", step: "Fora da janela de 7 dias" };
+    case "waiting-click": return { status: "aguardando", step: last.detail ?? "Esperando o clique" };
+    case "dry-run": return { status: "simulacao", step: "Modo de teste: nada foi enviado" };
+    case "dm-error":
+    case "reply-error": return { status: "andamento", step: "Nova tentativa na próxima varredura" };
+    default: return { status: "andamento", step: STEP_LABEL[last.action] ?? "Processando" };
   }
-  if (actions.has("dm-error")) return { status: "andamento", step: "Nova tentativa na próxima varredura" };
-  if (actions.has("dry-run")) return { status: "simulacao", step: "Modo de teste: nada foi enviado" };
-  return { status: "andamento", step: "Processando" };
 }
 
 export function buildExecutions(log: LogEntry[], rules: Rule[]): Execution[] {
@@ -71,7 +79,7 @@ export function buildExecutions(log: LogEntry[], rules: Rule[]): Execution[] {
     const steps = chrono.filter((e, i) => e.action !== "dry-run" || !chrono.slice(i + 1).some((n) => n.action === "dry-run"));
     const first = chrono[0], last = chrono[chrono.length - 1];
     const rule = first.rule ? names.get(first.rule) : undefined;
-    const { status, step } = statusOf(new Set(chrono.map((e) => e.action)));
+    const { status, step } = statusOf(chrono);
     const err = [...chrono].reverse().find((e) => FAIL.has(e.action));
     out.push({
       commentId,
@@ -85,8 +93,8 @@ export function buildExecutions(log: LogEntry[], rules: Rule[]): Execution[] {
       lastAt: last.at,
       status,
       step,
-      error: status === "falhou" || status === "andamento" ? err?.detail : undefined,
-      steps: steps.map((e) => ({ action: e.action, label: STEP_LABEL[e.action] ?? e.action, at: e.at, ok: !FAIL.has(e.action), detail: e.action === "dry-run" ? e.detail : FAIL.has(e.action) ? e.detail : undefined })),
+      error: status === "falhou" || (status === "andamento" && err && err === chrono[chrono.length - 1]) ? err?.detail : undefined,
+      steps: steps.map((e) => ({ action: e.action, label: STEP_LABEL[e.action] ?? e.action, at: e.at, ok: !FAIL.has(e.action), detail: e.detail })),
     });
   }
   return out.sort((a, b) => b.lastAt - a.lastAt);

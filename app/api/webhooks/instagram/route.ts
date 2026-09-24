@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { verifySignature } from "@/lib/auth";
-import { extractComments } from "@/lib/webhook";
-import { processComment } from "@/lib/processor";
+import { extractClicks, extractComments } from "@/lib/webhook";
+import { handleClick, processComment } from "@/lib/processor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +26,7 @@ export async function POST(req: Request) {
   try { payload = JSON.parse(raw); } catch { return new Response("bad json", { status: 400 }); }
 
   const comments = extractComments(payload);
+  const clicks = extractClicks(payload);
   // Responde 200 na hora (a Meta reenvia se demorar) e processa em seguida.
   after(async () => {
     for (const c of comments) {
@@ -34,6 +35,14 @@ export async function POST(req: Request) {
         console.log("[webhook]", c.id, r);
       } catch (e) {
         console.error("[webhook] erro", c.id, e);
+      }
+    }
+    for (const k of clicks) {
+      try {
+        const r = await handleClick(k, "webhook");
+        if (r !== "ignored") console.log("[webhook] clique", k.igsid, r);
+      } catch (e) {
+        console.error("[webhook] erro no clique", k.igsid, e);
       }
     }
   });

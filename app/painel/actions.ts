@@ -7,7 +7,8 @@ import {
   deleteAutomation, duplicateAutomation, saveAutomation, setAutomationActive, setPaused,
   type AutomationInput, type Issue,
 } from "@/lib/automations";
-import { getToken } from "@/lib/instagram";
+import { getToken, listMediaPage } from "@/lib/instagram";
+import { toMediaOption, type MediaOption } from "./automacoes/builder-data";
 import { resetFailed } from "@/lib/processor";
 import { requireSession, SESSION_COOKIE } from "@/lib/session";
 import { sweep } from "@/lib/sweep";
@@ -72,7 +73,7 @@ export async function runSweepAction(): Promise<ActionResult<{ summary: string }
     const r = await sweep();
     revalidatePath("/painel", "layout");
     const n = (k: keyof typeof r.results) => r.results[k] ?? 0;
-    const matched = n("dm-sent") + n("dry-run") + n("dm-failed") + n("dm-error") + n("reply-error") + n("expired");
+    const matched = n("completed") + n("waiting") + n("dry-run") + n("dm-failed") + n("dm-error") + n("reply-error") + n("expired");
     const parts = [`${r.media} posts e ${r.comments} comentários lidos`];
     if (n("paused")) parts.push("automações pausadas, nada processado");
     else if (matched) parts.push(`${matched} com palavra-chave`);
@@ -97,7 +98,7 @@ export async function subscribeWebhookAction(): Promise<ActionResult> {
   try {
     const v = process.env.IG_GRAPH_VERSION || "v24.0";
     const url = new URL(`https://graph.instagram.com/${v}/me/subscribed_apps`);
-    url.searchParams.set("subscribed_fields", "comments");
+    url.searchParams.set("subscribed_fields", "comments,messages,messaging_postbacks");
     url.searchParams.set("access_token", await getToken());
     const res = await fetch(url, { method: "POST", cache: "no-store" });
     const json = await res.json().catch(() => ({}));
@@ -109,4 +110,13 @@ export async function subscribeWebhookAction(): Promise<ActionResult> {
 export async function logoutAction(): Promise<void> {
   (await cookies()).delete(SESSION_COOKIE);
   redirect("/entrar");
+}
+
+/** Página de posts do perfil para o seletor do construtor. */
+export async function listMediaAction(after?: string): Promise<ActionResult<{ items: MediaOption[]; next?: string }>> {
+  await requireSession();
+  try {
+    const r = await listMediaPage(24, after);
+    return { ok: true, items: r.items.map(toMediaOption), next: r.next };
+  } catch (e) { return fail(e); }
 }

@@ -43,7 +43,7 @@ export function SubscribeButton() {
   return (
     <button type="button" className="pn-btn is-sm" disabled={pending} onClick={() => start(async () => {
       const r = await subscribeWebhookAction();
-      toast(r.ok ? "Conta inscrita no webhook de comentários" : `Não foi possível inscrever: ${r.error}`, r.ok ? "green" : "red");
+      toast(r.ok ? "Conta inscrita no webhook de comentários e mensagens" : `Não foi possível inscrever: ${r.error}`, r.ok ? "green" : "red");
     })}>{pending ? "Inscrevendo…" : "Inscrever"}</button>
   );
 }

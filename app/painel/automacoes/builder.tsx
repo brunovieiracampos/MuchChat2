@@ -2,25 +2,30 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { DM_MAX, normalizeInput, renderDm, validateAutomation, type AutomationInput, type Issue } from "@/lib/automation-input";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { normalizeInput, validateAutomation, type AutomationInput, type Issue } from "@/lib/automation-input";
+import {
+  BUTTON_TITLE_MAX, MAX_STEPS, STEP_META, TEMPLATES, TEMPLATE_TEXT_MAX, TEXT_MAX,
+  blankStep, renderText, simulate, waitsForClick,
+  type Button, type DmStep, type FollowStep, type ReplyStep, type Step, type StepType,
+} from "@/lib/flow";
 import { relTime } from "@/lib/format";
 import { hasKeyword, postKey } from "@/lib/match";
 import { deleteAutomationAction, saveAutomationAction } from "../actions";
-import { Badge, ConfirmModal, Dot, Icon, Toggle, useToast } from "../_components/ui";
-import { ICONS } from "../_components/icons";
+import { Badge, ConfirmModal, Dot, useToast } from "../_components/ui";
 import type { MediaOption, OtherAutomation } from "./builder-data";
+import { PostPicker } from "./post-picker";
 
-type NodeId = "trigger" | "dm" | "reply";
+type Sel = "trigger" | string;
+const TRIGGER_COLOR = "#7C3AED";
+const END_COLOR = "#5F5F6E";
 
-const NODE_COLOR = { trigger: "#7C3AED", dm: "#A78BFA", reply: "#A78BFA", end: "#5F5F6E" };
-const FIELD_NODE: Record<Issue["field"], NodeId | null> = { name: null, posts: "trigger", keywords: "trigger", link: "dm", dm: "dm", publicReplies: "reply" };
-
-export function Builder({ initial, isNew, updatedAt, media, connected, others, defaultReplies }: {
+export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected, others, defaultReplies }: {
   initial: AutomationInput;
   isNew?: boolean;
   updatedAt?: number;
   media: MediaOption[];
+  mediaNext?: string;
   connected: boolean;
   others: OtherAutomation[];
   defaultReplies: string[];
@@ -29,28 +34,48 @@ export function Builder({ initial, isNew, updatedAt, media, connected, others, d
   const toast = useToast();
   const [form, setForm] = useState<AutomationInput>(initial);
   const [saved, setSaved] = useState<AutomationInput>(initial);
-  const [sel, setSel] = useState<NodeId>("trigger");
+  const [sel, setSel] = useState<Sel>("trigger");
   const [showPath, setShowPath] = useState(false);
   const [serverIssues, setServerIssues] = useState<Issue[]>([]);
   const [askDelete, setAskDelete] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
   // Numa automação nova, os erros só aparecem nos blocos depois da primeira tentativa de salvar.
   const [showErrors, setShowErrors] = useState(!isNew);
+  const [adding, setAdding] = useState<number | null>(null);
   const [pending, start] = useTransition();
-  const testRef = useRef<HTMLTextAreaElement>(null);
 
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
   const clean = useMemo(() => normalizeInput(form), [form]);
-  // Problemas para publicar (checagem completa), mostrados nos blocos o tempo todo.
   const publishIssues = useMemo(() => validateAutomation({ ...clean, active: true }, others), [clean, others]);
   const issues = serverIssues.length ? serverIssues : publishIssues;
-  const nodeIssues = (n: NodeId) => (showErrors ? issues.filter((i) => FIELD_NODE[i.field] === n) : []);
-  const nameIssue = showErrors && issues.find((i) => i.field === "name");
+  const visible = showErrors ? issues : [];
+  const triggerIssues = visible.filter((i) => i.field === "posts" || i.field === "keywords");
+  const stepIssues = (id: string) => visible.filter((i) => i.field === "steps" && i.stepId === id);
+  const flowIssues = visible.filter((i) => (i.field === "steps" && !i.stepId) || i.field === "link");
+  const nameIssue = visible.find((i) => i.field === "name");
 
   const set = <K extends keyof AutomationInput>(k: K, v: AutomationInput[K]) => {
     setServerIssues([]);
     setForm((f) => ({ ...f, [k]: v }));
   };
+  const setSteps = (fn: (s: Step[]) => Step[]) => { setServerIssues([]); setForm((f) => ({ ...f, steps: fn(f.steps) })); };
+  const updateStep = (id: string, patch: Partial<Step>) => setSteps((ss) => ss.map((s) => (s.id === id ? ({ ...s, ...patch } as Step) : s)));
+  const insertStep = (at: number, type: StepType) => {
+    const step = blankStep(type, defaultReplies);
+    setSteps((ss) => [...ss.slice(0, at), step, ...ss.slice(at)]);
+    setSel(step.id);
+    setAdding(null);
+  };
+  const moveStep = (id: string, dir: -1 | 1) => setSteps((ss) => {
+    const i = ss.findIndex((s) => s.id === id), j = i + dir;
+    if (i < 0 || j < 0 || j >= ss.length) return ss;
+    const out = [...ss];
+    [out[i], out[j]] = [out[j], out[i]];
+    return out;
+  });
+  const removeStep = (id: string) => { setSteps((ss) => ss.filter((s) => s.id !== id)); setSel("trigger"); };
+
+  const selectIssue = (i: Issue) => setSel(i.field === "steps" && i.stepId ? i.stepId : "trigger");
 
   useEffect(() => {
     if (!dirty) return;
@@ -62,16 +87,14 @@ export function Builder({ initial, isNew, updatedAt, media, connected, others, d
   const save = (active: boolean) => start(async () => {
     setShowErrors(true);
     if (active && publishIssues.length) {
-      const n = FIELD_NODE[publishIssues[0].field];
-      if (n) setSel(n);
+      selectIssue(publishIssues[0]);
       return toast(publishIssues[0].message, "red");
     }
     const r = await saveAutomationAction({ ...form, active });
     if (!r.ok) {
       if (r.issues?.length) {
         setServerIssues(r.issues);
-        const n = FIELD_NODE[r.issues[0].field];
-        if (n) setSel(n);
+        selectIssue(r.issues[0]);
         return toast(r.issues[0].message, "red");
       }
       return toast(r.error ?? "Não foi possível salvar", "red");
@@ -103,12 +126,17 @@ export function Builder({ initial, isNew, updatedAt, media, connected, others, d
     router.push("/painel/automacoes");
   });
 
+  const applyTemplate = (id: string) => {
+    const t = TEMPLATES.find((x) => x.id === id);
+    if (!t) return;
+    setSteps(() => t.build(defaultReplies));
+    setSel("trigger");
+  };
+
   const anyPost = clean.posts.some((p) => postKey(p) === "*");
   const kwTitle = clean.keywords.length ? `Comentário contém ${clean.keywords.map((k) => `“${k}”`).join(" ou ")}` : "Defina a palavra-chave";
-  const dmPreview = renderDm(clean, "usuario");
-  const replies = clean.publicReplies.length ? clean.publicReplies : defaultReplies;
-
   const status = isNew && !form.id ? { label: "Rascunho", tone: "" } : saved.active ? { label: "Ativa", tone: "green" } : { label: "Pausada", tone: "amber" };
+  const selStep = form.steps.find((s) => s.id === sel);
 
   return (
     <div className="pn-builder">
@@ -123,9 +151,10 @@ export function Builder({ initial, isNew, updatedAt, media, connected, others, d
         </div>
         <Badge tone={status.tone}>{status.label}</Badge>
         {showErrors && publishIssues.length > 0 && (
-          <span className="pn-badge is-red" title={publishIssues.map((i) => i.message).join("\n")}>
+          <button type="button" className="pn-badge is-red" style={{ cursor: "pointer" }} onClick={() => selectIssue(publishIssues[0])}
+            title={publishIssues.map((i) => i.message).join("\n")}>
             {publishIssues.length} {publishIssues.length === 1 ? "problema impede" : "problemas impedem"} a publicação
-          </span>
+          </button>
         )}
         <div className="pn-row pn-spacer" style={{ gap: 8 }}>
           <label className="pn-hide-sm" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--text-3)", cursor: "pointer" }}>
@@ -133,8 +162,7 @@ export function Builder({ initial, isNew, updatedAt, media, connected, others, d
             Caminho de execução
           </label>
           {form.id && <button type="button" className="pn-btn is-danger" style={{ fontSize: 12, padding: "7px 12px" }} onClick={() => setAskDelete(true)}>Excluir</button>}
-          <button type="button" className="pn-btn" style={{ fontSize: 12, padding: "7px 12px" }}
-            onClick={() => { setShowPath(true); setTestOpen(true); requestAnimationFrame(() => testRef.current?.focus()); }}>Testar</button>
+          <button type="button" className="pn-btn" style={{ fontSize: 12, padding: "7px 12px" }} onClick={() => { setShowPath(true); setTestOpen(true); }}>Testar</button>
           {saved.active && form.id ? (
             <>
               <button type="button" className="pn-btn" style={{ fontSize: 12, padding: "7px 12px" }} disabled={pending} onClick={() => save(false)}>Pausar</button>
@@ -145,8 +173,7 @@ export function Builder({ initial, isNew, updatedAt, media, connected, others, d
           ) : (
             <>
               <button type="button" className="pn-btn" style={{ fontSize: 12, padding: "7px 12px" }} disabled={pending || (!dirty && !isNew)} onClick={() => save(false)}>Salvar rascunho</button>
-              <button type="button" className="pn-btn is-primary" style={{ fontSize: 12, padding: "7px 13px" }} disabled={pending}
-                onClick={() => save(true)}>
+              <button type="button" className="pn-btn is-primary" style={{ fontSize: 12, padding: "7px 13px" }} disabled={pending} onClick={() => save(true)}>
                 {pending ? "Publicando…" : "Publicar"}
               </button>
             </>
@@ -158,37 +185,64 @@ export function Builder({ initial, isNew, updatedAt, media, connected, others, d
         {testOpen && <div className="pn-builder-backdrop" onClick={() => setTestOpen(false)} />}
         <aside className={`pn-builder-left${testOpen ? " is-open" : ""}`} aria-label="Teste">
           <button type="button" className="pn-close pn-builder-left-close" onClick={() => setTestOpen(false)} aria-label="Fechar teste">×</button>
-          <TestPanel form={clean} replies={replies} testRef={testRef} anyPost={anyPost} />
+          <TestPanel form={clean} anyPost={anyPost} />
         </aside>
 
         <div className="pn-canvas">
           <div className="pn-canvas-inner">
-            <FlowNode id="trigger" sel={sel} onSelect={setSel} color={NODE_COLOR.trigger} type="Gatilho" title={kwTitle}
+            {isNew && !form.id && (
+              <div className="pn-templates">
+                <div className="pn-section-label" style={{ marginBottom: 8 }}>Começar com um modelo</div>
+                <div className="pn-templates-grid">
+                  {TEMPLATES.map((t) => (
+                    <button key={t.id} type="button" className="pn-template" onClick={() => applyTemplate(t.id)}>
+                      <div style={{ fontSize: 12.5, fontWeight: 500 }}>{t.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3, lineHeight: 1.4 }}>{t.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <FlowNode on={sel === "trigger"} onSelect={() => setSel("trigger")} color={TRIGGER_COLOR} type="Gatilho" title={kwTitle}
               sub={anyPost ? "Qualquer post ou Reels do perfil" : clean.posts.length ? `${clean.posts.length} post${clean.posts.length > 1 ? "s" : ""} selecionado${clean.posts.length > 1 ? "s" : ""}` : "Nenhum post escolhido"}
-              issues={nodeIssues("trigger")} />
-            <Edge hot={showPath} />
-            <FlowNode id="dm" sel={sel} onSelect={setSel} color={NODE_COLOR.dm} type="Mensagem" title="Enviar Direct privado"
-              sub={clean.dm ? dmPreview : "Escreva a mensagem"} issues={nodeIssues("dm")} />
-            <Edge hot={showPath} label="se a DM for entregue" />
-            <FlowNode id="reply" sel={sel} onSelect={setSel} color={NODE_COLOR.reply} type="Mensagem" title="Responder comentário"
-              sub={clean.publicReplies.length ? `${clean.publicReplies.length} frase${clean.publicReplies.length > 1 ? "s" : ""}, uma sorteada por comentário` : `Frases padrão (${defaultReplies.length}), uma sorteada por comentário`}
-              issues={nodeIssues("reply")} />
-            <Edge hot={showPath} />
-            <div className="pn-node" style={{ ["--node" as string]: NODE_COLOR.end, cursor: "default" }}>
-              <div className="pn-row" style={{ gap: 8 }}><Dot color={NODE_COLOR.end} size={8} /><span className="pn-node-type">Fim</span></div>
+              issues={triggerIssues} />
+
+            {form.steps.map((s, i) => {
+              const prev = form.steps[i - 1];
+              const label = prev && waitsForClick(prev) ? `depois do clique em “${prev.type === "follow" ? prev.button : prev.type === "dm" ? prev.button?.title : ""}”` : undefined;
+              return (
+                <Fragment key={s.id}>
+                  <Edge hot={showPath} label={label} onAdd={form.steps.length < MAX_STEPS ? () => setAdding(adding === i ? null : i) : undefined} menuOpen={adding === i} onPick={(t) => insertStep(i, t)} />
+                  <StepNode step={s} index={i} total={form.steps.length} on={sel === s.id} onSelect={() => setSel(s.id)}
+                    onMove={(d) => moveStep(s.id, d)} onRemove={() => removeStep(s.id)} issues={stepIssues(s.id)} link={clean.link} />
+                </Fragment>
+              );
+            })}
+
+            <Edge hot={showPath} onAdd={form.steps.length < MAX_STEPS ? () => setAdding(adding === form.steps.length ? null : form.steps.length) : undefined}
+              menuOpen={adding === form.steps.length} onPick={(t) => insertStep(form.steps.length, t)} label={form.steps.length ? undefined : "adicione o primeiro bloco"} />
+            <div className="pn-node" style={{ ["--node" as string]: END_COLOR, cursor: "default" }}>
+              <div className="pn-row" style={{ gap: 8 }}><Dot color={END_COLOR} size={8} /><span className="pn-node-type">Fim</span></div>
               <div className="pn-node-title">Encerrar fluxo</div>
-              <div className="pn-node-sub">Cada comentário recebe no máximo uma DM, mesmo se a pessoa comentar de novo.</div>
+              <div className="pn-node-sub">Cada comentário passa pelo fluxo uma vez só, mesmo se a pessoa comentar de novo.</div>
             </div>
+            {flowIssues.map((i) => <div key={i.message} className="pn-error-text" style={{ marginTop: 10 }}>{i.message}</div>)}
           </div>
         </div>
 
         <aside className="pn-builder-right" aria-label="Configuração do bloco">
           <div className="pn-section-label" style={{ marginBottom: 0 }}>Configuração do bloco</div>
-          {sel === "trigger" && (
-            <TriggerConfig form={form} set={set} media={media} connected={connected} issues={nodeIssues("trigger")} />
+          {sel === "trigger" || !selStep ? (
+            <TriggerConfig form={form} set={set} media={media} mediaNext={mediaNext} connected={connected} issues={triggerIssues} />
+          ) : selStep.type === "reply" ? (
+            <ReplyConfig step={selStep} update={(p) => updateStep(selStep.id, p)} issues={stepIssues(selStep.id)} />
+          ) : selStep.type === "dm" ? (
+            <DmConfig step={selStep} update={(p) => updateStep(selStep.id, p)} issues={stepIssues(selStep.id)}
+              link={form.link} setLink={(v) => set("link", v)} username="usuario" />
+          ) : (
+            <FollowConfig step={selStep} update={(p) => updateStep(selStep.id, p)} issues={stepIssues(selStep.id)} />
           )}
-          {sel === "dm" && <DmConfig form={form} set={set} rendered={dmPreview} issues={nodeIssues("dm")} />}
-          {sel === "reply" && <ReplyConfig form={form} set={set} defaults={defaultReplies} issues={nodeIssues("reply")} />}
         </aside>
       </div>
 
@@ -201,16 +255,19 @@ export function Builder({ initial, isNew, updatedAt, media, connected, others, d
   );
 }
 
-function FlowNode({ id, sel, onSelect, color, type, title, sub, issues }: {
-  id: NodeId; sel: NodeId; onSelect: (n: NodeId) => void; color: string; type: string; title: string; sub: string; issues: Issue[];
+/* ---------- canvas ---------- */
+
+function FlowNode({ on, onSelect, color, type, title, sub, issues, children }: {
+  on: boolean; onSelect: () => void; color: string; type: string; title: string; sub: string; issues: Issue[]; children?: React.ReactNode;
 }) {
-  const on = sel === id;
   return (
-    <button type="button" className={`pn-node${on ? " is-sel" : ""}${issues.length ? " is-error" : ""}`} style={{ ["--node" as string]: color }}
-      onClick={() => onSelect(id)} aria-pressed={on}>
+    <div className={`pn-node${on ? " is-sel" : ""}${issues.length ? " is-error" : ""}`} style={{ ["--node" as string]: color }}
+      onClick={onSelect} role="button" tabIndex={0} aria-pressed={on}
+      onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect(); } }}>
       <div className="pn-row" style={{ gap: 8, flexWrap: "nowrap" }}>
         <Dot color={color} size={8} />
         <span className="pn-node-type">{type}</span>
+        {children}
       </div>
       <div className="pn-node-title">{title}</div>
       <div className="pn-node-sub">{sub}</div>
@@ -220,64 +277,102 @@ function FlowNode({ id, sel, onSelect, color, type, title, sub, issues }: {
           {i.message}
         </div>
       ))}
-    </button>
-  );
-}
-
-function Edge({ hot, label }: { hot: boolean; label?: string }) {
-  return (
-    <div className={`pn-edge${hot ? " is-hot" : ""}`}>
-      <svg width="12" height="40" viewBox="0 0 12 40" aria-hidden>
-        <path d="M6 0 V32" stroke="#3A3A47" strokeWidth={hot ? 2 : 1.4} fill="none" />
-        <path d="M1.5 30 L6 37 L10.5 30z" fill={hot ? "#7C3AED" : "#3A3A47"} />
-      </svg>
-      {label && <span style={{ position: "absolute", left: 14, top: 12, fontSize: 10.5, color: "var(--muted-2)", whiteSpace: "nowrap" }}>{label}</span>}
     </div>
   );
 }
 
-type Setter = <K extends keyof AutomationInput>(k: K, v: AutomationInput[K]) => void;
-
-function FieldIssues({ issues, field }: { issues: Issue[]; field: Issue["field"] }) {
-  return <>{issues.filter((i) => i.field === field).map((i) => <div className="pn-error-text" key={i.message}>{i.message}</div>)}</>;
+function stepSummary(s: Step, link: string): { title: string; sub: string } {
+  if (s.type === "reply") {
+    const n = s.replies.filter((r) => r.trim()).length;
+    return { title: "Responder comentário", sub: n > 1 ? `${n} frases, uma sorteada: “${s.replies[0]}”` : s.replies[0] ? `“${s.replies[0]}”` : "Escreva a resposta" };
+  }
+  if (s.type === "dm") {
+    const b = s.button;
+    const title = !b ? "Enviar DM" : b.kind === "continue" ? `Enviar DM com botão “${b.title || "…"}”` : `Enviar DM com link “${b.title || "…"}”`;
+    return { title, sub: s.text ? renderText(s.text, link, "usuario") : "Escreva a mensagem" };
+  }
+  return { title: "Verificar se segue o perfil", sub: `Pergunta com o botão “${s.button}”; se não seguir, insiste com “${s.retryButton}”` };
 }
 
-function TriggerConfig({ form, set, media, connected, issues }: { form: AutomationInput; set: Setter; media: MediaOption[]; connected: boolean; issues: Issue[] }) {
-  const [kw, setKw] = useState("");
-  const [url, setUrl] = useState("");
-  const anyPost = form.posts.some((p) => postKey(p) === "*");
-  const selectedKeys = new Set(form.posts.map(postKey));
-  const isSel = (m: MediaOption) => selectedKeys.has(m.id) || (!!m.shortcode && selectedKeys.has(m.shortcode));
-  const extra = form.posts.filter((p) => postKey(p) !== "*" && !media.some((m) => postKey(p) === m.id || postKey(p) === m.shortcode));
+function StepNode({ step, index, total, on, onSelect, onMove, onRemove, issues, link }: {
+  step: Step; index: number; total: number; on: boolean; onSelect: () => void; onMove: (d: -1 | 1) => void; onRemove: () => void; issues: Issue[]; link: string;
+}) {
+  const meta = STEP_META[step.type];
+  const { title, sub } = stepSummary(step, link);
+  const stop = (fn: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); fn(); };
+  return (
+    <FlowNode on={on} onSelect={onSelect} color={meta.color} type={meta.label} title={title} sub={sub} issues={issues}>
+      <span className="pn-node-tools">
+        <button type="button" aria-label="Subir bloco" title="Subir" disabled={index === 0} onClick={stop(() => onMove(-1))}>↑</button>
+        <button type="button" aria-label="Descer bloco" title="Descer" disabled={index === total - 1} onClick={stop(() => onMove(1))}>↓</button>
+        <button type="button" aria-label="Excluir bloco" title="Excluir" onClick={stop(onRemove)}>×</button>
+      </span>
+    </FlowNode>
+  );
+}
 
+function Edge({ hot, label, onAdd, menuOpen, onPick }: { hot: boolean; label?: string; onAdd?: () => void; menuOpen?: boolean; onPick?: (t: StepType) => void }) {
+  return (
+    <div className={`pn-edge${hot ? " is-hot" : ""}`} style={{ height: 52 }}>
+      <svg width="12" height="52" viewBox="0 0 12 52" aria-hidden>
+        <path d="M6 0 V44" stroke="#3A3A47" strokeWidth={hot ? 2 : 1.4} fill="none" />
+        <path d="M1.5 42 L6 49 L10.5 42z" fill={hot ? "#7C3AED" : "#3A3A47"} />
+      </svg>
+      {onAdd && (
+        <button type="button" className="pn-edge-add" onClick={onAdd} aria-label="Adicionar bloco aqui" aria-expanded={menuOpen} title="Adicionar bloco">+</button>
+      )}
+      {label && <span style={{ position: "absolute", left: 22, top: 17, fontSize: 10.5, color: "var(--muted-2)", whiteSpace: "nowrap" }}>{label}</span>}
+      {menuOpen && onPick && (
+        <div className="pn-add-menu" role="menu">
+          {(Object.keys(STEP_META) as StepType[]).map((t) => (
+            <button key={t} type="button" role="menuitem" onClick={() => onPick(t)}>
+              <Dot color={STEP_META[t].color} size={8} />
+              <span><b>{STEP_META[t].label}</b><br /><span style={{ color: "var(--muted)", fontSize: 11 }}>{STEP_META[t].help}</span></span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- painéis de configuração ---------- */
+
+function Head({ color, title, help }: { color: string; title: string; help: string }) {
+  return (
+    <>
+      <div className="pn-row" style={{ gap: 8, marginTop: 10 }}>
+        <Dot color={color} size={8} />
+        <div style={{ fontSize: 13.5, fontWeight: 500 }}>{title}</div>
+      </div>
+      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4, lineHeight: 1.45 }}>{help}</div>
+    </>
+  );
+}
+
+function Errors({ issues }: { issues: Issue[] }) {
+  return <>{issues.map((i) => <div className="pn-error-text" key={i.message}>{i.message}</div>)}</>;
+}
+
+type Setter = <K extends keyof AutomationInput>(k: K, v: AutomationInput[K]) => void;
+
+function TriggerConfig({ form, set, media, mediaNext, connected, issues }: {
+  form: AutomationInput; set: Setter; media: MediaOption[]; mediaNext?: string; connected: boolean; issues: Issue[];
+}) {
+  const [kw, setKw] = useState("");
   const addKw = (raw: string) => {
     const parts = raw.split(/[\s,;]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
     if (parts.length) set("keywords", [...new Set([...form.keywords, ...parts])]);
     setKw("");
   };
-  const toggleMedia = (m: MediaOption) => {
-    if (isSel(m)) set("posts", form.posts.filter((p) => { const k = postKey(p); return k !== m.id && k !== m.shortcode; }));
-    else set("posts", [...form.posts.filter((p) => postKey(p) !== "*"), m.permalink ?? m.id]);
-  };
-  const addUrl = () => {
-    const v = url.trim();
-    if (!v) return;
-    set("posts", [...form.posts.filter((p) => postKey(p) !== "*"), v]);
-    setUrl("");
-  };
-
+  const kwIssues = issues.filter((i) => i.field === "keywords");
+  const postIssues = issues.filter((i) => i.field === "posts");
   return (
     <>
-      <div className="pn-row" style={{ gap: 8, marginTop: 10 }}>
-        <Dot color={NODE_COLOR.trigger} size={8} />
-        <div style={{ fontSize: 13.5, fontWeight: 500 }}>Gatilho: comentário</div>
-      </div>
-      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Quando alguém comentar a palavra num dos posts escolhidos.</div>
-
+      <Head color={TRIGGER_COLOR} title="Gatilho: comentário" help="Quando alguém comentar a palavra num dos posts escolhidos, o fluxo começa." />
       <div style={{ marginTop: 16 }}>
         <label className="pn-field-label" htmlFor="kw-input">Palavras-chave</label>
-        <div className="pn-kw-box" style={issues.some((i) => i.field === "keywords") ? { borderColor: "var(--red-line)" } : undefined}
-          onClick={() => document.getElementById("kw-input")?.focus()}>
+        <div className="pn-kw-box" style={kwIssues.length ? { borderColor: "var(--red-line)" } : undefined} onClick={() => document.getElementById("kw-input")?.focus()}>
           {form.keywords.map((k) => (
             <span className="pn-kw" key={k}>{k}
               <button type="button" aria-label={`Remover ${k}`} onClick={() => set("keywords", form.keywords.filter((x) => x !== k))}>×</button>
@@ -291,175 +386,182 @@ function TriggerConfig({ form, set, media, connected, issues }: { form: Automati
             }}
             onBlur={() => kw && addKw(kw)} />
         </div>
-        <div className="pn-help">Sem diferença de maiúsculas e acentos. A palavra precisa vir inteira: “contador!” dispara, “contadores” não. Enter ou vírgula adiciona.</div>
-        <FieldIssues issues={issues} field="keywords" />
+        <div className="pn-help">
+          Não precisa cadastrar variações: maiúsculas, minúsculas e acentos já são tratados (“contador”, “Contador!”, “CONTADÔR” disparam).
+          A palavra precisa vir inteira: “contadores” é outra palavra. Enter ou vírgula adiciona.
+        </div>
+        <Errors issues={kwIssues} />
       </div>
 
       <div style={{ marginTop: 18 }}>
         <label className="pn-field-label">Em quais posts</label>
-        <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: "1px solid #22222B", background: "var(--card)", borderRadius: 8, padding: "10px 11px" }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12.5 }}>Qualquer post ou Reels</div>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Inclui os posts que você publicar depois</div>
-          </div>
-          <Toggle on={anyPost} label="Qualquer post" onChange={() => set("posts", anyPost ? [] : ["*"])} />
-        </div>
-
-        {!anyPost && (
-          <>
-            {connected ? (
-              media.length ? (
-                <div className="pn-post-grid" style={{ marginTop: 10 }}>
-                  {media.map((m) => {
-                    const on = isSel(m);
-                    return (
-                      <button key={m.id} type="button" className={`pn-post${on ? " is-on" : ""}`} onClick={() => toggleMedia(m)}
-                        aria-pressed={on} title={m.caption || m.shortcode}>
-                        {m.thumb ? <img src={m.thumb} alt="" loading="lazy" referrerPolicy="no-referrer" /> : null}
-                        {!m.thumb && <span className="pn-post-cap" style={{ position: "static", background: "none" }}>{m.caption || m.shortcode}</span>}
-                        {m.thumb && m.caption && <span className="pn-post-cap">{m.caption.slice(0, 40)}</span>}
-                        {on && <span className="pn-post-check">✓</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : <div className="pn-help">Nenhum post encontrado na conta.</div>
-            ) : (
-              <div className="pn-help">Conecte o Instagram para escolher entre os posts recentes. Enquanto isso, cole o link do post abaixo.</div>
-            )}
-
-            <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-              <input className="pn-input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Colar link do post ou Reels"
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addUrl(); } }} aria-label="Link do post" />
-              <button type="button" className="pn-btn is-sm" onClick={addUrl}>Adicionar</button>
-            </div>
-            {extra.map((p) => (
-              <div key={p} className="pn-row" style={{ gap: 8, flexWrap: "nowrap", marginTop: 6, fontSize: 12 }}>
-                <Icon d={ICONS.link} size={13} color="#8A8A99" />
-                <span className="pn-ellipsis pn-mono" style={{ flex: 1, fontSize: 11.5 }}>{postKey(p)}</span>
-                <button type="button" className="pn-btn is-sm" onClick={() => set("posts", form.posts.filter((x) => x !== p))}>Remover</button>
-              </div>
-            ))}
-          </>
-        )}
-        <FieldIssues issues={issues} field="posts" />
+        <PostPicker posts={form.posts} onChange={(p) => set("posts", p)} media={media} mediaNext={mediaNext} connected={connected} invalid={postIssues.length > 0} />
+        <Errors issues={postIssues} />
       </div>
     </>
   );
 }
 
-function DmConfig({ form, set, rendered, issues }: { form: AutomationInput; set: Setter; rendered: string; issues: Issue[] }) {
+function ReplyConfig({ step, update, issues }: { step: ReplyStep; update: (p: Partial<ReplyStep>) => void; issues: Issue[] }) {
+  return (
+    <>
+      <Head color={STEP_META.reply.color} title="Responder comentário" help="Resposta pública no comentário. Com várias frases, uma é sorteada a cada vez: variar evita que o Instagram trate como spam." />
+      <div style={{ marginTop: 16 }}>
+        <label className="pn-field-label" htmlFor={`r-${step.id}`}>Frases (uma por linha)</label>
+        <textarea id={`r-${step.id}`} className={`pn-textarea${issues.length ? " is-error" : ""}`} rows={9}
+          value={step.replies.join("\n")} onChange={(e) => update({ replies: e.target.value.split("\n") })} />
+        <div className="pn-help">Dica: depois de uma DM, algo como “Te mandei no direct! 📩”. No fim do fluxo, “Enviado! Confere seu direct ✅”.</div>
+        <Errors issues={issues} />
+      </div>
+    </>
+  );
+}
+
+function DmConfig({ step, update, issues, link, setLink, username }: {
+  step: DmStep; update: (p: Partial<DmStep>) => void; issues: Issue[]; link: string; setLink: (v: string) => void; username: string;
+}) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const insert = (token: string) => {
     const el = ref.current;
-    if (!el) return set("dm", form.dm + token);
+    if (!el) return update({ text: step.text + token });
     const a = el.selectionStart, b = el.selectionEnd;
-    set("dm", form.dm.slice(0, a) + token + form.dm.slice(b));
+    update({ text: step.text.slice(0, a) + token + step.text.slice(b) });
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(a + token.length, a + token.length); });
   };
-  const len = rendered.length;
+  const kind = step.button?.kind ?? "none";
+  const setKind = (k: "none" | Button["kind"]) => {
+    if (k === "none") return update({ button: undefined });
+    const title = step.button?.title || (k === "continue" ? "Me envie" : "Abrir material");
+    update({ button: k === "continue" ? { kind: "continue", title } : { kind: "link", title, url: step.button?.kind === "link" ? step.button.url : undefined } });
+  };
+  const max = step.button ? TEMPLATE_TEXT_MAX : TEXT_MAX;
+  const len = renderText(step.text, link, username).length;
   return (
     <>
-      <div className="pn-row" style={{ gap: 8, marginTop: 10 }}>
-        <Dot color={NODE_COLOR.dm} size={8} />
-        <div style={{ fontSize: 13.5, fontWeight: 500 }}>Enviar Direct privado</div>
-      </div>
-      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Resposta privada ao comentário: uma por comentário, até 7 dias depois dele.</div>
-
+      <Head color={STEP_META.dm.color} title="Enviar DM" help="A primeira mensagem do fluxo vai como resposta privada ao comentário (o Instagram permite uma, até 7 dias depois). Para mandar mais mensagens, a anterior precisa de um botão “continuar”." />
       <div style={{ marginTop: 16 }}>
-        <label className="pn-field-label" htmlFor="dm-text">Texto da mensagem</label>
-        <textarea id="dm-text" ref={ref} className={`pn-textarea${issues.some((i) => i.field === "dm") ? " is-error" : ""}`} rows={8}
-          value={form.dm} onChange={(e) => set("dm", e.target.value)} />
+        <label className="pn-field-label" htmlFor={`t-${step.id}`}>Texto da mensagem</label>
+        <textarea id={`t-${step.id}`} ref={ref} className={`pn-textarea${issues.length ? " is-error" : ""}`} rows={7}
+          value={step.text} onChange={(e) => update({ text: e.target.value })} />
         <div className="pn-row" style={{ gap: 6, marginTop: 6 }}>
           <button type="button" className="pn-chip" onClick={() => insert("{link}")}>+ {"{link}"}</button>
           <button type="button" className="pn-chip" onClick={() => insert("{usuario}")}>+ {"{usuario}"}</button>
-          <span className="pn-spacer pn-mono" style={{ fontSize: 11, color: len > DM_MAX ? "var(--red)" : "var(--muted-2)" }}>{len}/{DM_MAX}</span>
+          <span className="pn-spacer pn-mono" style={{ fontSize: 11, color: len > max ? "var(--red)" : "var(--muted-2)" }}>{len}/{max}</span>
         </div>
-        <div className="pn-help">{"{link}"} vira o link abaixo. {"{usuario}"} vira o @ de quem comentou.</div>
-        <FieldIssues issues={issues} field="dm" />
+        <div className="pn-help">{"{link}"} vira o link da automação. {"{usuario}"} vira o @ de quem comentou.</div>
       </div>
 
       <div style={{ marginTop: 16 }}>
-        <label className="pn-field-label" htmlFor="dm-link">Link do material</label>
-        <input id="dm-link" className={`pn-input${issues.some((i) => i.field === "link") ? " is-error" : ""}`} type="url" inputMode="url"
-          placeholder="https://…" value={form.link} onChange={(e) => set("link", e.target.value)} />
-        {form.link && /^https?:\/\//.test(form.link) && (
-          <a href={form.link} target="_blank" rel="noreferrer" className="pn-help" style={{ display: "inline-block", color: "var(--violet-3)" }}>Abrir link ↗</a>
+        <label className="pn-field-label">Botão</label>
+        <div className="pn-seg" role="radiogroup" aria-label="Tipo de botão">
+          {([["none", "Sem botão"], ["continue", "Continuar o fluxo"], ["link", "Abrir link"]] as const).map(([k, l]) => (
+            <button key={k} type="button" role="radio" aria-checked={kind === k} className={kind === k ? "is-on" : ""} onClick={() => setKind(k)}>{l}</button>
+          ))}
+        </div>
+        {step.button && (
+          <>
+            <input className="pn-input" style={{ marginTop: 8 }} value={step.button.title} maxLength={BUTTON_TITLE_MAX + 5}
+              onChange={(e) => update({ button: { ...step.button!, title: e.target.value } })} placeholder="Texto do botão" aria-label="Texto do botão" />
+            {step.button.kind === "link" && (
+              <input className="pn-input" style={{ marginTop: 6 }} type="url" value={step.button.url ?? ""} placeholder={link ? "Vazio usa o link da automação" : "https://…"}
+                onChange={(e) => update({ button: { kind: "link", title: step.button!.title, url: e.target.value } })} aria-label="Endereço do botão" />
+            )}
+            <div className="pn-help">
+              {step.button.kind === "continue"
+                ? "O fluxo para aqui até a pessoa tocar no botão. O clique abre a conversa por 24h, e aí os próximos blocos podem mandar mensagens."
+                : "Abre o endereço no navegador do Instagram. O fluxo segue sem esperar."}
+              {" "}Até {BUTTON_TITLE_MAX} caracteres.
+            </div>
+          </>
         )}
-        <FieldIssues issues={issues} field="link" />
       </div>
+
+      <div style={{ marginTop: 16 }}>
+        <label className="pn-field-label" htmlFor="auto-link">Link da automação</label>
+        <input id="auto-link" className="pn-input" type="url" inputMode="url" placeholder="https://…" value={link} onChange={(e) => setLink(e.target.value)} />
+        <div className="pn-help">Usado no {"{link}"} e nos botões de link sem endereço próprio. Vale para todos os blocos.</div>
+      </div>
+      <Errors issues={issues} />
     </>
   );
 }
 
-function ReplyConfig({ form, set, defaults, issues }: { form: AutomationInput; set: Setter; defaults: string[]; issues: Issue[] }) {
-  const custom = form.publicReplies.length > 0;
-  const [text, setText] = useState(form.publicReplies.join("\n"));
+function FollowConfig({ step, update, issues }: { step: FollowStep; update: (p: Partial<FollowStep>) => void; issues: Issue[] }) {
   return (
     <>
-      <div className="pn-row" style={{ gap: 8, marginTop: 10 }}>
-        <Dot color={NODE_COLOR.reply} size={8} />
-        <div style={{ fontSize: 13.5, fontWeight: 500 }}>Responder comentário</div>
+      <Head color={STEP_META.follow.color} title="Verificar se segue" help="Se a conversa já está aberta e a pessoa segue o perfil, passa direto. Senão, pede para seguir; a cada clique, confere de novo e só libera o resto do fluxo quando ela seguir." />
+      <div style={{ marginTop: 16 }}>
+        <label className="pn-field-label" htmlFor={`f1-${step.id}`}>Pedido para seguir</label>
+        <textarea id={`f1-${step.id}`} className="pn-textarea" rows={3} value={step.text} onChange={(e) => update({ text: e.target.value })} />
+        <input className="pn-input" style={{ marginTop: 6 }} value={step.button} onChange={(e) => update({ button: e.target.value })} aria-label="Botão do pedido" placeholder="Texto do botão" />
       </div>
-      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>Resposta pública curta, sorteada. Só sai depois que a DM foi entregue, para não prometer algo que não chegou.</div>
-
-      <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: "1px solid #22222B", background: "var(--card)", borderRadius: 8, padding: "10px 11px", marginTop: 16 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12.5 }}>Usar frases próprias</div>
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Desligado usa as {defaults.length} frases padrão</div>
-        </div>
-        <Toggle on={custom} label="Usar frases próprias" onChange={() => {
-          if (custom) { set("publicReplies", []); setText(""); }
-          else { set("publicReplies", [...defaults]); setText(defaults.join("\n")); }
-        }} />
+      <div style={{ marginTop: 14 }}>
+        <label className="pn-field-label" htmlFor={`f2-${step.id}`}>Se ainda não seguir</label>
+        <textarea id={`f2-${step.id}`} className="pn-textarea" rows={4} value={step.retryText} onChange={(e) => update({ retryText: e.target.value })} />
+        <input className="pn-input" style={{ marginTop: 6 }} value={step.retryButton} onChange={(e) => update({ retryButton: e.target.value })} aria-label="Botão da insistência" placeholder="Texto do botão" />
+        <div className="pn-help">Cada nova mensagem só sai quando a pessoa clica: o Instagram não deixa mandar sozinho. Para depois de 10 tentativas.</div>
       </div>
-
-      {custom ? (
-        <div style={{ marginTop: 14 }}>
-          <label className="pn-field-label" htmlFor="replies">Frases (uma por linha)</label>
-          <textarea id="replies" className={`pn-textarea${issues.length ? " is-error" : ""}`} rows={9} value={text}
-            onChange={(e) => { setText(e.target.value); set("publicReplies", e.target.value.split("\n")); }} />
-          <div className="pn-help">Variar as frases evita que o Instagram trate as respostas como spam.</div>
-          <FieldIssues issues={issues} field="publicReplies" />
-        </div>
-      ) : (
-        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 6 }}>
-          {defaults.map((d) => <div key={d} style={{ fontSize: 12, color: "var(--text-3)", borderLeft: "2px solid var(--line-3)", paddingLeft: 8 }}>{d}</div>)}
-        </div>
-      )}
+      <Errors issues={issues} />
     </>
   );
 }
 
-function TestPanel({ form, replies, testRef, anyPost }: { form: AutomationInput; replies: string[]; testRef: React.RefObject<HTMLTextAreaElement | null>; anyPost: boolean }) {
+/* ---------- teste na tela ---------- */
+
+function TestPanel({ form, anyPost }: { form: AutomationInput; anyPost: boolean }) {
   const [comment, setComment] = useState(form.keywords[0] ? `Quero! ${form.keywords[0].toLowerCase()}` : "");
   const [user, setUser] = useState("seguidor.teste");
+  const [follows, setFollows] = useState(false);
+  const [clicks, setClicks] = useState(0);
   const matched = form.keywords.find((k) => hasKeyword(comment, k));
-  const reply = replies[0];
+  const sim = useMemo(() => simulate(form.steps, form.link, user, follows, clicks), [form.steps, form.link, user, follows, clicks]);
+  const stepsKey = JSON.stringify(form.steps);
+  useEffect(() => { setClicks(0); }, [stepsKey, comment]);
+  const lastWaiting = sim.waiting ? sim.items.length - 1 : -1;
+
   return (
     <>
       <div className="pn-section-label">Testar o fluxo</div>
       <label className="pn-field-label" htmlFor="test-comment">Comentário de exemplo</label>
-      <textarea id="test-comment" ref={testRef} className="pn-textarea" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Digite um comentário" />
+      <textarea id="test-comment" className="pn-textarea" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Digite um comentário" />
       <label className="pn-field-label" htmlFor="test-user" style={{ marginTop: 10 }}>Usuário</label>
       <input id="test-user" className="pn-input" value={user} onChange={(e) => setUser(e.target.value.replace(/^@/, ""))} />
+      <label className="pn-row" style={{ gap: 8, marginTop: 10, fontSize: 12, color: "var(--text-3)", cursor: "pointer" }}>
+        <input type="checkbox" checked={follows} onChange={() => setFollows(!follows)} style={{ accentColor: "#7C3AED" }} />
+        A pessoa segue o perfil
+      </label>
 
       <div style={{ marginTop: 12 }}>
-        {!comment.trim() ? null : matched ? (
-          <Badge tone="green">Dispara com “{matched}”</Badge>
-        ) : (
-          <Badge tone="">Não dispara{form.keywords.length ? "" : ": sem palavra-chave"}</Badge>
-        )}
+        {!comment.trim() ? null : matched ? <Badge tone="green">Dispara com “{matched}”</Badge> : <Badge>Não dispara{form.keywords.length ? "" : ": sem palavra-chave"}</Badge>}
         {!anyPost && matched && <div className="pn-help">Só vale nos posts escolhidos.</div>}
       </div>
 
       {matched && comment.trim() && (
         <div className="pn-phone" style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 10.5, color: "var(--muted-2)", marginBottom: 6 }}>Comentário público</div>
+          <div className="pn-sim-label">Comentário</div>
           <div className="pn-bubble is-in"><b>@{user}</b> {comment}</div>
-          {reply && <div className="pn-bubble is-in" style={{ marginTop: 6, marginLeft: 16, background: "#1E1E26" }}><b>@d.ia.riamente</b> {reply}</div>}
-          <div style={{ fontSize: 10.5, color: "var(--muted-2)", margin: "12px 0 6px" }}>Direct para @{user}</div>
-          <div className="pn-bubble">{form.dm ? renderDm(form, user) : <i style={{ opacity: .7 }}>Mensagem vazia</i>}</div>
+          {sim.items.map((it, i) => {
+            if (it.kind === "reply") return <div key={i} className="pn-bubble is-in is-reply"><b>@d.ia.riamente</b> {it.text}</div>;
+            if (it.kind === "note") return <div key={i} className="pn-sim-note">{it.text}</div>;
+            if (it.kind === "end") return <div key={i} className="pn-sim-note">Fim do fluxo</div>;
+            if (it.kind === "click") return <div key={i} className="pn-bubble is-click">{it.title}</div>;
+            const canClick = i === lastWaiting && it.button?.continues;
+            return (
+              <div key={i}>
+                <div className="pn-sim-label">Direct</div>
+                <div className="pn-bubble">
+                  {it.text || <i style={{ opacity: .7 }}>Mensagem vazia</i>}
+                  {it.button && (
+                    it.button.url
+                      ? <a className="pn-sim-btn" href={it.button.url} target="_blank" rel="noreferrer">{it.button.title || "…"} ↗</a>
+                      : <button type="button" className="pn-sim-btn" disabled={!canClick} onClick={() => setClicks((c) => c + 1)}>{it.button.title || "…"}</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {sim.waiting && <div className="pn-sim-note">Toque no botão para simular o clique</div>}
+          {clicks > 0 && <button type="button" className="pn-btn is-sm" style={{ marginTop: 10 }} onClick={() => setClicks(0)}>Recomeçar</button>}
         </div>
       )}
 

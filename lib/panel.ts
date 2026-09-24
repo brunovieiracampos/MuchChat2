@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { buildExecutions } from "@/lib/activity";
 import { isPaused, listAutomations } from "@/lib/automations";
-import { getMe, getTokenInfo, isDryRun, listRecentMedia, type IgMedia } from "@/lib/instagram";
+import { getMe, getTokenInfo, isDryRun, listMediaPage, type IgMedia } from "@/lib/instagram";
 import { readLog } from "@/lib/processor";
 
 /** Dados compartilhados pelas telas do painel (cache por requisição). */
@@ -36,10 +36,11 @@ export const getActivity = cache(async () => {
 
 export const getFlags = cache(async () => ({ paused: await isPaused(), dryRun: isDryRun() }));
 
-export const getRecentMedia = cache(async (): Promise<IgMedia[]> => {
+/** Primeira página de posts (mais recentes primeiro) e o cursor da próxima. */
+export const getRecentMedia = cache(async (): Promise<{ items: IgMedia[]; next?: string }> => {
   const conn = await getConnection();
-  if (conn.state !== "connected") return [];
-  return listRecentMedia(25).catch(() => []);
+  if (conn.state !== "connected") return { items: [] };
+  return listMediaPage(24).catch(() => ({ items: [] }));
 });
 
 export function baseUrl(): string {

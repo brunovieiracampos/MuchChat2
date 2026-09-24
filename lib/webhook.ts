@@ -1,4 +1,4 @@
-import type { IncomingComment } from "@/lib/processor";
+import type { IncomingClick, IncomingComment } from "@/lib/processor";
 
 /**
  * Extrai comentários do payload de webhook do Instagram (campo "comments").
@@ -27,6 +27,29 @@ export function extractComments(payload: any): IncomingComment[] {
           parentId: v.parent_id,
           timestamp: t,
         });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Extrai cliques em botões (messaging_postbacks), respostas rápidas e mensagens de texto
+ * (campo "messages") — o texto serve de alternativa quando o Instagram não aceita o botão.
+ * Ignora ecos (mensagens enviadas pela própria conta).
+ */
+export function extractClicks(payload: any): IncomingClick[] {
+  const out: IncomingClick[] = [];
+  const payloads = Array.isArray(payload) ? payload : [payload];
+  for (const p of payloads) {
+    if (!p || !Array.isArray(p.entry)) continue;
+    for (const entry of p.entry) {
+      for (const m of Array.isArray(entry?.messaging) ? entry.messaging : []) {
+        const igsid = m?.sender?.id ? String(m.sender.id) : "";
+        if (!igsid || m.message?.is_echo) continue;
+        if (m.postback?.payload) out.push({ igsid, payload: String(m.postback.payload) });
+        else if (m.message?.quick_reply?.payload) out.push({ igsid, payload: String(m.message.quick_reply.payload) });
+        else if (typeof m.message?.text === "string") out.push({ igsid, text: m.message.text });
       }
     }
   }
