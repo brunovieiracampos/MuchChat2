@@ -91,7 +91,7 @@ function PostTile({ m, on, onClick, meta }: { m: MediaOption; on: boolean; onCli
     <button type="button" className={`pn-post${on ? " is-on" : ""}`} onClick={onClick} aria-pressed={on} title={m.caption || m.shortcode}>
       {m.thumb && <img src={m.thumb} alt="" loading="lazy" referrerPolicy="no-referrer" />}
       <span className="pn-post-cap" style={m.thumb ? undefined : { position: "static", background: "none" }}>
-        {meta && m.timestamp ? `${dateShort(Date.parse(m.timestamp))}${typeof m.comments === "number" ? ` · ${m.comments} coment.` : ""}\n` : ""}
+        {meta && m.timestamp ? `${dateShort(Date.parse(m.timestamp))}${typeof m.comments === "number" ? `, ${m.comments} ${m.comments === 1 ? "comentário" : "comentários"}` : ""}\n` : ""}
         {m.caption.slice(0, meta ? 60 : 40)}
       </span>
       {on && <span className="pn-post-check">✓</span>}

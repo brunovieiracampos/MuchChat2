@@ -69,13 +69,13 @@ export function AutomationList({ rows }: { rows: AutomationRow[] }) {
             <div style={{ minWidth: 0 }}>
               <Link href={`/painel/automacoes/${r.id}`} style={{ color: "var(--text)", fontSize: 13.5, fontWeight: 500 }}>{r.name}</Link>
               <div className="pn-cell-sub">{r.scope}</div>
-              <div className="pn-narrow-only pn-cell-sub" style={{ color: "var(--muted-2)" }}>{r.trigger} · {r.runs} execuç{r.runs === 1 ? "ão" : "ões"}</div>
-              {r.failed > 0 && <div style={{ fontSize: 11.5, color: "var(--red)", marginTop: 5 }}>{r.failed} execuç{r.failed === 1 ? "ão" : "ões"} com falha nos últimos 7 dias</div>}
+              <div className="pn-narrow-only pn-cell-sub" style={{ color: "var(--muted-2)" }}>{r.trigger}, {r.runs} execuç{r.runs === 1 ? "ão" : "ões"}</div>
+              {r.failed > 0 && <div style={{ fontSize: 11.5, color: "var(--red-text)", marginTop: 5 }}>{r.failed} execuç{r.failed === 1 ? "ão" : "ões"} com falha nos últimos 7 dias</div>}
             </div>
             <div className="pn-wide-only" style={{ fontSize: 12.5, color: "var(--text-3)", minWidth: 0 }}>{r.trigger}</div>
             <div><Badge tone={r.active ? "green" : "amber"}>{r.active ? "Ativa" : "Pausada"}</Badge></div>
             <div className="pn-wide-only" style={{ fontSize: 12.5, color: "var(--muted)" }}>{r.updatedAt ? relTime(r.updatedAt) : "—"}</div>
-            <div className="pn-wide-only pn-mono" style={{ fontSize: 12.5, textAlign: "right" }}>{r.runs}</div>
+            <div className="pn-wide-only pn-num" style={{ fontSize: 13, textAlign: "right" }}>{r.runs}</div>
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
               <Link href={`/painel/automacoes/${r.id}/editar`} className="pn-btn is-sm">Editar</Link>
               <button type="button" className="pn-btn is-sm pn-wide-only" onClick={() => duplicate(r)}>Duplicar</button>

@@ -446,7 +446,7 @@ function DmConfig({ step, update, issues, link, setLink, username }: {
         <div className="pn-row" style={{ gap: 6, marginTop: 6 }}>
           <button type="button" className="pn-chip" onClick={() => insert("{link}")}>+ {"{link}"}</button>
           <button type="button" className="pn-chip" onClick={() => insert("{usuario}")}>+ {"{usuario}"}</button>
-          <span className="pn-spacer pn-mono" style={{ fontSize: 11, color: len > max ? "var(--red)" : "var(--muted-2)" }}>{len}/{max}</span>
+          <span className="pn-spacer pn-num" style={{ fontSize: 11.5, color: len > max ? "var(--red)" : "var(--muted-2)" }}>{len}/{max}</span>
         </div>
         <div className="pn-help">{"{link}"} vira o link da automação. {"{usuario}"} vira o @ de quem comentou.</div>
       </div>
@@ -553,7 +553,7 @@ function TestPanel({ form, anyPost }: { form: AutomationInput; anyPost: boolean 
                   {it.text || <i style={{ opacity: .7 }}>Mensagem vazia</i>}
                   {it.button && (
                     it.button.url
-                      ? <a className="pn-sim-btn" href={it.button.url} target="_blank" rel="noreferrer">{it.button.title || "…"} ↗</a>
+                      ? <a className="pn-sim-btn" href={it.button.url} target="_blank" rel="noreferrer">{it.button.title || "…"}</a>
                       : <button type="button" className="pn-sim-btn" disabled={!canClick} onClick={() => setClicks((c) => c + 1)}>{it.button.title || "…"}</button>
                   )}
                 </div>

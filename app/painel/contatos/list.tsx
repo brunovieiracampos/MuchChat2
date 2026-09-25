@@ -60,8 +60,8 @@ export function ContactList({ contacts, history }: { contacts: Contact[]; histor
               <span className="pn-avatar" style={{ width: 30, height: 30 }}>{initials(c.username)}</span>
               <span style={{ minWidth: 0 }}>
                 <span style={{ display: "block", fontSize: 13 }}>{label(c.username)}</span>
-                <span className="pn-mono" style={{ display: "block", fontSize: 11, color: "var(--muted)" }}>{c.count} comentário{c.count > 1 ? "s" : ""}</span>
-                <span className="pn-narrow-only" style={{ fontSize: 11.5, color: "var(--muted-2)", marginTop: 3 }}>{relTime(c.lastAt)} · {c.automations[0]}</span>
+                <span className="pn-num" style={{ display: "block", fontSize: 12, color: "var(--muted)" }}>{c.count} comentário{c.count > 1 ? "s" : ""}</span>
+                <span className="pn-narrow-only" style={{ fontSize: 11.5, color: "var(--muted-2)", marginTop: 3 }}>{c.automations[0]}, {relTime(c.lastAt)}</span>
               </span>
             </span>
             <span className="pn-wide-only" style={{ fontSize: 12.5, color: "var(--text-3)" }}>{relTime(c.lastAt)}</span>
@@ -83,7 +83,7 @@ export function ContactList({ contacts, history }: { contacts: Contact[]; histor
             <div className="pn-field-row"><div>Comentários</div><div>{current.count}</div></div>
             <div className="pn-field-row"><div>Automações</div><div>{current.automations.join(", ")}</div></div>
             {current.username !== "desconhecido" && (
-              <div className="pn-field-row"><div>Perfil</div><div><a href={`https://instagram.com/${current.username}`} target="_blank" rel="noreferrer">Abrir no Instagram ↗</a></div></div>
+              <div className="pn-field-row"><div>Perfil</div><div><a href={`https://instagram.com/${current.username}`} target="_blank" rel="noreferrer">Abrir no Instagram</a></div></div>
             )}
           </div>
           <div className="pn-section-label" style={{ marginTop: 22 }}>Histórico</div>
@@ -91,7 +91,7 @@ export function ContactList({ contacts, history }: { contacts: Contact[]; histor
             <Link key={h.id} href={`/painel/execucoes?id=${h.id}`} className="pn-list-row" style={{ color: "var(--text)" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pn-ellipsis" style={{ fontSize: 12.5 }}>“{h.text}”</div>
-                <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{h.rule} · {relTime(h.at)}</div>
+                <div style={{ fontSize: 11.5, color: "var(--muted)" }}>{h.rule}, {relTime(h.at)}</div>
               </div>
               <ExecBadge status={h.status} />
             </Link>

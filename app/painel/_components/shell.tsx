@@ -138,7 +138,7 @@ function ShellInner({ connection, paused, dryRun, failedCount, children }: Shell
             <div className="pn-avatar-grad">d.</div>
             <div className="pn-label" style={{ minWidth: 0, flex: 1 }}>
               <div className="pn-ellipsis" style={{ fontSize: 12, fontWeight: 500 }}>{account}</div>
-              <div style={{ fontSize: 11, color: "var(--muted)" }}>Bruno · operador</div>
+              <div style={{ fontSize: 11, color: "var(--muted)" }}>Bruno, operador</div>
             </div>
           </div>
           <button type="button" className="pn-collapse" onClick={toggleCollapsed}>{collapsed ? "›" : "‹ Recolher menu"}</button>

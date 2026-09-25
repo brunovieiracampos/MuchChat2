@@ -61,7 +61,7 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
             <Funnel rows={funnel} c={c} />
           </>
         ) : (
-          <p className="pn-funnel-summary">Ninguém comentou a palavra-chave {days ? `nos últimos ${days} dias` : "ainda"}.</p>
+          <p className="pn-summary">Ninguém comentou a palavra-chave {days ? `nos últimos ${days} dias` : "ainda"}.</p>
         )}
       </div>
 
@@ -80,7 +80,7 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
                   <div className="pn-ellipsis" style={{ fontSize: 11.5, color: "var(--muted)" }}>{e.step}</div>
                 </div>
                 <ExecBadge status={e.status} />
-                <span className="pn-mono pn-hide-sm" style={{ fontSize: 11.5, color: "var(--muted-2)", width: 72, textAlign: "right" }}>{relTime(e.lastAt)}</span>
+                <span className="pn-hide-sm" style={{ fontSize: 11.5, color: "var(--muted-2)", width: 72, textAlign: "right" }}>{relTime(e.lastAt)}</span>
               </Link>
             ))}
             {!mine.length && <div className="pn-small pn-muted" style={{ padding: "14px 0" }}>Ninguém comentou a palavra-chave ainda.</div>}
@@ -102,10 +102,10 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
           <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
             {steps.map((s, i) => (
               <li key={s.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12.5 }}>
-                <span className="pn-mono" style={{ fontSize: 11, color: "var(--muted-2)", width: 14, marginTop: 1 }}>{i + 1}</span>
+                <span className="pn-num" style={{ fontSize: 12, color: "var(--muted-2)", width: 14, marginTop: 1 }}>{i + 1}</span>
                 <span style={{ marginTop: 5 }}><Dot color={STEP_META[s.type].color} size={7} /></span>
                 <div style={{ minWidth: 0 }}>
-                  <div>{STEP_META[s.type].label}{s.type === "dm" && s.button ? ` · botão “${s.button.title}”` : ""}</div>
+                  <div>{STEP_META[s.type].label}{s.type === "dm" && s.button ? `, com botão “${s.button.title}”` : ""}</div>
                   <div className="pn-ellipsis" style={{ fontSize: 11.5, color: "var(--muted)" }}>
                     {s.type === "reply" ? `“${s.replies[0] ?? ""}”` : s.type === "dm" ? renderText(s.text, rule.link, "usuario") : `Botão “${s.button}”`}
                   </div>

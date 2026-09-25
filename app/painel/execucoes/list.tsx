@@ -55,7 +55,6 @@ export function ExecutionList({ executions, automations, initial }: {
         </div>
         <div className="pn-row pn-spacer" style={{ gap: 8 }}>
           {failed > 0 && <RetryFailedButton />}
-          <span className="pn-row pn-hide-sm" style={{ gap: 8, fontSize: 12, color: "var(--muted)" }}><Dot color="#2FA37A" size={6} />Registro dos últimos eventos</span>
         </div>
       </div>
       <div className="pn-row" style={{ gap: 8 }}>
@@ -75,20 +74,20 @@ export function ExecutionList({ executions, automations, initial }: {
           <div className="pn-wide-only">Contato</div>
           <div>Status</div>
           <div className="pn-wide-only">Etapa atual</div>
-          <div style={{ textAlign: "right" }}>Detalhes</div>
+          <div />
         </div>
         {list.map((e) => (
           <div key={e.commentId} className="pn-trow" data-narrow style={{ gridTemplateColumns: COLS, ["--narrow" as string]: NARROW }}>
             <div style={{ minWidth: 0 }}>
               <div className="pn-cell-main pn-ellipsis">{e.ruleName}</div>
-              <div className="pn-narrow-only pn-cell-sub pn-ellipsis">{e.username ? `@${e.username}` : "—"} · {e.step}</div>
-              <div className="pn-mono pn-ellipsis" style={{ fontSize: 11, color: "var(--muted-2)", marginTop: 2 }}>“{e.text}” · {dateTime(e.startedAt)}</div>
+              <div className="pn-narrow-only pn-cell-sub pn-ellipsis">{e.username ? `@${e.username}: ` : ""}{e.step}</div>
+              <div className="pn-ellipsis" style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 2 }}>“{e.text}”, {dateTime(e.startedAt)}</div>
             </div>
             <div className="pn-wide-only pn-ellipsis" style={{ fontSize: 12.5, color: "var(--text-3)" }}>{e.username ? `@${e.username}` : "—"}</div>
             <div><ExecBadge status={e.status} /></div>
             <div className="pn-wide-only pn-ellipsis" style={{ fontSize: 12.5, color: "var(--text-3)" }}>{e.step}</div>
             <div style={{ textAlign: "right" }}>
-              <button type="button" className="pn-btn is-sm" onClick={() => setOpen(e.commentId)}>Visualizar</button>
+              <button type="button" className="pn-btn is-sm" onClick={() => setOpen(e.commentId)}>Ver detalhes</button>
             </div>
           </div>
         ))}
@@ -100,7 +99,7 @@ export function ExecutionList({ executions, automations, initial }: {
       </div>
 
       {current && (
-        <Drawer title={current.ruleName} subtitle={`${EXEC_STATUS[current.status].label} · ${dateTime(current.startedAt)}`} onClose={close}>
+        <Drawer title={current.ruleName} subtitle={`${EXEC_STATUS[current.status].label}, começou em ${dateTime(current.startedAt)}`} onClose={close}>
           <div className="pn-fields">
             <div className="pn-field-row"><div>Contato</div><div>{current.username ? <a href={`https://instagram.com/${current.username}`} target="_blank" rel="noreferrer">@{current.username}</a> : "Não identificado"}</div></div>
             <div className="pn-field-row"><div>Comentário</div><div>“{current.text}”</div></div>
@@ -115,7 +114,7 @@ export function ExecutionList({ executions, automations, initial }: {
             <div className="pn-alert is-red" style={{ marginTop: 18, flexDirection: "column", gap: 6 }}>
               <div className="pn-alert-title">{current.status === "falhou" ? "O Instagram recusou o envio" : "Última tentativa falhou"}</div>
               <div className="pn-code">{current.error}</div>
-              {current.status === "falhou" && <div className="pn-alert-body">Se foi falta de permissão antes do App Review, use “Tentar de novo” na lista depois da aprovação.</div>}
+              {current.status === "falhou" && <div className="pn-alert-body">Depois de corrigir a causa, use “Tentar de novo” no topo da lista. A varredura reenvia se o comentário tiver menos de 7 dias.</div>}
             </div>
           )}
 
@@ -126,7 +125,7 @@ export function ExecutionList({ executions, automations, initial }: {
                 <div className="pn-timeline-rail"><Dot color={s.ok ? (s.action === "dry-run" ? "#E0A526" : "#2FA37A") : "#E4544F"} size={8} /><span /></div>
                 <div style={{ paddingBottom: 14, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, color: "var(--text-2)" }}>{s.label}</div>
-                  <div className="pn-mono" style={{ fontSize: 10.5, color: "var(--muted-2)", marginTop: 2 }}>{timeOnly(s.at)}</div>
+                  <div className="pn-num" style={{ fontSize: 11.5, color: "var(--muted-2)", marginTop: 2 }}>{timeOnly(s.at)}</div>
                   {s.detail && <div className="pn-code" style={{ marginTop: 6, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 6, padding: "6px 8px" }}>{s.detail}</div>}
                 </div>
               </div>

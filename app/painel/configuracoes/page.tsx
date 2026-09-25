@@ -67,7 +67,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
         { label: "Permissões pedidas", value: SCOPES.split(",").join(", ") },
       ]} />
 
-      <Group title="Webhook" desc="Endereço que recebe comentários e cliques em botões em tempo real (depende do App Review da Meta)." rows={[
+      <Group title="Webhook" desc="Endereço que recebe comentários e cliques em botões em tempo real." rows={[
         { label: "URL de callback", value: <span className="pn-mono">{url}/api/webhooks/instagram</span> },
         { label: "Verify token", value: "Mesmo valor de IG_VERIFY_TOKEN na Vercel", right: <Badge tone={process.env.IG_VERIFY_TOKEN ? "green" : "red"}>{process.env.IG_VERIFY_TOKEN ? "Configurado" : "Faltando"}</Badge> },
         { label: "Assinatura dos eventos", value: "Valida X-Hub-Signature-256 com IG_APP_SECRET", right: <Badge tone={process.env.IG_APP_SECRET ? "green" : "red"}>{process.env.IG_APP_SECRET ? "Configurado" : "Faltando"}</Badge> },
@@ -79,10 +79,10 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
         { label: "Rodar agora", value: "Busca comentários novos e processa na hora.", right: ok ? <SweepButton className="pn-btn is-sm">Rodar</SweepButton> : undefined },
       ]} />
 
-      <Group title="Modo de teste e pausa" desc="Controles de segurança enquanto o app não é revisado pela Meta." rows={[
+      <Group title="Modo de teste e pausa" desc="Para testar sem enviar nada ou parar tudo de uma vez." rows={[
         { label: "Modo de teste (DRY_RUN)", value: flags.dryRun ? "Ligado: nada é enviado. Para desligar, mude DRY_RUN para false na Vercel e faça redeploy." : "Desligado: DMs e respostas são enviadas de verdade.", right: <Badge tone={flags.dryRun ? "amber" : "green"}>{flags.dryRun ? "Ligado" : "Desligado"}</Badge> },
         { label: "Pausar todas as automações", value: flags.paused ? "Pausadas agora. Ao retomar, a varredura recupera os últimos 7 dias." : "Automações rodando normalmente.", right: <PauseToggle paused={flags.paused} /> },
-        { label: "DMs recusadas", value: failed ? `${failed} comentário${failed === 1 ? "" : "s"} com DM recusada. Libere depois que o App Review for aprovado.` : "Nenhuma DM recusada.", right: failed ? <RetryFailedButton /> : undefined },
+        { label: "DMs recusadas", value: failed ? `${failed} comentário${failed === 1 ? "" : "s"} com DM recusada. Depois de corrigir a causa (veja em Execuções), libere para a varredura tentar de novo.` : "Nenhuma DM recusada.", right: failed ? <RetryFailedButton /> : undefined },
       ]} />
 
       <Group title="Privacidade e dados" desc="Registros e páginas exigidas pela Meta." rows={[

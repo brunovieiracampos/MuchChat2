@@ -24,7 +24,7 @@ function biggestDrop(rows: FunnelRow[]): Stage | null {
 export function FunnelSummary({ c, hasFollow }: { c: Counts; hasFollow: boolean }) {
   const done = c.comment ? pct(c.done / c.comment) : "";
   return (
-    <p className="pn-funnel-summary">
+    <p className="pn-summary">
       De <b>{num(c.comment)}</b> {c.comment === 1 ? "comentário" : "comentários"}, <b>{num(c.done)}</b> {c.done === 1 ? "chegou" : "chegaram"} ao fim do fluxo ({done})
       {hasFollow ? <> e <b className="is-gain">{num(c.gained)}</b> {c.gained === 1 ? "virou seguidor" : "viraram seguidores"}.</> : "."}
     </p>

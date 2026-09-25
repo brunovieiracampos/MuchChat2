@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { dayKey, summarize } from "@/lib/activity";
-import { relTime } from "@/lib/format";
-import { getActivity, getConnection, getFlags } from "@/lib/panel";
+import { num, relTime } from "@/lib/format";
+import { getActivity, getConnection, getFlags, getStats } from "@/lib/panel";
+import { sumCounts } from "@/lib/stats";
 import { requireSession } from "@/lib/session";
 import { SweepButton } from "./_components/action-buttons";
 import { Bars } from "./_components/bars";
 import { ExecBadge } from "./_components/exec-badge";
-import { Dot, Icon } from "./_components/ui";
+import { Icon } from "./_components/ui";
 import { ICONS, initials } from "./_components/icons";
 
 export default async function VisaoGeral() {
   await requireSession();
-  const [conn, flags, { executions, rules }] = await Promise.all([getConnection(), getFlags(), getActivity()]);
+  const [conn, flags, { executions, rules }, stats] = await Promise.all([getConnection(), getFlags(), getActivity(), getStats()]);
   const today = dayKey(Date.now());
   const todays = executions.filter((e) => dayKey(e.startedAt) === today);
   const week = summarize(executions, rules, 7);
@@ -19,21 +20,12 @@ export default async function VisaoGeral() {
   const activeCount = rules.filter((r) => r.active !== false).length;
   const lastAt = executions[0]?.lastAt;
 
-  const kpis = [
-    { label: "Comentários com palavra-chave", value: t.comments, delta: `${week.comments} nos últimos 7 dias`, color: "#7C3AED" },
-    flags.dryRun
-      ? { label: "DMs simuladas hoje", value: t.simulated, delta: "Modo de teste: nada foi enviado", color: "#E0A526" }
-      : { label: "DMs enviadas hoje", value: t.dmSent, delta: `${week.dmSent} nos últimos 7 dias`, color: "#A78BFA" },
-    { label: "Comentários respondidos", value: t.replies, delta: `${activeCount} automaç${activeCount === 1 ? "ão ativa" : "ões ativas"}`, color: "#2FA37A" },
-    { label: "Falhas (7 dias)", value: week.failed, delta: week.failed ? "Veja em Execuções" : "Nenhuma falha", color: "#E4544F", bad: week.failed > 0 },
-  ];
+  const gained = [...stats.values()].reduce((n, raw) => n + sumCounts(raw, 7).gained, 0);
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
   return (
     <div className="pn-page">
       <div className="pn-row">
-        <div className="pn-small pn-muted" style={{ fontSize: 12.5 }}>
-          Resumo de hoje{lastAt ? ` · última atividade ${relTime(lastAt)}` : ""}
-        </div>
         <div className="pn-row pn-spacer" style={{ gap: 10 }}>
           <SweepButton />
           <Link href="/painel/automacoes/nova" className="pn-btn is-primary"><Icon d={ICONS.plus} size={14} width={2} />Criar automação</Link>
@@ -95,15 +87,21 @@ export default async function VisaoGeral() {
         </div>
       ) : (
         <>
-          <div className="pn-grid-kpi">
-            {kpis.map((k) => (
-              <div className="pn-kpi" key={k.label}>
-                <div className="pn-kpi-label"><Dot color={k.color} />{k.label}</div>
-                <div className="pn-kpi-value">{k.value}</div>
-                <div className={`pn-kpi-delta${"bad" in k && k.bad ? " is-bad" : ""}`}>{k.delta}</div>
-              </div>
-            ))}
-          </div>
+          <section className="pn-card" style={{ padding: "22px 24px" }}>
+            <p className="pn-summary">
+              Hoje, <b>{num(t.comments)}</b> {plural(t.comments, "pessoa comentou", "pessoas comentaram")} uma palavra-chave
+              {flags.dryRun
+                ? <> e <b>{num(t.simulated)}</b> {plural(t.simulated, "DM foi simulada", "DMs foram simuladas")}.</>
+                : <> e <b>{num(t.dmSent)}</b> {plural(t.dmSent, "recebeu", "receberam")} a DM.</>}
+              {" "}Nos últimos 7 dias foram <b>{num(week.comments)}</b> {plural(week.comments, "comentário", "comentários")}
+              {gained > 0 && <>, <b className="is-gain">{num(gained)}</b> {plural(gained, "seguidor novo", "seguidores novos")}</>}
+              {" "}e {week.failed ? <><b className="is-bad">{num(week.failed)}</b> {plural(week.failed, "falha", "falhas")}</> : "nenhuma falha"}.
+            </p>
+            <div className="pn-summary-sub">
+              {activeCount} {plural(activeCount, "automação ativa", "automações ativas")}{lastAt ? `. Última atividade ${relTime(lastAt)}.` : "."}
+              {week.failed > 0 && <> <Link href="/painel/execucoes?status=falhou">Ver as falhas</Link></>}
+            </div>
+          </section>
 
           <div className="pn-grid-2">
             <div className="pn-card">
@@ -125,7 +123,7 @@ export default async function VisaoGeral() {
                         {a.failed ? `${a.failed} com falha` : "sem falhas"}
                       </div>
                     </div>
-                    <div className="pn-mono" style={{ fontSize: 12, color: "var(--text-3)" }}>{a.runs}</div>
+                    <div className="pn-num" style={{ fontSize: 13, color: "var(--text-2)" }}>{a.runs}</div>
                   </Link>
                 ))}
                 {!week.perAutomation.length && <div className="pn-small pn-muted" style={{ padding: "12px 0" }}>Nenhuma automação criada.</div>}
@@ -143,7 +141,7 @@ export default async function VisaoGeral() {
                 <Link key={e.commentId} href={`/painel/execucoes?id=${e.commentId}`} className="pn-list-row" style={{ color: "var(--text)" }}>
                   <span className="pn-avatar">{initials(e.username ?? "")}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13 }}>{e.username ? `@${e.username}` : "Usuário não identificado"} <span className="pn-muted" style={{ fontSize: 12 }}>· {e.ruleName}</span></div>
+                    <div style={{ fontSize: 13 }}>{e.username ? `@${e.username}` : "Usuário não identificado"} <span className="pn-muted" style={{ fontSize: 12 }}>em {e.ruleName}</span></div>
                     <div className="pn-ellipsis" style={{ fontSize: 12, color: "var(--muted)" }}>“{e.text}”</div>
                   </div>
                   <ExecBadge status={e.status} />
