@@ -1,37 +1,42 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { STEP_META, renderText, stepsOf } from "@/lib/flow";
-import { relTime } from "@/lib/format";
+import { num, relTime } from "@/lib/format";
 import { postKey } from "@/lib/match";
-import { getActivity } from "@/lib/panel";
+import { PERIODS, getActivity, getStats, periodOf } from "@/lib/panel";
+import { buildFunnel, funnelStages, sumCounts } from "@/lib/stats";
 import { requireSession } from "@/lib/session";
 import { ExecBadge } from "../../_components/exec-badge";
+import { Funnel } from "../../_components/funnel";
 import { Badge, Dot } from "../../_components/ui";
 import { initials } from "../../_components/icons";
 import { DetailActions } from "./detail-actions";
 
-export default async function DetalheAutomacao({ params }: { params: Promise<{ id: string }> }) {
+export default async function DetalheAutomacao({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ periodo?: string }> }) {
   await requireSession();
   const { id } = await params;
-  const { rules, executions } = await getActivity();
+  const days = periodOf((await searchParams).periodo);
+  const [{ rules, executions }, stats] = await Promise.all([getActivity(), getStats()]);
   const rule = rules.find((r) => r.id === id);
   if (!rule) notFound();
 
-  const since = Date.now() - 7 * 864e5;
   const mine = executions.filter((e) => e.ruleId === id);
-  const week = mine.filter((e) => e.startedAt >= since);
-  const sent = week.filter((e) => e.steps.some((s) => s.action === "dm-sent")).length;
-  const failed = week.filter((e) => e.status === "falhou").length;
-  const rate = sent + failed ? Math.round((sent / (sent + failed)) * 100) : null;
   const active = rule.active !== false;
   const anyPost = rule.posts.some((p) => postKey(p) === "*");
   const steps = stepsOf(rule);
 
+  const c = sumCounts(stats.get(id) ?? {}, days);
+  const funnel = buildFunnel(rule, c);
+  const hasFollow = funnelStages(rule).includes("follower");
+  const rate = c.dm + c.failed ? Math.round((c.dm / (c.dm + c.failed)) * 100) : null;
+  const done = c.comment ? Math.round((c.done / c.comment) * 100) : null;
   const kpis = [
-    { label: "Comentários atendidos (7 dias)", value: String(week.length) },
-    { label: "DMs enviadas (7 dias)", value: String(sent) },
-    { label: "Taxa de entrega", value: rate === null ? "—" : `${rate}%` },
-    { label: "Falhas (7 dias)", value: String(failed) },
+    { label: "Comentaram", value: num(c.comment), hint: "comentários com a palavra-chave" },
+    hasFollow
+      ? { label: "Novos seguidores", value: num(c.gained), hint: "não seguiam e passaram a seguir" }
+      : { label: "Receberam a DM", value: num(c.dm), hint: rate === null ? "nenhuma DM no período" : `${rate}% de entrega` },
+    { label: "Concluíram o fluxo", value: done === null ? "—" : `${done}%`, hint: `${num(c.done)} de ${num(c.comment)}` },
+    { label: "Falhas", value: num(c.failed), hint: "mensagens recusadas pelo Instagram" },
   ];
 
   return (
@@ -50,13 +55,30 @@ export default async function DetalheAutomacao({ params }: { params: Promise<{ i
         <DetailActions id={rule.id} name={rule.name ?? rule.id} active={active} />
       </div>
 
+      <div className="pn-row" style={{ gap: 10 }}>
+        <div className="pn-seg" role="tablist" aria-label="Período">
+          {PERIODS.map((p) => (
+            <Link key={p.days} href={`/painel/automacoes/${rule.id}?periodo=${p.days}`} role="tab" aria-selected={p.days === days} className={p.days === days ? "is-on" : ""} scroll={false}>{p.label}</Link>
+          ))}
+        </div>
+      </div>
+
       <div className="pn-grid-kpi" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
         {kpis.map((k) => (
           <div className="pn-kpi" key={k.label}>
             <div className="pn-kpi-label">{k.label}</div>
             <div className="pn-kpi-value" style={{ fontSize: 26, marginTop: 10 }}>{k.value}</div>
+            <div className="pn-kpi-delta">{k.hint}</div>
           </div>
         ))}
+      </div>
+
+      <div className="pn-card">
+        <div className="pn-row" style={{ alignItems: "baseline", gap: 10 }}>
+          <div className="pn-card-title">Funil</div>
+          <div className="pn-small pn-muted" style={{ fontSize: 11.5 }}>cada pessoa conta uma vez por comentário</div>
+        </div>
+        {c.comment ? <Funnel rows={funnel} /> : <div className="pn-small pn-muted" style={{ padding: "14px 0 4px" }}>Ninguém comentou a palavra-chave no período.</div>}
       </div>
 
       <div className="pn-grid-2" style={{ gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr)" }}>

@@ -8,6 +8,7 @@ export interface Store {
   hget<T>(key: string, field: string): Promise<T | null>;
   hset(key: string, values: Record<string, unknown>): Promise<void>;
   hgetall<T extends Record<string, unknown>>(key: string): Promise<T | null>;
+  hincrby(key: string, field: string, by: number): Promise<void>;
   lpush(key: string, value: unknown, max: number): Promise<void>;
   lrange<T>(key: string, start: number, stop: number): Promise<T[]>;
   expire(key: string, seconds: number): Promise<void>;
@@ -27,6 +28,7 @@ class RedisStore implements Store {
   async hget<T>(k: string, f: string) { return (await this.r.hget<T>(k, f)) ?? null; }
   async hset(k: string, v: Record<string, unknown>) { await this.r.hset(k, v); }
   async hgetall<T extends Record<string, unknown>>(k: string) { return (await this.r.hgetall<T>(k)) ?? null; }
+  async hincrby(k: string, f: string, by: number) { await this.r.hincrby(k, f, by); }
   async lpush(k: string, v: unknown, max: number) {
     const p = this.r.pipeline();
     p.lpush(k, v);
@@ -62,6 +64,10 @@ export class MemoryStore implements Store {
     this.kv.set(k, { ...h, ...v });
   }
   async hgetall<T extends Record<string, unknown>>(k: string) { return (await this.get<T>(k)) ?? null; }
+  async hincrby(k: string, f: string, by: number) {
+    const h = (await this.get<Record<string, unknown>>(k)) ?? {};
+    this.kv.set(k, { ...h, [f]: (Number(h[f]) || 0) + by });
+  }
   async lpush(k: string, v: unknown, max: number) {
     const l = ((await this.get<unknown[]>(k)) ?? []).slice();
     l.unshift(v);

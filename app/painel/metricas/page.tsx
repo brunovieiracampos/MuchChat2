@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { summarize } from "@/lib/activity";
 import { num } from "@/lib/format";
-import { getActivity } from "@/lib/panel";
+import { getActivity, getStats } from "@/lib/panel";
+import { funnelStages, sumCounts } from "@/lib/stats";
 import { requireSession } from "@/lib/session";
 import { Bars } from "../_components/bars";
 
@@ -11,11 +12,19 @@ export default async function Metricas({ searchParams }: { searchParams: Promise
   await requireSession();
   const p = Number((await searchParams).periodo);
   const days = (PERIODS as readonly number[]).includes(p) ? p : 7;
-  const { executions, rules } = await getActivity();
+  const [{ executions, rules }, stats] = await Promise.all([getActivity(), getStats()]);
   const cur = summarize(executions, rules, days);
   const prev = summarize(executions.filter((e) => e.startedAt < Date.now() - days * 864e5), rules, days, Date.now() - days * 864e5);
   const delta = (a: number, b: number) => (b ? `${a >= b ? "+" : ""}${Math.round(((a - b) / b) * 100)}% vs. período anterior` : "sem dados do período anterior");
   const delivered = cur.dmSent + cur.failed ? Math.round((cur.dmSent / (cur.dmSent + cur.failed)) * 100) : null;
+  const funnels = cur.perAutomation.map((a) => {
+    const rule = rules.find((r) => r.id === a.id)!;
+    const stages = funnelStages(rule);
+    return { ...a, c: sumCounts(stats.get(a.id) ?? {}, days), clicks: stages.includes("click"), follow: stages.includes("follower") };
+  }).sort((a, b) => b.c.comment - a.c.comment);
+  const cols = "minmax(0,2fr) repeat(6, 92px)";
+  // Em telas estreitas ficam só nome, comentaram, novos seguidores e concluíram.
+  const narrow = { gridTemplateColumns: cols, "--narrow": "minmax(0,1fr) 78px 78px 96px" } as React.CSSProperties;
   const maxKw = Math.max(1, ...cur.perKeyword.map((k) => k.count));
 
   const kpis = [
@@ -72,17 +81,31 @@ export default async function Metricas({ searchParams }: { searchParams: Promise
       </div>
 
       <div className="pn-card is-flush">
-        <div className="pn-thead" style={{ gridTemplateColumns: "minmax(0,2fr) 110px 110px" }}>
-          <div>Automação</div><div style={{ textAlign: "right" }}>Execuções</div><div style={{ textAlign: "right" }}>Falhas</div>
+        <div className="pn-thead" data-narrow style={narrow}>
+          <div>Funil por automação</div>
+          <div style={{ textAlign: "right" }}>Comentaram</div>
+          <div className="pn-wide-only" style={{ textAlign: "right" }}>DMs</div>
+          <div className="pn-wide-only" style={{ textAlign: "right" }}>Clicaram</div>
+          <div style={{ textAlign: "right" }}>Novos seg.</div>
+          <div style={{ textAlign: "right" }}>Concluíram</div>
+          <div className="pn-wide-only" style={{ textAlign: "right" }}>Falhas</div>
         </div>
-        {cur.perAutomation.map((a) => (
-          <Link key={a.id} href={`/painel/automacoes/${a.id}`} className="pn-trow" style={{ gridTemplateColumns: "minmax(0,2fr) 110px 110px", color: "var(--text)" }}>
-            <div className="pn-ellipsis pn-cell-main">{a.name}</div>
-            <div className="pn-mono" style={{ textAlign: "right", fontSize: 12.5 }}>{a.runs}</div>
-            <div className="pn-mono" style={{ textAlign: "right", fontSize: 12.5, color: a.failed ? "var(--red-text)" : "var(--muted)" }}>{a.failed}</div>
-          </Link>
-        ))}
-        {!cur.perAutomation.length && <div className="pn-table-empty">Nenhuma automação criada.</div>}
+        {funnels.map((a) => {
+          const pct = (n: number) => (a.c.comment ? ` (${Math.round((n / a.c.comment) * 100)}%)` : "");
+          const cell = { textAlign: "right" as const, fontSize: 12.5 };
+          return (
+            <Link key={a.id} href={`/painel/automacoes/${a.id}?periodo=${days}`} className="pn-trow" data-narrow style={{ ...narrow, color: "var(--text)" }}>
+              <div className="pn-ellipsis pn-cell-main">{a.name}</div>
+              <div className="pn-mono" style={cell}>{a.c.comment}</div>
+              <div className="pn-mono pn-wide-only" style={cell}>{a.c.dm}</div>
+              <div className="pn-mono pn-wide-only" style={{ ...cell, color: a.clicks ? undefined : "var(--muted-2)" }}>{a.clicks ? `${a.c.click}${pct(a.c.click)}` : "—"}</div>
+              <div className="pn-mono" style={{ ...cell, color: a.follow ? "var(--green-text)" : "var(--muted-2)" }}>{a.follow ? a.c.gained : "—"}</div>
+              <div className="pn-mono" style={cell}>{`${a.c.done}${pct(a.c.done)}`}</div>
+              <div className="pn-mono pn-wide-only" style={{ ...cell, color: a.c.failed ? "var(--red-text)" : "var(--muted)" }}>{a.c.failed}</div>
+            </Link>
+          );
+        })}
+        {!funnels.length && <div className="pn-table-empty">Nenhuma automação criada.</div>}
       </div>
     </div>
   );

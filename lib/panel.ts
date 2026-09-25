@@ -3,6 +3,7 @@ import { buildExecutions } from "@/lib/activity";
 import { isPaused, listAutomations } from "@/lib/automations";
 import { getMe, getTokenInfo, isDryRun, listMediaPage, type IgMedia } from "@/lib/instagram";
 import { readLog } from "@/lib/processor";
+import { readStats, type RawStats } from "@/lib/stats";
 
 /** Dados compartilhados pelas telas do painel (cache por requisição). */
 
@@ -33,6 +34,26 @@ export const getActivity = cache(async () => {
   const [log, rules] = await Promise.all([readLog(2000), listAutomations()]);
   return { log, rules, executions: buildExecutions(log, rules) };
 });
+
+/** Contadores do funil de cada automação (id → campos "dia:etapa"). */
+export const getStats = cache(async (): Promise<Map<string, RawStats>> => {
+  const rules = await listAutomations();
+  const all = await Promise.all(rules.map(async (r) => [r.id, await readStats(r.id)] as const));
+  return new Map(all);
+});
+
+export const PERIODS = [
+  { days: 7, label: "7 dias" },
+  { days: 30, label: "30 dias" },
+  { days: 90, label: "90 dias" },
+  { days: 0, label: "Tudo" },
+] as const;
+
+/** Período da URL (?periodo=7|30|90|0); padrão 7 dias. */
+export function periodOf(raw: string | undefined, allowAll = true): number {
+  const p = Number(raw ?? "7");
+  return PERIODS.some((x) => x.days === p && (allowAll || p)) ? p : 7;
+}
 
 export const getFlags = cache(async () => ({ paused: await isPaused(), dryRun: isDryRun() }));
 

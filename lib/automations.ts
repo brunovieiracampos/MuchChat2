@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { RULES, type Rule } from "@/config/rules";
 import { normalizeInput, toInput, validateAutomation, type AutomationInput, type Issue } from "@/lib/automation-input";
 import { stepsOf } from "@/lib/flow";
+import { deleteStats } from "@/lib/stats";
 import { getStore } from "@/lib/store";
 
 export { toInput, type AutomationInput, type Issue } from "@/lib/automation-input";
@@ -80,6 +81,7 @@ export async function duplicateAutomation(id: string): Promise<Rule | null> {
 
 export async function deleteAutomation(id: string): Promise<void> {
   await writeAll((await listAutomations()).filter((a) => a.id !== id));
+  await deleteStats(id);
 }
 
 /** Pausa geral: nenhum comentário é processado; a varredura recupera o que ficou para trás ao retomar (até 7 dias). */

@@ -5,6 +5,7 @@ import {
   type DmStep, type FollowStep, type ReplyStep, type Step,
 } from "@/lib/flow";
 import { findRule, normalize, rulesNeedShortcode } from "@/lib/match";
+import { bump, type Stage } from "@/lib/stats";
 import { getStore } from "@/lib/store";
 import * as ig from "@/lib/instagram";
 
@@ -78,7 +79,11 @@ type State = {
   clicked?: number | string;
   attempts?: number;
   followTries?: number;
+  /** 1 se a verificação já disse que não segue (para contar novos seguidores) */
+  fno?: number | string;
   error?: string;
+  /** etapas do funil já contadas: s_comment, s_dm, … */
+  [mark: `s_${string}`]: number | string | undefined;
 };
 
 export type LogEntry = {
@@ -133,6 +138,25 @@ async function pickReply(step: ReplyStep, deps: Deps): Promise<string> {
   if (i === last) i = (i + 1) % opts.length;
   await store.set(key, i);
   return opts[i];
+}
+
+/** Conta a etapa no funil da automação, uma vez por comentário. Falha nos contadores não trava o fluxo. */
+async function mark(commentId: string, state: State, ruleId: string, stage: Stage, now: number) {
+  const f = `s_${stage}` as const;
+  if (state[f]) return;
+  state[f] = 1;
+  try {
+    await getStore().hset(`c:${commentId}`, { [f]: 1 });
+    await bump(ruleId, stage, now);
+  } catch (e) {
+    console.error("[flow] falha ao contar etapa", stage, commentId, e);
+  }
+}
+
+/** A pessoa passou pela verificação de seguidor; se antes não seguia, é um seguidor novo. */
+async function markFollower(ctx: Pick<Ctx, "commentId" | "state" | "rule" | "now">) {
+  await mark(ctx.commentId, ctx.state, ctx.rule.id, "follower", ctx.now);
+  if (ctx.state.fno) await mark(ctx.commentId, ctx.state, ctx.rule.id, "gained", ctx.now);
 }
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -198,6 +222,7 @@ async function send(m: ig.OutMessage, ctx: Ctx): Promise<{ fallback: boolean }> 
   Object.assign(state, patch);
   await store.hset(`c:${commentId}`, patch);
   if (state.igsid) await store.set(`w:${state.igsid}`, commentId, { ex: 7 * 86400 });
+  await mark(commentId, state, ctx.rule.id, "dm", ctx.now);
   return { fallback };
 }
 
@@ -241,6 +266,7 @@ async function execStep(step: Step, ctx: Ctx): Promise<StepOutcome> {
     try {
       if (await deps.isFollower(ctx.state.igsid)) {
         await log({ ...ctx.base, step: step.id, action: "follow-ok" }, ctx.now);
+        await markFollower(ctx);
         return "next";
       }
     } catch (e) {
@@ -270,6 +296,7 @@ async function run(ctx: Ctx): Promise<Result> {
     if (out === "failed") {
       await store.hset(key, { status: "failed" });
       await store.lpush(FAILED_KEY, ctx.commentId, 5000);
+      await mark(ctx.commentId, ctx.state, ctx.rule.id, "failed", ctx.now);
       return "dm-failed";
     }
     if (out === "wait") {
@@ -286,6 +313,7 @@ async function run(ctx: Ctx): Promise<Result> {
   }
   await store.hset(key, { status: "done", at: "" });
   await log({ ...ctx.base, action: "flow-done" }, ctx.now);
+  await mark(ctx.commentId, ctx.state, ctx.rule.id, "done", ctx.now);
   return "completed";
 }
 
@@ -344,6 +372,7 @@ export async function processComment(c: IncomingComment, source: string, deps: D
       Object.assign(state, { status: "running", rule: rule.id, username: c.username ?? "", mediaId: c.mediaId, at: steps[0]?.id ?? "" });
       await store.hset(key, state);
       await store.expire(key, RETENTION_S);
+      await mark(c.id, state, rule.id, "comment", now);
     }
     // Retomada (erro temporário): continua no fluxo da automação salva no estado.
     const r = state.rule && state.rule !== rule.id ? rules.find((x) => x.id === state.rule) ?? rule : rule;
@@ -405,6 +434,7 @@ export async function handleClick(ev: IncomingClick, source: string, deps: Deps 
     await log({ ...base, step: target.stepId, action: "clicked", detail: ev.payload ? undefined : `Respondeu “${(ev.text ?? "").slice(0, 60)}”` }, now);
 
     const ctx: Ctx = { commentId: target.commentId, rule, steps, state, base, deps, now };
+    await mark(target.commentId, state, rule.id, "click", now);
     if (!step) { state.at = ""; return run(ctx); }
 
     if (step.type === "follow") {
@@ -415,7 +445,8 @@ export async function handleClick(ev: IncomingClick, source: string, deps: Deps 
       }
       if (follows === false) {
         const tries = (Number(state.followTries) || 0) + 1;
-        await store.hset(key, { followTries: tries });
+        state.fno = 1;
+        await store.hset(key, { followTries: tries, fno: 1 });
         if (tries > MAX_FOLLOW_TRIES) {
           await store.hset(key, { status: "done", at: "" });
           await log({ ...base, step: step.id, action: "flow-done", detail: "Parou: a pessoa não seguiu depois de várias tentativas" }, now);
@@ -431,7 +462,10 @@ export async function handleClick(ev: IncomingClick, source: string, deps: Deps 
         await log({ ...base, step: step.id, action: "waiting-click", detail: `Aguardando clique em “${step.retryButton}”` }, now);
         return "waiting";
       }
-      if (follows) await log({ ...base, step: step.id, action: "follow-ok" }, now);
+      if (follows) {
+        await log({ ...base, step: step.id, action: "follow-ok" }, now);
+        await markFollower(ctx);
+      }
     }
 
     state.at = steps[idx + 1]?.id ?? "";
