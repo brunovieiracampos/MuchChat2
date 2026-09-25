@@ -331,10 +331,20 @@ button.pn-list-row { cursor: pointer; }
 .pn-sim-btn:disabled { cursor: default; opacity: .75; }
 
 /* funil */
-.pn-funnel { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.pn-funnel-summary { font-family: var(--display); font-size: 21px; line-height: 1.35; letter-spacing: -0.3px; color: var(--text-3); margin: 6px 0 0; max-width: 34em; text-wrap: pretty; }
+.pn-funnel-summary b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pn-funnel-summary b.is-gain { color: var(--green-text); }
+.pn-funnel-failed { font-size: 12px; color: var(--red-text); margin-top: 8px; }
+.pn-funnel { list-style: none; margin: 22px 0 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
 .pn-funnel-head { display: flex; align-items: baseline; gap: 10px; }
-.pn-funnel-label { font-size: 12.5px; color: var(--text-2); }
-.pn-funnel-value { margin-left: auto; font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: -0.4px; }
-.pn-funnel-track { height: 10px; border-radius: 5px; background: #1C1C24; margin-top: 6px; overflow: hidden; }
-.pn-funnel-track > div { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #7C3AED, #A78BFA); }
-.pn-funnel-meta { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+.pn-funnel-label { font-size: 13px; color: var(--text-2); }
+.pn-funnel-value { margin-left: auto; font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: -0.3px; font-variant-numeric: tabular-nums; }
+.pn-funnel-track { display: flex; height: 12px; margin-top: 7px; border-radius: 3px; overflow: hidden; background: #17171E; }
+.pn-funnel-fill { background: var(--violet-2); flex: none; }
+.pn-funnel-lost { flex: none; background: repeating-linear-gradient(135deg, #2A2A34 0 3px, transparent 3px 7px); }
+.pn-funnel-meta { display: flex; gap: 12px; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.pn-funnel-lostn { margin-left: auto; font-variant-numeric: tabular-nums; }
+.pn-funnel-gain { font-size: 12px; color: var(--green-text); margin-top: 6px; }
+.pn-funnel-tip { font-size: 12px; line-height: 1.5; color: #EBC66B; background: var(--amber-bg-2); border: 1px solid var(--amber-line); border-radius: 8px; padding: 9px 12px; margin-top: 10px; max-width: 62ch; }
+.pn-funnel li.is-worst .pn-funnel-lost { background: repeating-linear-gradient(135deg, #8A6516 0 3px, transparent 3px 7px); }
+.pn-funnel li.is-worst .pn-funnel-lostn { color: #EBC66B; }

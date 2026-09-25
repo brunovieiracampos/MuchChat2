@@ -7,7 +7,7 @@ import { PERIODS, getActivity, getStats, periodOf } from "@/lib/panel";
 import { buildFunnel, funnelStages, sumCounts } from "@/lib/stats";
 import { requireSession } from "@/lib/session";
 import { ExecBadge } from "../../_components/exec-badge";
-import { Funnel } from "../../_components/funnel";
+import { Funnel, FunnelSummary } from "../../_components/funnel";
 import { Badge, Dot } from "../../_components/ui";
 import { initials } from "../../_components/icons";
 import { DetailActions } from "./detail-actions";
@@ -28,16 +28,6 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
   const c = sumCounts(stats.get(id) ?? {}, days);
   const funnel = buildFunnel(rule, c);
   const hasFollow = funnelStages(rule).includes("follower");
-  const rate = c.dm + c.failed ? Math.round((c.dm / (c.dm + c.failed)) * 100) : null;
-  const done = c.comment ? Math.round((c.done / c.comment) * 100) : null;
-  const kpis = [
-    { label: "Comentaram", value: num(c.comment), hint: "comentários com a palavra-chave" },
-    hasFollow
-      ? { label: "Novos seguidores", value: num(c.gained), hint: "não seguiam e passaram a seguir" }
-      : { label: "Receberam a DM", value: num(c.dm), hint: rate === null ? "nenhuma DM no período" : `${rate}% de entrega` },
-    { label: "Concluíram o fluxo", value: done === null ? "—" : `${done}%`, hint: `${num(c.done)} de ${num(c.comment)}` },
-    { label: "Falhas", value: num(c.failed), hint: "mensagens recusadas pelo Instagram" },
-  ];
 
   return (
     <div className="pn-page">
@@ -63,22 +53,16 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
         </div>
       </div>
 
-      <div className="pn-grid-kpi" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-        {kpis.map((k) => (
-          <div className="pn-kpi" key={k.label}>
-            <div className="pn-kpi-label">{k.label}</div>
-            <div className="pn-kpi-value" style={{ fontSize: 26, marginTop: 10 }}>{k.value}</div>
-            <div className="pn-kpi-delta">{k.hint}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="pn-card">
-        <div className="pn-row" style={{ alignItems: "baseline", gap: 10 }}>
-          <div className="pn-card-title">Funil</div>
-          <div className="pn-small pn-muted" style={{ fontSize: 11.5 }}>cada pessoa conta uma vez por comentário</div>
-        </div>
-        {c.comment ? <Funnel rows={funnel} /> : <div className="pn-small pn-muted" style={{ padding: "14px 0 4px" }}>Ninguém comentou a palavra-chave no período.</div>}
+      <div className="pn-card" style={{ padding: "20px 22px 22px" }}>
+        {c.comment ? (
+          <>
+            <FunnelSummary c={c} hasFollow={hasFollow} />
+            {c.failed > 0 && <div className="pn-funnel-failed">{num(c.failed)} {c.failed === 1 ? "mensagem foi recusada" : "mensagens foram recusadas"} pelo Instagram. <Link href={`/painel/execucoes?automacao=${rule.id}`}>Ver em Execuções</Link></div>}
+            <Funnel rows={funnel} c={c} />
+          </>
+        ) : (
+          <p className="pn-funnel-summary">Ninguém comentou a palavra-chave {days ? `nos últimos ${days} dias` : "ainda"}.</p>
+        )}
       </div>
 
       <div className="pn-grid-2" style={{ gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr)" }}>
