@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PRODUCT } from "@/config/site";
 import { getSubscribedFields } from "@/lib/instagram";
 import { getActivity, getConnection, getFlags } from "@/lib/panel";
 import { requireSession } from "@/lib/session";
@@ -16,7 +17,7 @@ export default async function Conexao() {
 
   const checklist: { label: string; hint: string; ok: boolean | null; action?: { href: string; label: string } }[] = [
     { label: "Configurar o app da Meta", hint: hasApp ? "IG_APP_ID e IG_APP_SECRET cadastrados na Vercel" : "Cadastre IG_APP_ID e IG_APP_SECRET na Vercel e faça redeploy", ok: hasApp },
-    { label: "Conectar a conta profissional", hint: ok ? `@${conn.username} autorizada pelo login do Instagram` : "Entre com a conta @d.ia.riamente", ok, action: hasApp && !ok ? { href: "/api/auth/instagram", label: "Conectar" } : undefined },
+    { label: "Conectar a conta profissional", hint: ok ? `@${conn.username} autorizada pelo login do Instagram` : "Entre com a sua conta profissional do Instagram", ok, action: hasApp && !ok ? { href: "/api/auth/instagram", label: "Conectar" } : undefined },
     { label: "Publicar a primeira automação", hint: active ? `${active} automaç${active === 1 ? "ão ativa" : "ões ativas"}` : "Post + palavra-chave + mensagem do direct", ok: active > 0, action: active ? undefined : { href: "/painel/automacoes/nova", label: "Criar" } },
     { label: "Testar em modo de teste", hint: executions.length ? "Já há execuções registradas" : "Com DRY_RUN=true, comente a palavra-chave e rode a varredura", ok: executions.length > 0 },
     {
@@ -38,11 +39,11 @@ export default async function Conexao() {
     <div style={{ padding: "44px 16px 56px", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 680 }}>
         <div className="pn-row" style={{ gap: 11 }}>
-          <div className="pn-logo" style={{ width: 34, height: 34, borderRadius: 10 }}>D</div>
-          <div className="pn-brand-name" style={{ fontSize: 20, letterSpacing: -0.4 }}>DIAriamente Automations</div>
+          <div className="pn-logo" style={{ width: 34, height: 34, borderRadius: 10 }}>{PRODUCT.name[0]}</div>
+          <div className="pn-brand-name" style={{ fontSize: 20, letterSpacing: -0.4 }}>{PRODUCT.name}</div>
         </div>
         <p style={{ fontSize: 14, color: "#9C9CA9", lineHeight: 1.6, margin: "16px 0 0", maxWidth: 560 }}>
-          Painel das automações de comentário do @d.ia.riamente: quando alguém comenta a palavra-chave, a pessoa recebe o material no direct e o comentário é respondido.
+          Quando alguém comenta a palavra-chave no seu post, a pessoa recebe o material no direct e o comentário é respondido. Siga o checklist para deixar tudo funcionando.
         </p>
 
         <div className="pn-row" style={{ gap: 10, marginTop: 22 }}>

@@ -15,6 +15,7 @@ export default async function NovaAutomacao() {
       media={media.items.map(toMediaOption)}
       mediaNext={media.next}
       connected={conn.state === "connected"}
+      account={conn.state === "connected" ? conn.username : undefined}
       others={rules.map(toOther)}
       defaultReplies={DEFAULT_PUBLIC_REPLIES}
     />

@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
@@ -10,7 +9,8 @@ import {
 import { getToken, listMediaPage } from "@/lib/instagram";
 import { toMediaOption, type MediaOption } from "./automacoes/builder-data";
 import { resetFailed } from "@/lib/processor";
-import { requireSession, SESSION_COOKIE } from "@/lib/session";
+import { requireSession } from "@/lib/session";
+import { createClient } from "@/lib/supabase/server";
 import { sweep } from "@/lib/sweep";
 
 export type ActionResult<T = object> = ({ ok: true } & T) | { ok: false; error?: string; issues?: Issue[] };
@@ -108,7 +108,7 @@ export async function subscribeWebhookAction(): Promise<ActionResult> {
 }
 
 export async function logoutAction(): Promise<void> {
-  (await cookies()).delete(SESSION_COOKIE);
+  await (await createClient()).auth.signOut();
   redirect("/entrar");
 }
 

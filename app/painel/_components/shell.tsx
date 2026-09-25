@@ -6,12 +6,14 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { logoutAction, setPausedAction } from "../actions";
 import { ConfirmModal, Dot, Icon, ToastProvider, useToast } from "./ui";
 import { ICONS } from "./icons";
+import { PRODUCT } from "@/config/site";
 
 export type ShellProps = {
   connection: { state: "connected" | "disconnected" | "error"; username?: string };
   paused: boolean;
   dryRun: boolean;
   failedCount: number;
+  user: { name: string; email: string };
   children: ReactNode;
 };
 
@@ -52,7 +54,7 @@ export function Shell(props: ShellProps) {
   );
 }
 
-function ShellInner({ connection, paused, dryRun, failedCount, children }: ShellProps) {
+function ShellInner({ connection, paused, dryRun, failedCount, user, children }: ShellProps) {
   const path = usePathname();
   const router = useRouter();
   const toast = useToast();
@@ -74,7 +76,8 @@ function ShellInner({ connection, paused, dryRun, failedCount, children }: Shell
   const ok = connection.state === "connected";
   const igColor = ok ? "#2FA37A" : connection.state === "error" ? "#E0A526" : "#E4544F";
   const igLabel = ok ? "Conexão com o Instagram ativa" : connection.state === "error" ? "Conexão com erro" : "Instagram desconectado";
-  const account = connection.username ? `@${connection.username}` : "@d.ia.riamente";
+  const account = connection.username ? `@${connection.username}` : "Instagram não conectado";
+  const initial = (user.name[0] ?? "?").toUpperCase();
 
   const confirmPause = () => start(async () => {
     const r = await setPausedAction(!paused);
@@ -94,10 +97,10 @@ function ShellInner({ connection, paused, dryRun, failedCount, children }: Shell
     <div className="pn pn-shell">
       <aside className={`pn-side${collapsed ? " is-collapsed" : ""}`}>
         <div className="pn-brand">
-          <div className="pn-logo">D</div>
+          <div className="pn-logo">{PRODUCT.name[0]}</div>
           <div className="pn-label" style={{ minWidth: 0 }}>
-            <div className="pn-brand-name">DIAriamente</div>
-            <div className="pn-brand-sub">Automations</div>
+            <div className="pn-brand-name">{PRODUCT.name}</div>
+            <div className="pn-brand-sub pn-ellipsis">{account}</div>
           </div>
         </div>
 
@@ -135,10 +138,10 @@ function ShellInner({ connection, paused, dryRun, failedCount, children }: Shell
             {paused && <span className="pn-test-pill">Automações pausadas</span>}
           </div>
           <div className="pn-user">
-            <div className="pn-avatar-grad">d.</div>
+            <div className="pn-avatar-grad">{initial}</div>
             <div className="pn-label" style={{ minWidth: 0, flex: 1 }}>
-              <div className="pn-ellipsis" style={{ fontSize: 12, fontWeight: 500 }}>{account}</div>
-              <div style={{ fontSize: 11, color: "var(--muted)" }}>Bruno, operador</div>
+              <div className="pn-ellipsis" style={{ fontSize: 12, fontWeight: 500 }}>{user.name}</div>
+              <div className="pn-ellipsis" style={{ fontSize: 11, color: "var(--muted)" }}>{user.email}</div>
             </div>
           </div>
           <button type="button" className="pn-collapse" onClick={toggleCollapsed}>{collapsed ? "›" : "‹ Recolher menu"}</button>
@@ -167,15 +170,15 @@ function ShellInner({ connection, paused, dryRun, failedCount, children }: Shell
             <div style={{ position: "relative" }}>
               <button type="button" onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-haspopup="menu"
                 style={{ display: "flex", alignItems: "center", gap: 7, border: "1px solid var(--line-2)", background: "var(--card)", borderRadius: 8, padding: "4px 9px 4px 5px", cursor: "pointer", color: "var(--text)", fontSize: 12 }}>
-                <span className="pn-avatar-grad" style={{ width: 22, height: 22, fontSize: 10 }}>d.</span>
-                <span className="pn-hide-sm">Bruno</span>
+                <span className="pn-avatar-grad" style={{ width: 22, height: 22, fontSize: 10 }}>{initial}</span>
+                <span className="pn-hide-sm">{user.name.split(" ")[0]}</span>
                 <Icon d="M6 9l6 6 6-6" size={11} color="#8A8A99" width={2} />
               </button>
               {menu && (
                 <div role="menu" style={{ position: "absolute", right: 0, top: 38, zIndex: 30, minWidth: 170, background: "#111117", border: "1px solid var(--line-3)", borderRadius: 10, padding: 5, boxShadow: "0 16px 40px rgba(0,0,0,.5)" }}>
                   <form action={logoutAction}>
                     <button type="submit" role="menuitem" className="pn-btn" style={{ width: "100%", justifyContent: "flex-start", border: "none", background: "transparent" }}>
-                      <Icon d={ICONS.logout} size={14} /> Sair do painel
+                      <Icon d={ICONS.logout} size={14} /> Sair
                     </button>
                   </form>
                 </div>

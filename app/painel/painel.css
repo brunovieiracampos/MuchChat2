@@ -355,3 +355,21 @@ button.pn-list-row { cursor: pointer; }
 .pn-summary-sub { font-size: 12.5px; color: var(--muted); margin-top: 8px; max-width: 70ch; line-height: 1.5; }
 @media (max-width: 880px) { .pn-summary { font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { .pn *, .pn *::before, .pn *::after { animation: none !important; transition: none !important; } }
+
+/* ---------- telas de conta ---------- */
+.pn-auth { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 32px 16px; }
+.pn-auth-col { width: 100%; max-width: 380px; }
+.pn-auth-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text) !important; }
+.pn-auth-title { font-family: var(--display); font-size: 24px; font-weight: 600; letter-spacing: -0.5px; margin: 28px 0 0; line-height: 1.2; }
+.pn-auth-lead { font-size: 13.5px; color: var(--muted); margin: 8px 0 0; line-height: 1.55; }
+.pn-auth-form { display: flex; flex-direction: column; gap: 14px; margin-top: 22px; }
+.pn-auth-form .pn-input { padding: 10px 12px; font-size: 13.5px; }
+.pn-auth-form .pn-field-label { font-size: 12.5px; color: var(--text-3); }
+.pn-auth-form .pn-btn.is-primary { padding: 11px 14px; font-size: 13.5px; margin-top: 4px; }
+.pn-auth-check { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; color: var(--text-3); line-height: 1.5; }
+.pn-auth-check input { margin-top: 3px; accent-color: var(--violet); }
+.pn-auth-alt { font-size: 13px; color: var(--muted); margin-top: 22px; }
+.pn-auth-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.pn-auth-row a { font-size: 12.5px; }
+.pn-auth-sent { border: 1px solid var(--violet-line); background: #120C1F; border-radius: 12px; padding: 16px 18px; margin-top: 22px; font-size: 13.5px; color: #CFC6EA; line-height: 1.55; }
+.pn-auth-sent b { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }

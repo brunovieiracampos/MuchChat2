@@ -1,45 +1,43 @@
-import crypto from "node:crypto";
-import { cookies } from "next/headers";
+import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
+import { isOwner } from "@/lib/account";
 import { isAuthorized } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
-/** Sessão do painel: cookie HttpOnly com um HMAC derivado do ADMIN_SECRET (trocar o segredo derruba as sessões). */
-export const SESSION_COOKIE = "painel";
-export const SESSION_MAX_AGE = 30 * 86400;
+/**
+ * Sessão do painel: usuário do Supabase Auth (cookies renovados pelo proxy.ts).
+ *
+ * Até os dados serem separados por conta (fase 2), o painel ainda mostra uma conta só (@d.ia.riamente).
+ * Por isso só os e-mails em OWNER_EMAILS entram; quem mais se cadastrar vai para /aguardando.
+ */
 
-export function sessionToken(secret = process.env.ADMIN_SECRET): string | null {
-  if (!secret) return null;
-  return crypto.createHmac("sha256", secret).update("painel-v1").digest("hex");
-}
+export { isOwner };
 
-export function isValidSession(value: string | undefined): boolean {
-  const expected = sessionToken();
-  if (!expected || !value || value.length !== expected.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(value), Buffer.from(expected));
-}
+export type SessionUser = { id: string; email: string; name: string };
 
-export function checkPassword(password: string): boolean {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret || password.length !== secret.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(password), Buffer.from(secret));
-}
-
-export async function hasSession(): Promise<boolean> {
-  return isValidSession((await cookies()).get(SESSION_COOKIE)?.value);
-}
+/** Usuário logado, validado no servidor do Supabase (não confia só no cookie). */
+export const getUser = cache(async (): Promise<SessionUser | null> => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  const u = data.user;
+  if (!u?.email) return null;
+  const { data: profile } = await supabase.from("profiles").select("name").eq("id", u.id).maybeSingle();
+  const name = (profile?.name || (u.user_metadata?.name as string | undefined) || "").trim();
+  return { id: u.id, email: u.email, name: name || u.email.split("@")[0] };
+});
 
 /** Para páginas e server actions do painel. */
-export async function requireSession(): Promise<void> {
-  if (!(await hasSession())) redirect("/entrar");
+export async function requireSession(): Promise<SessionUser> {
+  const user = await getUser();
+  if (!user) redirect("/entrar");
+  if (!isOwner(user.email)) redirect("/aguardando");
+  return user;
 }
 
-/** Cookie do painel lido direto do Request (route handlers). */
-export function sessionFromRequest(req: Request): boolean {
-  const m = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([a-f0-9]+)`));
-  return isValidSession(m?.[1]);
-}
-
-/** Para route handlers: aceita o cookie do painel ou o ADMIN_SECRET (Bearer / ?key=). */
-export function isAdminRequest(req: Request): boolean {
-  return sessionFromRequest(req) || isAuthorized(req, process.env.ADMIN_SECRET);
+/** Para route handlers: usuário dono logado ou o ADMIN_SECRET (Bearer / ?key=) para scripts. */
+export async function isAdminRequest(req: Request): Promise<boolean> {
+  if (isAuthorized(req, process.env.ADMIN_SECRET)) return true;
+  const user = await getUser();
+  return !!user && isOwner(user.email);
 }

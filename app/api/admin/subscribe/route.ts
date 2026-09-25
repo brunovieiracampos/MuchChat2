@@ -16,10 +16,10 @@ async function call(method: "GET" | "POST") {
 }
 
 export async function GET(req: Request) {
-  if (!isAdminRequest(req)) return new Response("unauthorized", { status: 401 });
+  if (!(await isAdminRequest(req))) return new Response("unauthorized", { status: 401 });
   return call("GET");
 }
 export async function POST(req: Request) {
-  if (!isAdminRequest(req)) return new Response("unauthorized", { status: 401 });
+  if (!(await isAdminRequest(req))) return new Response("unauthorized", { status: 401 });
   return call("POST");
 }

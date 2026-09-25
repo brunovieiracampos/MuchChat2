@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // GET /api/auth/instagram?key=ADMIN_SECRET → abre o login do Instagram (Business Login)
 export async function GET(req: Request) {
-  if (!isAdminRequest(req)) return new Response("unauthorized", { status: 401 });
+  if (!(await isAdminRequest(req))) return new Response("unauthorized", { status: 401 });
   const appId = process.env.IG_APP_ID;
   if (!appId) return new Response("IG_APP_ID não configurado", { status: 500 });
   const state = crypto.randomBytes(16).toString("hex");

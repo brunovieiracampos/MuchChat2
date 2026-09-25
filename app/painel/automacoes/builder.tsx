@@ -20,13 +20,14 @@ type Sel = "trigger" | string;
 const TRIGGER_COLOR = "#7C3AED";
 const END_COLOR = "#5F5F6E";
 
-export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected, others, defaultReplies }: {
+export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected, account, others, defaultReplies }: {
   initial: AutomationInput;
   isNew?: boolean;
   updatedAt?: number;
   media: MediaOption[];
   mediaNext?: string;
   connected: boolean;
+  account?: string;
   others: OtherAutomation[];
   defaultReplies: string[];
 }) {
@@ -185,7 +186,7 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
         {testOpen && <div className="pn-builder-backdrop" onClick={() => setTestOpen(false)} />}
         <aside className={`pn-builder-left${testOpen ? " is-open" : ""}`} aria-label="Teste">
           <button type="button" className="pn-close pn-builder-left-close" onClick={() => setTestOpen(false)} aria-label="Fechar teste">×</button>
-          <TestPanel form={clean} anyPost={anyPost} />
+          <TestPanel form={clean} anyPost={anyPost} account={account} />
         </aside>
 
         <div className="pn-canvas">
@@ -508,7 +509,7 @@ function FollowConfig({ step, update, issues }: { step: FollowStep; update: (p: 
 
 /* ---------- teste na tela ---------- */
 
-function TestPanel({ form, anyPost }: { form: AutomationInput; anyPost: boolean }) {
+function TestPanel({ form, anyPost, account }: { form: AutomationInput; anyPost: boolean; account?: string }) {
   const [comment, setComment] = useState(form.keywords[0] ? `Quero! ${form.keywords[0].toLowerCase()}` : "");
   const [user, setUser] = useState("seguidor.teste");
   const [follows, setFollows] = useState(false);
@@ -541,7 +542,7 @@ function TestPanel({ form, anyPost }: { form: AutomationInput; anyPost: boolean 
           <div className="pn-sim-label">Comentário</div>
           <div className="pn-bubble is-in"><b>@{user}</b> {comment}</div>
           {sim.items.map((it, i) => {
-            if (it.kind === "reply") return <div key={i} className="pn-bubble is-in is-reply"><b>@d.ia.riamente</b> {it.text}</div>;
+            if (it.kind === "reply") return <div key={i} className="pn-bubble is-in is-reply"><b>{account ? `@${account}` : "Seu perfil"}</b> {it.text}</div>;
             if (it.kind === "note") return <div key={i} className="pn-sim-note">{it.text}</div>;
             if (it.kind === "end") return <div key={i} className="pn-sim-note">Fim do fluxo</div>;
             if (it.kind === "click") return <div key={i} className="pn-bubble is-click">{it.title}</div>;
