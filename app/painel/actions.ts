@@ -114,7 +114,7 @@ export async function subscribeWebhookAction(): Promise<ActionResult> {
 export async function createTokenAction(name: string): Promise<ActionResult<{ token: string }>> {
   const user = await requireSession();
   try {
-    const token = await createToken(user.id, name.trim() || "Claude Code");
+    const token = await createToken(user.id, name.trim() || "Claude");
     revalidatePath("/painel/configuracoes");
     return { ok: true, token };
   } catch (e) { return fail(e); }

@@ -53,12 +53,11 @@ ao ativar, o momento em que foi armada (`armedAt`). No primeiro comentário num 
 (ou a varredura) pega o post mais antigo publicado após `armedAt`, troca o marcador pelo link dele e grava (`boundAt`).
 Também dá para salvar a automação como rascunho sem post e associar depois.
 
-**MCP (Claude Code).** `app/api/mcp` expõe as ferramentas de `lib/mcp.ts` (listar, criar, editar, associar post, ativar,
-excluir, execuções, resumo, pausar tudo). A autenticação é por token pessoal gerado em Configurações → Acesso pelo Claude
-(o banco guarda só o SHA-256, tabela `api_tokens`). Tudo roda dentro da conta do dono do token:
-```bash
-claude mcp add --transport http muchchat https://SEU-DOMINIO/api/mcp --header "Authorization: Bearer mc_…"
-```
+**MCP (conector do Claude).** `app/api/mcp` expõe as ferramentas de `lib/mcp.ts` (listar, criar, editar, associar post,
+ativar, excluir, execuções, resumo, pausar tudo). Em Configurações → Acesso pelo Claude, o usuário gera um link
+`https://SEU-DOMINIO/api/mcp/mc_…` e o adiciona no Claude em Configurações → Conectores → Adicionar conector personalizado
+(web, desktop e celular). O token vai no caminho porque o conector não envia cabeçalhos; `/api/mcp` também aceita
+`Authorization: Bearer mc_…` (Claude Code). O banco guarda só o SHA-256 (`api_tokens`), e tudo roda na conta do dono do token.
 
 O funil vem de contadores diários (`stats:{id}`), não do log: cada comentário conta uma vez por etapa.
 
