@@ -1,113 +1,85 @@
-# dia-dm — comentário → DM para @d.ia.riamente
+# Much Chat — comentário vira conversa no direct
 
-Quando alguém comenta uma palavra-chave (ex.: `CONTADOR`) num post:
+Cada usuário conecta a conta profissional do Instagram e cria automações. Quando alguém comenta uma palavra-chave num post:
 
-1. envia a DM via **Private Reply** (`POST graph.instagram.com/{ig-user-id}/messages` com `recipient.comment_id`, 1 por comentário, até 7 dias);
-2. responde o comentário publicamente com uma frase curta sorteada (só depois que a DM saiu, para não prometer algo que não chegou).
+1. a pessoa recebe a DM via **Private Reply** (1 por comentário, até 7 dias depois dele);
+2. o fluxo continua com botões, verificação de seguidor e link, e o comentário é respondido em público.
 
-Cada comentário é registrado no Redis (`c:{comment_id}`) com lock contra concorrência → **nunca duplica**, mesmo se o webhook repetir ou a varredura passar de novo.
+Cada comentário tem estado próprio no Redis com trava contra concorrência → **nunca duplica**, mesmo se o webhook repetir ou a varredura passar de novo.
+O nome do produto fica em `config/site.ts` (`PRODUCT`).
+
+## Contas e isolamento
+
+| Onde | O quê |
+|---|---|
+| Supabase Auth | Cadastro, login, confirmação de e-mail e redefinição de senha (`app/(conta)`, `app/auth/confirmar`) |
+| `profiles` (Postgres) | Nome do usuário; RLS: cada um lê e edita só o próprio |
+| `instagram_accounts` (Postgres) | Conta do Instagram de cada usuário (v1: uma por usuário) e o token da Meta **criptografado** (`lib/secret-box.ts`, `TOKEN_ENCRYPTION_KEY`). O navegador não tem acesso à coluna do token |
+| `automations` (Postgres) | Automações da conta; RLS: só o dono da conta lê e altera |
+| Redis `a:{accountId}:…` | Estado dos fluxos, travas, log, funil (`stats:{id}`) e pausa, sempre com o prefixo da conta |
+
+Todo código que toca dados roda **dentro de uma conta** (`withAccount` em `lib/account-context.ts`): o Redis ganha o prefixo e o token vem dela.
+Fora de uma conta, `getStore()` dá erro, então esquecer esse passo quebra em vez de misturar clientes.
+
+- **Painel:** `lib/panel.ts` entra na conta do usuário logado; automações são lidas com o cliente do usuário (RLS).
+- **Webhook:** cada evento traz a conta de destino (`entry.id`); eventos de contas desconhecidas são ignorados.
+- **Varredura:** `/api/cron/sweep` percorre todas as contas conectadas e renova os tokens.
+
+Migrações do banco em `supabase/migrations` (aplicar com `psql "$POSTGRES_URL_NON_POOLING" -f …`).
+`scripts/migrate-to-accounts.mjs` levou a conta que existia antes das contas de usuário para o dono (roda uma vez).
 
 ## Estrutura
 
 | Arquivo | O quê |
 |---|---|
-| `config/rules.ts` | Regras iniciais (copiadas para o Redis na primeira vez; depois edite no painel) |
-| `config/site.ts` | Nome/e-mail exibidos na política de privacidade |
+| `proxy.ts` | Renova a sessão do Supabase e manda para /entrar quem abre o painel sem login |
 | `app/api/webhooks/instagram` | Webhook (verificação GET + POST com assinatura `X-Hub-Signature-256`) |
-| `app/api/cron/sweep` | Varredura: lê comentários dos posts dos últimos 7 dias e processa o que faltou; renova o token |
-| `app/painel` | Painel (design em `reference/`): automações, execuções, contatos, métricas, configurações |
-| `app/api/auth/instagram` | Login com Instagram (OAuth) → token de longa duração salvo no Redis |
-| `app/api/admin/*` | `log` (GET log / POST `?action=retry-failed`), `media`, `subscribe` |
-| `app/privacidade`, `app/exclusao-de-dados` | Páginas exigidas pela Meta |
+| `app/api/cron/sweep` | Varredura diária de todas as contas |
+| `app/api/auth/instagram` | Conectar o Instagram (OAuth) na conta do usuário logado; já inscreve no webhook |
+| `app/painel` | Painel: visão geral, automações (construtor em blocos), execuções, contatos, métricas e funil, configurações |
+| `app/(publico)` | Página inicial, privacidade e exclusão de dados |
 
-## Painel
-
-Abra `https://SEU-DOMINIO/painel` e entre com a senha `ADMIN_SECRET` (o link antigo `/admin?key=…` também abre a sessão).
-
-| Tela | O quê |
-|---|---|
-| Visão geral | Comentários atendidos, DMs, falhas, gráfico de 7 dias e atividade recente |
-| Automações | Lista, ativar/pausar, duplicar; **Construtor**: post(s) + palavra(s)-chave → DM + link + respostas públicas, com teste na tela |
-| Execuções | Cada comentário processado, com etapas e erro da API; “Tentar de novo” para DMs recusadas |
-| Contatos | Quem comentou, quantas vezes e em quais automações |
-| Métricas | 7/30/90 dias, palavras-chave mais usadas e funil de cada automação (comentaram → DM → clicaram → seguem → concluíram, com novos seguidores) |
-| Configurações / Conexão | Conta, token, webhook, varredura manual, pausa geral, checklist de setup |
-
-**Fluxo em blocos.** Cada automação é uma lista de blocos executados em ordem para cada comentário:
+**Fluxo em blocos.** Cada automação é uma lista de blocos executados em ordem:
 - **Responder comentário**: resposta pública (uma frase sorteada entre as cadastradas).
-- **Enviar DM**: sem botão, com botão **Continuar o fluxo** (para até a pessoa clicar) ou com botão **Abrir link**.
+- **Enviar DM**: sem botão, com botão **Continuar o fluxo** (espera o clique) ou com botão **Abrir link**.
 - **Verificar se segue**: se a pessoa segue o perfil, passa; senão pede para seguir e confere de novo a cada clique.
 
-Regras do Instagram: a primeira DM é a Private Reply (uma por comentário, até 7 dias); as seguintes só depois de um clique
-(a conversa fica aberta por 24h). Cliques chegam pelo webhook (`messages` e `messaging_postbacks`), então botões dependem
-do webhook de mensagens (e do App Review para quem não é testador). Se o Instagram recusar o botão, o sistema manda o texto
-com “Responda “Me envie” aqui” e aceita a palavra digitada como clique.
+Regras do Instagram: a primeira DM é a Private Reply; as seguintes só depois de um clique (a conversa fica aberta por 24h).
+Se o Instagram recusar o botão, o sistema manda o texto com “Responda “Me envie” aqui” e aceita a palavra digitada como clique.
+Na DM, `{link}` vira o link e `{usuario}` vira o @ de quem comentou. A palavra-chave ignora maiúsculas e acentos, mas tem que vir inteira.
 
-O funil vem de contadores diários no Redis (`stats:{id}`), não do log: cada comentário conta uma vez por etapa.
+**Post que ainda não saiu.** No construtor (ou pelo MCP), a opção **Próxima publicação** grava o marcador `@next` e,
+ao ativar, o momento em que foi armada (`armedAt`). No primeiro comentário num post publicado depois disso, o processador
+(ou a varredura) pega o post mais antigo publicado após `armedAt`, troca o marcador pelo link dele e grava (`boundAt`).
+Também dá para salvar a automação como rascunho sem post e associar depois.
 
-As automações ficam no Redis (`automations`). Na primeira vez, o painel copia as regras de `config/rules.ts`; depois disso, edite pelo painel.
-Na mensagem da DM, `{link}` vira o link e `{usuario}` vira o @ de quem comentou.
-A palavra-chave ignora maiúsculas e acentos, mas tem que vir inteira: `contador!` dispara, `contadores` não.
-
-O design de referência está em `reference/DIAriamente Automations.html`. A “Caixa de entrada” aparece como “em breve”: responder DMs livres precisa do webhook de mensagens e do App Review.
-
-## Setup (uma vez)
-
-### 1. GitHub + Vercel
+**MCP (Claude Code).** `app/api/mcp` expõe as ferramentas de `lib/mcp.ts` (listar, criar, editar, associar post, ativar,
+excluir, execuções, resumo, pausar tudo). A autenticação é por token pessoal gerado em Configurações → Acesso pelo Claude
+(o banco guarda só o SHA-256, tabela `api_tokens`). Tudo roda dentro da conta do dono do token:
 ```bash
-cd dia-dm
-git init && git add . && git commit -m "dia-dm inicial"
-gh repo create dia-dm --private --source=. --push
-```
-Na Vercel: **Add New → Project → importar `dia-dm`** → Deploy.
-Depois, em **Storage → Create/Connect → Upstash (Redis)** → conecte ao projeto (cria `KV_REST_API_URL` e `KV_REST_API_TOKEN`).
-
-### 2. App na Meta (Instagram API com Instagram Login)
-Em developers.facebook.com → seu app:
-
-1. **Add product → Instagram → "API setup with Instagram login"**.
-2. A conta @d.ia.riamente precisa ser **profissional (Criador ou Empresa) e pública**.
-3. Copie o **Instagram app ID** (`IG_APP_ID`) e o **Instagram app secret** (`IG_APP_SECRET`) na tela do produto Instagram. São diferentes do ID e do secret do app Meta.
-4. Em **Set up Instagram business login → Business login settings → OAuth redirect URIs**, adicione `https://SEU-DOMINIO/api/auth/instagram/callback`.
-   Depois do deploy, abra `/painel` → **Conexão** → **Conectar Instagram** → entre com @d.ia.riamente. O token de 60 dias e o ID da conta ficam salvos no Redis, e a varredura renova o token sozinha.
-   *(Alternativa: em "Generate access tokens", adicione a conta e cole o token em `IG_ACCESS_TOKEN` e o ID em `IG_USER_ID`.)*
-5. **App settings → Basic**: Privacy Policy URL = `https://SEU-DOMINIO/privacidade`; User data deletion = `https://SEU-DOMINIO/exclusao-de-dados`; ícone 1024×1024; categoria.
-
-### 3. Variáveis na Vercel (Settings → Environment Variables)
-Veja `.env.example`. Mínimo: `IG_APP_ID`, `IG_APP_SECRET`, `IG_VERIFY_TOKEN` (invente), `ADMIN_SECRET` (invente, longo), `CRON_SECRET` (invente), `DRY_RUN=true` no começo. Faça **Redeploy**.
-
-### 4. Webhook
-No produto Instagram → **Configure webhooks**:
-- Callback URL: `https://SEU-DOMINIO/api/webhooks/instagram`
-- Verify token: o mesmo `IG_VERIFY_TOKEN` → **Verify and save**
-- Assine o campo **comments**.
-
-Depois inscreva a conta:
-```bash
-curl -X POST "https://SEU-DOMINIO/api/admin/subscribe?key=ADMIN_SECRET"
+claude mcp add --transport http muchchat https://SEU-DOMINIO/api/mcp --header "Authorization: Bearer mc_…"
 ```
 
-### 5. Teste
-- Abra `https://SEU-DOMINIO/painel/conexao`: o checklist mostra o que falta.
-- Rode a varredura pelo botão **Rodar varredura** (ou `curl "https://SEU-DOMINIO/api/cron/sweep?key=ADMIN_SECRET"`). Com `DRY_RUN=true`, o log mostra o que **seria** enviado.
-- Troque para `DRY_RUN=false`, redeploy, e comente `CONTADOR` com uma conta de teste (ver abaixo).
+O funil vem de contadores diários (`stats:{id}`), não do log: cada comentário conta uma vez por etapa.
 
-**Conta de teste em modo dev:** App roles → Roles → **Add Instagram Tester** (outra conta sua); aceite o convite no app do Instagram dessa conta (Configurações → Apps e sites → Convites de testador).
+## Setup
 
-### 6. Frequência da varredura
-O `vercel.json` roda a varredura 1×/dia (é o limite do plano Hobby). Se quiser uma rede de segurança para eventos que o webhook perder, crie um agendamento gratuito em cron-job.org chamando
-`https://SEU-DOMINIO/api/cron/sweep?key=ADMIN_SECRET` a cada 5–10 min.
+1. **Vercel + Marketplace:** Upstash (Redis) e Supabase conectados ao projeto preenchem as variáveis. Veja `.env.example` para o resto
+   (`IG_APP_ID`, `IG_APP_SECRET`, `IG_VERIFY_TOKEN`, `TOKEN_ENCRYPTION_KEY`, `CRON_SECRET`).
+2. **Supabase → Authentication → URL Configuration:** Site URL = domínio de produção; Redirect URLs = `https://SEU-DOMINIO/**` e `http://localhost:3000/**`.
+   Para outras pessoas se cadastrarem, configure um SMTP próprio (o envio embutido do Supabase tem limite baixo por hora).
+3. **App na Meta** (Instagram API com Instagram Login): OAuth redirect URI `https://SEU-DOMINIO/api/auth/instagram/callback`;
+   webhook `https://SEU-DOMINIO/api/webhooks/instagram` com o `IG_VERIFY_TOKEN`, campos `comments`, `messages` e `messaging_postbacks`;
+   Privacy Policy URL e User data deletion em **App settings → Basic** (a do produto Instagram não conta).
+4. **Modo Live:** em modo de desenvolvimento a Meta esconde os comentários de quem não é testador. Publicar o app resolve para as contas que você administra, sem App Review.
+   Conectar contas de **outras pessoas** exige App Review (acesso avançado) e verificação do negócio; roteiro em `docs/APP_REVIEW.md`.
 
-## Importante: modo desenvolvimento × App Review
-- Em **modo de desenvolvimento** a Meta só mostra comentários de contas com papel no app (você e **Testadores do Instagram** que aceitaram o convite). Isso vale para o webhook **e** para a varredura: a API devolve a lista de comentários vazia para os demais (o `comments_count` do post continua contando). Para funcionar com qualquer seguidor é preciso **app em modo Live + Advanced Access** em `instagram_business_manage_comments` e `instagram_business_manage_messages` (App Review).
-- A Private Reply para quem **não tem papel no app** provavelmente só funciona com Advanced Access em `instagram_business_manage_messages`. Se falhar, o log mostra `dm-failed` e **a resposta pública não é feita**.
-- Quando o App Review sair: `curl -X POST "https://SEU-DOMINIO/api/admin/log?key=ADMIN_SECRET&action=retry-failed"` e depois rode a varredura. Todo comentário que ainda estiver dentro dos 7 dias recebe a DM.
-
-Roteiro do pedido e do screencast: `docs/APP_REVIEW.md`.
+A varredura roda 1×/dia pelo `vercel.json` (limite do plano Hobby).
 
 ## Desenvolvimento
 ```bash
 npm install
-npm test        # regras, dedupe, concorrência, janela de 7 dias, assinatura
-npm run dev     # sem Redis usa memória
+npm test        # fluxos, dedupe, concorrência, janela de 7 dias, funil, isolamento entre contas
+npm run dev     # sem KV_REST_API_* usa memória no lugar do Redis
 ```
+Não deixe as variáveis do Redis de produção no `.env.local`: o `vercel env pull` as traz, e o dev local passaria a mexer nos dados reais.

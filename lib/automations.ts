@@ -1,32 +1,22 @@
 import crypto from "node:crypto";
-import { RULES, type Rule } from "@/config/rules";
+import type { Rule } from "@/config/rules";
+import { currentAccount } from "@/lib/account-context";
 import { normalizeInput, toInput, validateAutomation, type AutomationInput, type Issue } from "@/lib/automation-input";
-import { stepsOf } from "@/lib/flow";
+import { waitsNextPost } from "@/lib/match";
 import { deleteStats } from "@/lib/stats";
 import { getStore } from "@/lib/store";
 
 export { toInput, type AutomationInput, type Issue } from "@/lib/automation-input";
 
-const KEY = "automations";
 const PAUSED_KEY = "paused";
 
-/** Automações salvas pelo painel. Na primeira leitura, popula o Redis com config/rules.ts. */
+/** Automações da conta em uso (Postgres; no painel, com RLS). */
 export async function listAutomations(): Promise<Rule[]> {
-  const store = getStore();
-  const saved = await store.get<Rule[]>(KEY);
-  if (saved) return saved;
-  const now = Date.now();
-  const seed = RULES.map((r) => ({ active: true, createdAt: now, updatedAt: now, ...r, steps: stepsOf(r) }));
-  await store.set(KEY, seed);
-  return seed;
+  return currentAccount().repo.listAutomations();
 }
 
 export async function getAutomation(id: string): Promise<Rule | null> {
   return (await listAutomations()).find((a) => a.id === id) ?? null;
-}
-
-async function writeAll(list: Rule[]) {
-  await getStore().set(KEY, list);
 }
 
 function slug(s: string) {
@@ -50,10 +40,13 @@ export async function saveAutomation(raw: AutomationInput): Promise<{ ok: true; 
     dm: "",
     steps: input.steps,
     active: input.active,
+    // "Próxima publicação": arma ao ativar; se já estava armada e ativa, mantém o momento original.
+    armedAt: input.active && waitsNextPost(input) ? (prev?.active !== false && prev?.armedAt ? prev.armedAt : now) : undefined,
+    boundAt: waitsNextPost(input) ? undefined : prev?.boundAt,
     createdAt: prev?.createdAt ?? now,
     updatedAt: now,
   };
-  await writeAll(prev ? list.map((a) => (a.id === prev.id ? automation : a)) : [...list, automation]);
+  await currentAccount().repo.saveAutomation(automation);
   return { ok: true, automation };
 }
 
@@ -65,7 +58,9 @@ export async function setAutomationActive(id: string, active: boolean): Promise<
     const issues = validateAutomation({ ...toInput(a), active: true }, list);
     if (issues.length) return { ok: false, issues };
   }
-  await writeAll(list.map((x) => (x.id === id ? { ...x, active, updatedAt: Date.now() } : x)));
+  const now = Date.now();
+  const armedAt = active && waitsNextPost(a) ? (a.active !== false && a.armedAt ? a.armedAt : now) : undefined;
+  await currentAccount().repo.saveAutomation({ ...a, active, armedAt, updatedAt: now });
   return { ok: true };
 }
 
@@ -74,13 +69,18 @@ export async function duplicateAutomation(id: string): Promise<Rule | null> {
   const a = list.find((x) => x.id === id);
   if (!a) return null;
   const now = Date.now();
-  const copy: Rule = { ...a, id: `${slug(a.name ?? a.id)}-${crypto.randomBytes(3).toString("hex")}`, name: `${a.name ?? a.id} (cópia)`, active: false, createdAt: now, updatedAt: now };
-  await writeAll([...list, copy]);
+  const copy: Rule = { ...a, id: `${slug(a.name ?? a.id)}-${crypto.randomBytes(3).toString("hex")}`, name: `${a.name ?? a.id} (cópia)`, active: false, armedAt: undefined, boundAt: undefined, createdAt: now, updatedAt: now };
+  await currentAccount().repo.saveAutomation(copy);
   return copy;
 }
 
+/** Grava uma automação já validada (ex.: presa à próxima publicação pelo processador). */
+export async function storeAutomation(rule: Rule): Promise<void> {
+  await currentAccount().repo.saveAutomation(rule);
+}
+
 export async function deleteAutomation(id: string): Promise<void> {
-  await writeAll((await listAutomations()).filter((a) => a.id !== id));
+  await currentAccount().repo.deleteAutomation(id);
   await deleteStats(id);
 }
 

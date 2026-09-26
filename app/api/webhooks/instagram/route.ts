@@ -1,7 +1,9 @@
 import { after } from "next/server";
 import { verifySignature } from "@/lib/auth";
 import { extractClicks, extractComments } from "@/lib/webhook";
-import { handleClick, processComment } from "@/lib/processor";
+import { withAccount } from "@/lib/account-context";
+import { accountByIgUserId } from "@/lib/accounts";
+import { handleClick, processComment, type IncomingClick, type IncomingComment } from "@/lib/processor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,23 +29,40 @@ export async function POST(req: Request) {
 
   const comments = extractComments(payload);
   const clicks = extractClicks(payload);
-  // Responde 200 na hora (a Meta reenvia se demorar) e processa em seguida.
+  // Responde 200 na hora (a Meta reenvia se demorar) e processa em seguida, conta por conta.
   after(async () => {
-    for (const c of comments) {
-      try {
-        const r = await processComment(c, "webhook");
-        console.log("[webhook]", c.id, r);
-      } catch (e) {
-        console.error("[webhook] erro", c.id, e);
-      }
-    }
-    for (const k of clicks) {
-      try {
-        const r = await handleClick(k, "webhook");
-        if (r !== "ignored") console.log("[webhook] clique", k.igsid, r);
-      } catch (e) {
-        console.error("[webhook] erro no clique", k.igsid, e);
-      }
+    const byAccount = new Map<string, { comments: IncomingComment[]; clicks: IncomingClick[] }>();
+    const group = (id?: string) => {
+      if (!id) return null;
+      let g = byAccount.get(id);
+      if (!g) byAccount.set(id, (g = { comments: [], clicks: [] }));
+      return g;
+    };
+    for (const c of comments) group(c.accountId)?.comments.push(c);
+    for (const k of clicks) group(k.accountId)?.clicks.push(k);
+
+    for (const [igUserId, g] of byAccount) {
+      let account;
+      try { account = await accountByIgUserId(igUserId); } catch (e) { console.error("[webhook] erro ao carregar a conta", igUserId, e); continue; }
+      if (!account) { console.warn("[webhook] conta não conectada ao Much Chat; evento ignorado", igUserId); continue; }
+      await withAccount(account, async () => {
+        for (const c of g.comments) {
+          try {
+            const r = await processComment(c, "webhook");
+            console.log("[webhook]", igUserId, c.id, r);
+          } catch (e) {
+            console.error("[webhook] erro", igUserId, c.id, e);
+          }
+        }
+        for (const k of g.clicks) {
+          try {
+            const r = await handleClick(k, "webhook");
+            if (r !== "ignored") console.log("[webhook] clique", igUserId, k.igsid, r);
+          } catch (e) {
+            console.error("[webhook] erro no clique", igUserId, k.igsid, e);
+          }
+        }
+      });
     }
   });
   return new Response("ok", { status: 200 });

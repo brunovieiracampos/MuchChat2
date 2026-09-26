@@ -1,0 +1,1 @@
+- [Arquitetura de autorização](arquitetura-autorizacao.md) — camadas sessão/conta/RLS/Redis do multi-contas, falsos positivos descartados

@@ -6,3 +6,6 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 reference/_unpacked/
+
+# Backups da migração (têm o token da Meta em texto aberto)
+backup-redis-*.json

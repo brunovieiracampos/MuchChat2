@@ -24,8 +24,14 @@ export function postKey(p: string): string {
 
 export type MediaRef = { id: string; shortcode?: string };
 
+/** Marcador de "próxima publicação": ainda não é um post; vira um quando o post sair (ver lib/next-post.ts). */
+export const NEXT_POST = "@next";
+export const isNextPost = (p: string) => p.trim() === NEXT_POST;
+export const waitsNextPost = (r: Pick<Rule, "posts">) => r.posts.some(isNextPost);
+
 export function ruleAppliesToMedia(rule: Rule, media: MediaRef): boolean {
   return rule.posts.some((p) => {
+    if (isNextPost(p)) return false;
     const k = postKey(p);
     return k === "*" || k === media.id || (!!media.shortcode && k === media.shortcode);
   });
@@ -42,5 +48,5 @@ export function findRule(text: string, media: MediaRef, rules: Rule[] = RULES): 
 
 /** Algum post da regra precisa do shortcode (URL/shortcode em vez de ID/"*")? */
 export function rulesNeedShortcode(rules: Rule[] = RULES): boolean {
-  return rules.some((r) => r.posts.some((p) => { const k = postKey(p); return k !== "*" && !/^\d+$/.test(k); }));
+  return rules.some((r) => r.posts.some((p) => { const k = postKey(p); return k !== "*" && !isNextPost(p) && !/^\d+$/.test(k); }));
 }

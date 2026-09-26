@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { SCOPES } from "@/lib/oauth";
 import { baseUrl, getActivity, getConnection, getFlags } from "@/lib/panel";
+import { listTokens } from "@/lib/api-tokens";
 import { requireSession } from "@/lib/session";
+import { McpAccess } from "./mcp-access";
 import { PauseToggle, RetryFailedButton, SubscribeButton, SweepButton } from "../_components/action-buttons";
 import { logoutAction } from "../actions";
 import { Badge, Icon } from "../_components/ui";
@@ -31,7 +32,7 @@ function Group({ title, desc, rows }: { title: string; desc: string; rows: Row[]
 
 export default async function Configuracoes({ searchParams }: { searchParams: Promise<{ conectado?: string }> }) {
   await requireSession();
-  const [{ conectado }, conn, flags, { executions }] = await Promise.all([searchParams, getConnection(), getFlags(), getActivity()]);
+  const [{ conectado }, conn, flags, { executions }, tokens] = await Promise.all([searchParams, getConnection(), getFlags(), getActivity(), listTokens()]);
   const url = baseUrl();
   const failed = executions.filter((e) => e.status === "falhou").length;
   const ok = conn.state === "connected";
@@ -41,58 +42,51 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
       {conectado && ok && (
         <div className="pn-alert is-violet">
           <Icon d="M5 12l4 4 10-10" size={17} color="#A78BFA" width={2} style={{ marginTop: 1 }} />
-          <div><div className="pn-alert-title">Conta @{conn.username} conectada</div><div className="pn-alert-body">O token de 60 dias foi salvo e a varredura diária renova sozinha.</div></div>
+          <div><div className="pn-alert-title">Conta @{conn.username} conectada</div><div className="pn-alert-body">O acesso vale por 60 dias e é renovado sozinho.</div></div>
         </div>
       )}
       {flags.dryRun && (
         <div className="pn-alert">
           <Icon d={ICONS.flask} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
-          <div><div className="pn-alert-title">Modo de teste ativo</div><div className="pn-alert-body">DRY_RUN=true: as automações só simulam. Nenhuma DM ou resposta sai de verdade.</div></div>
+          <div><div className="pn-alert-title">Modo de teste ligado</div><div className="pn-alert-body">As automações só simulam: nenhuma DM ou resposta sai de verdade.</div></div>
         </div>
       )}
 
-      <Group title="Conta do Instagram" desc="Perfil profissional conectado ao painel." rows={[
+      <Group title="Conta do Instagram" desc="O perfil profissional em que as automações rodam." rows={[
         {
-          label: ok ? `@${conn.username}` : "Nenhuma conta conectada",
-          value: ok ? `Conta ${conn.accountType === "BUSINESS" ? "comercial" : conn.accountType === "MEDIA_CREATOR" ? "de criador" : "profissional"} · ID ${conn.userId}` : conn.state === "error" ? conn.error : "Conecte a conta para o painel funcionar.",
-          right: <Badge tone={ok ? "green" : conn.state === "error" ? "amber" : "red"}>{ok ? "Conectada" : conn.state === "error" ? "Erro" : "Desconectada"}</Badge>,
-        },
-        {
-          label: "Conexão com a Meta",
-          value: !ok ? "—" : conn.source === "env" ? "Token definido em IG_ACCESS_TOKEN (não é renovado sozinho)" : conn.tokenAgeDays === null ? "—" : `Token renovado há ${conn.tokenAgeDays} dia${conn.tokenAgeDays === 1 ? "" : "s"} · expira em ${conn.tokenDaysLeft} dias`,
+          label: ok ? `@${conn.username}` : conn.state === "error" ? `@${conn.username ?? "conta"} com erro` : "Nenhuma conta conectada",
+          value: ok
+            ? `Conta ${conn.accountType === "BUSINESS" ? "comercial" : conn.accountType === "MEDIA_CREATOR" ? "de criador" : "profissional"}. Acesso renovado há ${conn.tokenAgeDays} dia${conn.tokenAgeDays === 1 ? "" : "s"}; vale por mais ${conn.tokenDaysLeft} e é renovado sozinho.`
+            : conn.state === "error" ? `O Instagram recusou o acesso salvo. Reconecte para renovar. Detalhe: ${conn.error}` : "Conecte a conta para as automações funcionarem.",
           right: conn.hasAppId
             ? <a href="/api/auth/instagram" className={`pn-btn is-sm${ok ? "" : " is-primary"}`}>{ok ? "Reconectar" : "Conectar"}</a>
-            : <Badge tone="amber">Falta IG_APP_ID</Badge>,
+            : <Badge tone="amber">Indisponível</Badge>,
         },
-        { label: "Permissões pedidas", value: SCOPES.split(",").join(", ") },
+        { label: "Permissões pedidas ao Instagram", value: "Ler o perfil e os posts, ler e responder comentários, enviar e receber mensagens no direct." },
       ]} />
 
-      <Group title="Webhook" desc="Endereço que recebe comentários e cliques em botões em tempo real." rows={[
-        { label: "URL de callback", value: <span className="pn-mono">{url}/api/webhooks/instagram</span> },
-        { label: "Verify token", value: "Mesmo valor de IG_VERIFY_TOKEN na Vercel", right: <Badge tone={process.env.IG_VERIFY_TOKEN ? "green" : "red"}>{process.env.IG_VERIFY_TOKEN ? "Configurado" : "Faltando"}</Badge> },
-        { label: "Assinatura dos eventos", value: "Valida X-Hub-Signature-256 com IG_APP_SECRET", right: <Badge tone={process.env.IG_APP_SECRET ? "green" : "red"}>{process.env.IG_APP_SECRET ? "Configurado" : "Faltando"}</Badge> },
-        { label: "Inscrever a conta (comentários, mensagens e cliques)", value: "Faça depois de configurar o webhook no painel da Meta. Mensagens e cliques são necessários para os botões dos fluxos.", right: ok ? <SubscribeButton /> : undefined },
+      {ok && (
+        <Group title="Comentários e mensagens" desc="Como o Much Chat fica sabendo do que acontece no seu perfil." rows={[
+          { label: "Receber em tempo real", value: "Comentários, mensagens e cliques em botões chegam na hora. Se algo parou de chegar, autorize de novo.", right: <SubscribeButton /> },
+          { label: "Buscar comentários agora", value: "Lê os posts dos últimos 7 dias e responde o que ainda não foi atendido. Também roda sozinho uma vez por dia.", right: <SweepButton className="pn-btn is-sm">Buscar</SweepButton> },
+        ]} />
+      )}
+
+      <Group title="Pausa e falhas" desc="Para parar tudo de uma vez ou tentar de novo o que o Instagram recusou." rows={[
+        { label: "Pausar todas as automações", value: flags.paused ? "Pausadas agora. Ao retomar, os comentários dos últimos 7 dias são recuperados." : "Automações rodando normalmente.", right: ok ? <PauseToggle paused={flags.paused} /> : undefined },
+        { label: "DMs recusadas", value: failed ? `${failed} comentário${failed === 1 ? "" : "s"} com DM recusada. Depois de corrigir a causa (veja em Execuções), libere para tentar de novo.` : "Nenhuma DM recusada.", right: failed ? <RetryFailedButton /> : undefined },
       ]} />
 
-      <Group title="Varredura" desc="Lê os comentários dos posts dos últimos 7 dias e responde o que o webhook não pegou." rows={[
-        { label: "Frequência automática", value: "1 vez por dia pelo cron da Vercel (09:00 em Brasília). Para ficar perto do tempo real, agende /api/cron/sweep a cada 5–10 min no cron-job.org." },
-        { label: "Rodar agora", value: "Busca comentários novos e processa na hora.", right: ok ? <SweepButton className="pn-btn is-sm">Rodar</SweepButton> : undefined },
-      ]} />
+      <McpAccess tokens={tokens} url={`${url}/api/mcp`} connected={ok} />
 
-      <Group title="Modo de teste e pausa" desc="Para testar sem enviar nada ou parar tudo de uma vez." rows={[
-        { label: "Modo de teste (DRY_RUN)", value: flags.dryRun ? "Ligado: nada é enviado. Para desligar, mude DRY_RUN para false na Vercel e faça redeploy." : "Desligado: DMs e respostas são enviadas de verdade.", right: <Badge tone={flags.dryRun ? "amber" : "green"}>{flags.dryRun ? "Ligado" : "Desligado"}</Badge> },
-        { label: "Pausar todas as automações", value: flags.paused ? "Pausadas agora. Ao retomar, a varredura recupera os últimos 7 dias." : "Automações rodando normalmente.", right: <PauseToggle paused={flags.paused} /> },
-        { label: "DMs recusadas", value: failed ? `${failed} comentário${failed === 1 ? "" : "s"} com DM recusada. Depois de corrigir a causa (veja em Execuções), libere para a varredura tentar de novo.` : "Nenhuma DM recusada.", right: failed ? <RetryFailedButton /> : undefined },
-      ]} />
-
-      <Group title="Privacidade e dados" desc="Registros e páginas exigidas pela Meta." rows={[
-        { label: "Registros de comentários", value: "Guardados por 90 dias; o log mantém os últimos 2.000 eventos.", right: <Badge>90 dias</Badge> },
+      <Group title="Privacidade e dados" desc="O que fica guardado e por quanto tempo." rows={[
+        { label: "Registros de comentários", value: "Guardados por 90 dias. O histórico da tela Execuções mostra os últimos 2.000 eventos.", right: <Badge>90 dias</Badge> },
         { label: "Política de privacidade", value: <a href="/privacidade" target="_blank">{url}/privacidade</a> },
         { label: "Exclusão de dados", value: <a href="/exclusao-de-dados" target="_blank">{url}/exclusao-de-dados</a> },
       ]} />
 
       <form action={logoutAction}>
-        <button type="submit" className="pn-btn"><Icon d={ICONS.logout} size={14} />Sair do painel</button>
+        <button type="submit" className="pn-btn"><Icon d={ICONS.logout} size={14} />Sair</button>
       </form>
     </div>
   );

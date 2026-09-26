@@ -25,6 +25,12 @@ export type Rule = {
   /** Fluxo montado no painel. Sem ele, vale dm → resposta pública (formato antigo). */
   steps?: Step[];
   active?: boolean;
+  /**
+   * "Próxima publicação" (posts = ["@next"]): quando foi ativada. A automação se prende ao primeiro
+   * post publicado depois disso; aí `posts` vira o link desse post e `boundAt` guarda quando aconteceu.
+   */
+  armedAt?: number;
+  boundAt?: number;
   createdAt?: number;
   updatedAt?: number;
 };

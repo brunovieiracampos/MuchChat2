@@ -10,7 +10,7 @@ import {
   type Button, type DmStep, type FollowStep, type ReplyStep, type Step, type StepType,
 } from "@/lib/flow";
 import { relTime } from "@/lib/format";
-import { hasKeyword, postKey } from "@/lib/match";
+import { hasKeyword, isNextPost, postKey } from "@/lib/match";
 import { deleteAutomationAction, saveAutomationAction } from "../actions";
 import { Badge, ConfirmModal, Dot, useToast } from "../_components/ui";
 import type { MediaOption, OtherAutomation } from "./builder-data";
@@ -206,7 +206,7 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
             )}
 
             <FlowNode on={sel === "trigger"} onSelect={() => setSel("trigger")} color={TRIGGER_COLOR} type="Gatilho" title={kwTitle}
-              sub={anyPost ? "Qualquer post ou Reels do perfil" : clean.posts.length ? `${clean.posts.length} post${clean.posts.length > 1 ? "s" : ""} selecionado${clean.posts.length > 1 ? "s" : ""}` : "Nenhum post escolhido"}
+              sub={anyPost ? "Qualquer post ou Reels do perfil" : clean.posts.some(isNextPost) ? "Próxima publicação (quando sair)" : clean.posts.length ? `${clean.posts.length} post${clean.posts.length > 1 ? "s" : ""} selecionado${clean.posts.length > 1 ? "s" : ""}` : "Nenhum post escolhido"}
               issues={triggerIssues} />
 
             {form.steps.map((s, i) => {
@@ -534,7 +534,7 @@ function TestPanel({ form, anyPost, account }: { form: AutomationInput; anyPost:
 
       <div style={{ marginTop: 12 }}>
         {!comment.trim() ? null : matched ? <Badge tone="green">Dispara com “{matched}”</Badge> : <Badge>Não dispara{form.keywords.length ? "" : ": sem palavra-chave"}</Badge>}
-        {!anyPost && matched && <div className="pn-help">Só vale nos posts escolhidos.</div>}
+        {!anyPost && matched && <div className="pn-help">{form.posts.some(isNextPost) ? "Vai valer no próximo post que você publicar." : "Só vale nos posts escolhidos."}</div>}
       </div>
 
       {matched && comment.trim() && (

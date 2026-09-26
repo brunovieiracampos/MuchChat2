@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authError, isOwner, safeNext } from "@/lib/account";
+import { authError, safeNext } from "@/lib/account";
 
 describe("contas", () => {
   it("só redireciona para caminhos internos", () => {
@@ -8,6 +8,10 @@ describe("contas", () => {
     expect(safeNext("//malicioso.com")).toBe("/painel");
     expect(safeNext("/\\malicioso.com")).toBe("/painel");
     expect(safeNext(null)).toBe("/painel");
+    expect(safeNext("/\t/malicioso.com")).toBe("/painel");
+    expect(safeNext("/%09/malicioso.com")).toBe("/%09/malicioso.com");
+    expect(safeNext("/\n/malicioso.com")).toBe("/painel");
+    expect(safeNext("/painel\\..\\x")).toBe("/painel");
   });
 
   it("traduz os erros do Supabase Auth", () => {
@@ -15,13 +19,5 @@ describe("contas", () => {
     expect(authError({ message: "Email not confirmed" })).toMatch(/^Confirme seu e-mail/);
     expect(authError({ code: "over_email_send_rate_limit" })).toMatch(/Muitas tentativas/);
     expect(authError({ message: "algo inesperado" })).toMatch(/Não foi possível/);
-  });
-
-  it("só os e-mails da lista de donos abrem o painel", () => {
-    const list = " bruno@exemplo.com, Outro@Exemplo.com ";
-    expect(isOwner("bruno@exemplo.com", list)).toBe(true);
-    expect(isOwner("OUTRO@exemplo.com", list)).toBe(true);
-    expect(isOwner("estranho@exemplo.com", list)).toBe(false);
-    expect(isOwner("bruno@exemplo.com", "")).toBe(false);
   });
 });

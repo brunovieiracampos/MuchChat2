@@ -5,7 +5,7 @@ import { renderText, type Step } from "@/lib/flow";
 import { listAutomations, saveAutomation, setAutomationActive, setPaused, duplicateAutomation, deleteAutomation } from "@/lib/automations";
 import { buildContacts, buildExecutions, summarize } from "@/lib/activity";
 import { processComment, type LogEntry } from "@/lib/processor";
-import { RULES, type Rule } from "@/config/rules";
+import type { Rule } from "@/config/rules";
 
 const base: AutomationInput = {
   name: "Advogado",
@@ -60,9 +60,8 @@ describe("validação do formulário", () => {
 });
 
 describe("armazenamento das automações", () => {
-  it("popula com config/rules.ts na primeira leitura", async () => {
-    const list = await listAutomations();
-    expect(list.map((r) => r.id)).toEqual(RULES.map((r) => r.id));
+  it("conta nova começa sem automações", async () => {
+    expect(await listAutomations()).toEqual([]);
   });
 
   it("cria, edita, pausa, duplica e exclui", async () => {

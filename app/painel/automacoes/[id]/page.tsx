@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { STEP_META, renderText, stepsOf } from "@/lib/flow";
-import { num, relTime } from "@/lib/format";
-import { postKey } from "@/lib/match";
+import { dateTime, num, relTime } from "@/lib/format";
+import { postKey, waitsNextPost } from "@/lib/match";
 import { PERIODS, getActivity, getStats, periodOf } from "@/lib/panel";
 import { buildFunnel, funnelStages, sumCounts } from "@/lib/stats";
 import { requireSession } from "@/lib/session";
@@ -23,6 +23,10 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
   const mine = executions.filter((e) => e.ruleId === id);
   const active = rule.active !== false;
   const anyPost = rule.posts.some((p) => postKey(p) === "*");
+  const next = waitsNextPost(rule);
+  const where = anyPost ? "em qualquer post"
+    : next ? "no próximo post que você publicar"
+    : rule.posts.length ? `em ${rule.posts.length} post${rule.posts.length > 1 ? "s" : ""}` : "(ainda sem post escolhido)";
   const steps = stepsOf(rule);
 
   const c = sumCounts(stats.get(id) ?? {}, days);
@@ -39,7 +43,7 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
             <Badge tone={active ? "green" : "amber"}>{active ? "Ativa" : "Pausada"}</Badge>
           </div>
           <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, maxWidth: 560 }}>
-            Responde comentários com {rule.keywords.map((k) => `“${k}”`).join(" ou ")} {anyPost ? "em qualquer post" : `em ${rule.posts.length} post${rule.posts.length > 1 ? "s" : ""}`} e segue o fluxo abaixo.
+            Responde comentários com {rule.keywords.map((k) => `“${k}”`).join(" ou ")} {where} e segue o fluxo abaixo.
           </div>
         </div>
         <DetailActions id={rule.id} name={rule.name ?? rule.id} active={active} />
@@ -94,7 +98,10 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
           </div>
           <div className="pn-fields" style={{ marginTop: 12 }}>
             <div className="pn-field-row"><div>Palavras-chave</div><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{rule.keywords.map((k) => <span className="pn-tag" key={k}>{k}</span>)}</div></div>
-            <div className="pn-field-row"><div>Posts</div><div>{anyPost ? "Qualquer post ou Reels" : rule.posts.map((p) => <div key={p} className="pn-mono" style={{ fontSize: 11.5 }}>{/^https?:/.test(p) ? <a href={p} target="_blank" rel="noreferrer">{postKey(p)}</a> : postKey(p)}</div>)}</div></div>
+            <div className="pn-field-row"><div>Posts</div><div>{anyPost ? "Qualquer post ou Reels"
+              : next ? (active && rule.armedAt ? `Próxima publicação: esperando desde ${dateTime(rule.armedAt)}` : "Próxima publicação: ative para começar a esperar")
+              : !rule.posts.length ? <Link href={`/painel/automacoes/${rule.id}/editar`}>Escolher o post</Link>
+              : rule.posts.map((p) => <div key={p} className="pn-mono" style={{ fontSize: 11.5 }}>{/^https?:/.test(p) ? <a href={p} target="_blank" rel="noreferrer">{postKey(p)}</a> : postKey(p)}</div>)}{rule.boundAt && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 3 }}>Preso automaticamente em {dateTime(rule.boundAt)}</div>}</div></div>
             <div className="pn-field-row"><div>Link</div><div>{rule.link ? <a href={rule.link} target="_blank" rel="noreferrer" className="pn-ellipsis" style={{ display: "block" }}>{rule.link}</a> : "—"}</div></div>
             <div className="pn-field-row"><div>Alterada</div><div>{rule.updatedAt ? relTime(rule.updatedAt) : "—"}</div></div>
           </div>

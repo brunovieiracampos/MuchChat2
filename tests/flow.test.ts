@@ -128,9 +128,9 @@ describe("webhook de mensagens", () => {
       { sender: { id: "me" }, recipient: { id: "C" }, message: { mid: "z", text: "eco", is_echo: true } },
     ] }] };
     expect(extractClicks(p)).toEqual([
-      { igsid: "A", payload: "f1:c1:d1" },
-      { igsid: "B", payload: "f1:c2:d1" },
-      { igsid: "C", text: "me envie" },
+      { accountId: "me", igsid: "A", payload: "f1:c1:d1" },
+      { accountId: "me", igsid: "B", payload: "f1:c2:d1" },
+      { accountId: "me", igsid: "C", text: "me envie" },
     ]);
   });
 });

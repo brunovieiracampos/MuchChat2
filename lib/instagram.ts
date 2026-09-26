@@ -1,4 +1,4 @@
-import { getStore } from "@/lib/store";
+import { currentAccount } from "@/lib/account-context";
 
 const BASE = "https://graph.instagram.com";
 const v = () => process.env.IG_GRAPH_VERSION || "v24.0";
@@ -19,29 +19,13 @@ export class GraphError extends Error {
   }
 }
 
-type TokenRec = { token: string; refreshedAt: number };
-const TOKEN_KEY = "ig:token";
-
+/** Token e ID vêm da conta em uso (lib/account-context.ts). */
 export async function getToken(): Promise<string> {
-  const rec = await getStore().get<TokenRec>(TOKEN_KEY);
-  const t = rec?.token || process.env.IG_ACCESS_TOKEN;
-  if (!t) throw new Error("IG_ACCESS_TOKEN não configurado.");
-  return t;
+  return currentAccount().token;
 }
-
-const USER_KEY = "ig:user";
 
 export async function igUserId(): Promise<string> {
-  const id = process.env.IG_USER_ID || (await getStore().get<string>(USER_KEY));
-  if (!id) throw new Error("IG_USER_ID não configurado (conecte a conta em /admin).");
-  return String(id);
-}
-
-/** Salva token de longa duração + ID da conta obtidos pelo login OAuth. */
-export async function saveConnection(token: string, userId: string) {
-  const store = getStore();
-  await store.set(TOKEN_KEY, { token, refreshedAt: Date.now() } satisfies TokenRec);
-  await store.set(USER_KEY, userId);
+  return currentAccount().igUserId;
 }
 
 async function call<T>(method: "GET" | "POST", path: string, params: Record<string, string> = {}, body?: unknown): Promise<T> {
@@ -137,28 +121,26 @@ export async function isFollower(igsid: string): Promise<boolean> {
   return r.is_user_follow_business;
 }
 
-/** Renova o token de longa duração (válido por 60 dias; só renova se tiver 24h+). */
-export async function refreshTokenIfNeeded(maxAgeDays = 7): Promise<"refreshed" | "fresh" | "skipped"> {
-  const store = getStore();
-  const rec = await store.get<TokenRec>(TOKEN_KEY);
-  if (rec && Date.now() - rec.refreshedAt < maxAgeDays * 864e5) return "fresh";
-  const current = rec?.token || process.env.IG_ACCESS_TOKEN;
-  if (!current) return "skipped";
+/** Renova o token de longa duração da conta em uso (válido por 60 dias; a Meta só renova com 24h+). */
+export async function refreshTokenIfNeeded(maxAgeDays = 7): Promise<"refreshed" | "fresh"> {
+  const ctx = currentAccount();
+  if (Date.now() - ctx.tokenRefreshedAt < maxAgeDays * 864e5) return "fresh";
   const url = new URL(`${BASE}/refresh_access_token`);
   url.searchParams.set("grant_type", "ig_refresh_token");
-  url.searchParams.set("access_token", current);
+  url.searchParams.set("access_token", ctx.token);
   const res = await fetch(url, { cache: "no-store" });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.access_token) throw new GraphError(res.status, json);
-  await store.set(TOKEN_KEY, { token: json.access_token, refreshedAt: Date.now() } satisfies TokenRec);
+  const now = Date.now();
+  await ctx.repo.saveToken(json.access_token, now);
+  ctx.token = json.access_token;
+  ctx.tokenRefreshedAt = now;
   return "refreshed";
 }
 
-/** Quando o token atual foi obtido/renovado (null = usando IG_ACCESS_TOKEN do ambiente, ou sem token). */
-export async function getTokenInfo(): Promise<{ source: "painel" | "env" | "none"; refreshedAt: number | null }> {
-  const rec = await getStore().get<TokenRec>(TOKEN_KEY);
-  if (rec?.token) return { source: "painel", refreshedAt: rec.refreshedAt };
-  return { source: process.env.IG_ACCESS_TOKEN ? "env" : "none", refreshedAt: null };
+/** Inscreve a conta nos eventos do webhook (comentários, mensagens e cliques em botões). */
+export async function subscribeWebhook(): Promise<void> {
+  await call("POST", "me/subscribed_apps", { subscribed_fields: "comments,messages,messaging_postbacks" });
 }
 
 /** Campos do webhook em que a conta está inscrita (ex.: ["comments"]). */

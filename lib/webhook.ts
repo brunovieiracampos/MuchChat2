@@ -19,6 +19,7 @@ export function extractComments(payload: any): IncomingComment[] {
         const id = v.id ?? v.comment_id;
         if (!id || !v.media?.id) continue;
         out.push({
+          accountId: entry?.id ? String(entry.id) : undefined,
           id: String(id),
           text: String(v.text ?? ""),
           mediaId: String(v.media.id),
@@ -47,9 +48,11 @@ export function extractClicks(payload: any): IncomingClick[] {
       for (const m of Array.isArray(entry?.messaging) ? entry.messaging : []) {
         const igsid = m?.sender?.id ? String(m.sender.id) : "";
         if (!igsid || m.message?.is_echo) continue;
-        if (m.postback?.payload) out.push({ igsid, payload: String(m.postback.payload) });
-        else if (m.message?.quick_reply?.payload) out.push({ igsid, payload: String(m.message.quick_reply.payload) });
-        else if (typeof m.message?.text === "string") out.push({ igsid, text: m.message.text });
+        const acc = entry?.id ?? m?.recipient?.id;
+        const accountId = acc ? String(acc) : undefined;
+        if (m.postback?.payload) out.push({ accountId, igsid, payload: String(m.postback.payload) });
+        else if (m.message?.quick_reply?.payload) out.push({ accountId, igsid, payload: String(m.message.quick_reply.payload) });
+        else if (typeof m.message?.text === "string") out.push({ accountId, igsid, text: m.message.text });
       }
     }
   }

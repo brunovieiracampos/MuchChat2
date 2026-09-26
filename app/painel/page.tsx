@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { dayKey, summarize } from "@/lib/activity";
 import { num, relTime } from "@/lib/format";
 import { getActivity, getConnection, getFlags, getStats } from "@/lib/panel";
@@ -13,6 +14,8 @@ import { ICONS, initials } from "./_components/icons";
 export default async function VisaoGeral() {
   await requireSession();
   const [conn, flags, { executions, rules }, stats] = await Promise.all([getConnection(), getFlags(), getActivity(), getStats()]);
+  // Primeira vez: sem Instagram conectado não há o que mostrar; o passo a passo fica em Conexão.
+  if (conn.state === "disconnected") redirect("/painel/conexao");
   const today = dayKey(Date.now());
   const todays = executions.filter((e) => dayKey(e.startedAt) === today);
   const week = summarize(executions, rules, 7);

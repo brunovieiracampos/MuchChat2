@@ -6,23 +6,32 @@ import {
   deleteAutomation, duplicateAutomation, saveAutomation, setAutomationActive, setPaused,
   type AutomationInput, type Issue,
 } from "@/lib/automations";
-import { getToken, listMediaPage } from "@/lib/instagram";
+import { listMediaPage, subscribeWebhook } from "@/lib/instagram";
+import { inAccount } from "@/lib/panel";
 import { toMediaOption, type MediaOption } from "./automacoes/builder-data";
 import { resetFailed } from "@/lib/processor";
+import { createToken, revokeToken } from "@/lib/api-tokens";
 import { requireSession } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { sweep } from "@/lib/sweep";
 
 export type ActionResult<T = object> = ({ ok: true } & T) | { ok: false; error?: string; issues?: Issue[] };
 
+/** Mensagens que a pessoa pode ler; o resto (banco, Meta, configuração) fica só no log. */
+const USER_FACING = ["Conecte sua conta do Instagram primeiro."];
+
 function fail(e: unknown): { ok: false; error: string } {
-  return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  const msg = e instanceof Error ? e.message : String(e);
+  if (USER_FACING.includes(msg)) return { ok: false, error: msg };
+  console.error("[painel]", e);
+  if (/^Graph API (400|403)/.test(msg)) return { ok: false, error: "O Instagram recusou o pedido. Se continuar, reconecte a conta em Configurações." };
+  return { ok: false, error: "Não foi possível concluir agora. Tente de novo em instantes." };
 }
 
 export async function saveAutomationAction(input: AutomationInput): Promise<ActionResult<{ id: string }>> {
   await requireSession();
   try {
-    const r = await saveAutomation(input);
+    const r = await inAccount(() => saveAutomation(input));
     if (!r.ok) return { ok: false, issues: r.issues };
     revalidatePath("/painel", "layout");
     return { ok: true, id: r.automation.id };
@@ -32,7 +41,7 @@ export async function saveAutomationAction(input: AutomationInput): Promise<Acti
 export async function setAutomationActiveAction(id: string, active: boolean): Promise<ActionResult> {
   await requireSession();
   try {
-    const r = await setAutomationActive(id, active);
+    const r = await inAccount(() => setAutomationActive(id, active));
     if (!r.ok) return { ok: false, issues: r.issues };
     revalidatePath("/painel", "layout");
     return { ok: true };
@@ -42,7 +51,7 @@ export async function setAutomationActiveAction(id: string, active: boolean): Pr
 export async function duplicateAutomationAction(id: string): Promise<ActionResult<{ id: string }>> {
   await requireSession();
   try {
-    const copy = await duplicateAutomation(id);
+    const copy = await inAccount(() => duplicateAutomation(id));
     if (!copy) return { ok: false, error: "Automação não encontrada." };
     revalidatePath("/painel", "layout");
     return { ok: true, id: copy.id };
@@ -52,7 +61,7 @@ export async function duplicateAutomationAction(id: string): Promise<ActionResul
 export async function deleteAutomationAction(id: string): Promise<ActionResult> {
   await requireSession();
   try {
-    await deleteAutomation(id);
+    await inAccount(() => deleteAutomation(id));
     revalidatePath("/painel", "layout");
     return { ok: true };
   } catch (e) { return fail(e); }
@@ -61,7 +70,7 @@ export async function deleteAutomationAction(id: string): Promise<ActionResult> 
 export async function setPausedAction(paused: boolean): Promise<ActionResult> {
   await requireSession();
   try {
-    await setPaused(paused);
+    await inAccount(() => setPaused(paused));
     revalidatePath("/painel", "layout");
     return { ok: true };
   } catch (e) { return fail(e); }
@@ -70,7 +79,7 @@ export async function setPausedAction(paused: boolean): Promise<ActionResult> {
 export async function runSweepAction(): Promise<ActionResult<{ summary: string }>> {
   await requireSession();
   try {
-    const r = await sweep();
+    const r = await inAccount(() => sweep());
     revalidatePath("/painel", "layout");
     const n = (k: keyof typeof r.results) => r.results[k] ?? 0;
     const matched = n("completed") + n("waiting") + n("dry-run") + n("dm-failed") + n("dm-error") + n("reply-error") + n("expired");
@@ -79,30 +88,43 @@ export async function runSweepAction(): Promise<ActionResult<{ summary: string }
     else if (matched) parts.push(`${matched} com palavra-chave`);
     else parts.push("nenhum comentário novo com palavra-chave");
     if (r.errors.length) parts.push(`${r.errors.length} erro(s)`);
-    return { ok: true, summary: parts.join(" · ") };
+    return { ok: true, summary: parts.join("; ") };
   } catch (e) { return fail(e); }
 }
 
 export async function retryFailedAction(): Promise<ActionResult<{ count: number }>> {
   await requireSession();
   try {
-    const count = await resetFailed();
+    const count = await inAccount(() => resetFailed());
     revalidatePath("/painel", "layout");
     return { ok: true, count };
   } catch (e) { return fail(e); }
 }
 
-/** Inscreve a conta no webhook de comentários (mesmo que POST /api/admin/subscribe). */
+/** Inscreve a conta no webhook (comentários, mensagens e cliques em botões). */
 export async function subscribeWebhookAction(): Promise<ActionResult> {
   await requireSession();
   try {
-    const v = process.env.IG_GRAPH_VERSION || "v24.0";
-    const url = new URL(`https://graph.instagram.com/${v}/me/subscribed_apps`);
-    url.searchParams.set("subscribed_fields", "comments,messages,messaging_postbacks");
-    url.searchParams.set("access_token", await getToken());
-    const res = await fetch(url, { method: "POST", cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok || !json.success) return { ok: false, error: json?.error?.message ?? `HTTP ${res.status}` };
+    await inAccount(() => subscribeWebhook());
+    return { ok: true };
+  } catch (e) { return fail(e); }
+}
+
+/** Token pessoal do MCP: o valor volta só agora; depois, só os 4 últimos caracteres. */
+export async function createTokenAction(name: string): Promise<ActionResult<{ token: string }>> {
+  const user = await requireSession();
+  try {
+    const token = await createToken(user.id, name.trim() || "Claude Code");
+    revalidatePath("/painel/configuracoes");
+    return { ok: true, token };
+  } catch (e) { return fail(e); }
+}
+
+export async function revokeTokenAction(id: string): Promise<ActionResult> {
+  await requireSession();
+  try {
+    await revokeToken(id);
+    revalidatePath("/painel/configuracoes");
     return { ok: true };
   } catch (e) { return fail(e); }
 }
@@ -116,7 +138,7 @@ export async function logoutAction(): Promise<void> {
 export async function listMediaAction(after?: string): Promise<ActionResult<{ items: MediaOption[]; next?: string }>> {
   await requireSession();
   try {
-    const r = await listMediaPage(24, after);
+    const r = await inAccount(() => listMediaPage(24, after));
     return { ok: true, items: r.items.map(toMediaOption), next: r.next };
   } catch (e) { return fail(e); }
 }

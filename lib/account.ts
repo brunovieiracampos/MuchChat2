@@ -1,4 +1,4 @@
-/** Regras das contas de usuário: mensagens de erro, redirecionamento seguro e quem abre o painel. */
+/** Regras das contas de usuário: mensagens de erro e redirecionamento seguro. */
 
 /** Mensagens do Supabase Auth traduzidas para o que a pessoa precisa fazer. */
 export function authError(e: { message?: string; code?: string } | null | undefined): string {
@@ -17,12 +17,15 @@ export function authError(e: { message?: string; code?: string } | null | undefi
 
 /** Só aceita caminhos internos em ?next= (evita redirecionar para outro site). */
 export function safeNext(next: string | null | undefined, fallback = "/painel"): string {
-  return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : fallback;
+  // Valida o endereço como o navegador vai interpretar (ele ignora tab e quebra de linha, e trata "\\" como "/").
+  if (!next || !next.startsWith("/") || /[\x00-\x1f\\]/.test(next)) return fallback;
+  try {
+    const u = new URL(next, "http://interno");
+    return u.origin === "http://interno" ? u.pathname + u.search + u.hash : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export const PASSWORD_MIN = 8;
 
-/** Enquanto o painel mostra uma conta só, apenas os e-mails em OWNER_EMAILS (separados por vírgula) entram. */
-export function isOwner(email: string, list = process.env.OWNER_EMAILS ?? ""): boolean {
-  return list.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean).includes(email.trim().toLowerCase());
-}

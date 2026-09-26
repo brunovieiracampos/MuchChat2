@@ -8,11 +8,14 @@ export function verifySignature(raw: string, header: string | null, secret: stri
   return crypto.timingSafeEqual(Buffer.from(got, "hex"), Buffer.from(expected, "hex"));
 }
 
-/** Aceita "Authorization: Bearer <segredo>" ou "?key=<segredo>" com ADMIN_SECRET (ou CRON_SECRET no cron). */
+/** Aceita só "Authorization: Bearer <segredo>" (segredo em URL acaba em logs), comparando em tempo constante. */
 export function isAuthorized(req: Request, ...secrets: (string | undefined)[]): boolean {
-  const valid = secrets.filter((s): s is string => !!s);
-  if (!valid.length) return false;
-  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  const key = new URL(req.url).searchParams.get("key");
-  return valid.some((s) => s === bearer || s === key);
+  const got = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!got) return false;
+  const a = Buffer.from(got);
+  return secrets.some((s) => {
+    if (!s) return false;
+    const b = Buffer.from(s);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  });
 }

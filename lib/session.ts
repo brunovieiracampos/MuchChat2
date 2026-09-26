@@ -1,18 +1,12 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { isOwner } from "@/lib/account";
-import { isAuthorized } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * Sessão do painel: usuário do Supabase Auth (cookies renovados pelo proxy.ts).
- *
- * Até os dados serem separados por conta (fase 2), o painel ainda mostra uma conta só (@d.ia.riamente).
- * Por isso só os e-mails em OWNER_EMAILS entram; quem mais se cadastrar vai para /aguardando.
+ * Cada usuário vê só os dados da própria conta do Instagram (ver lib/panel.ts).
  */
-
-export { isOwner };
 
 export type SessionUser = { id: string; email: string; name: string };
 
@@ -31,13 +25,5 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
 export async function requireSession(): Promise<SessionUser> {
   const user = await getUser();
   if (!user) redirect("/entrar");
-  if (!isOwner(user.email)) redirect("/aguardando");
   return user;
-}
-
-/** Para route handlers: usuário dono logado ou o ADMIN_SECRET (Bearer / ?key=) para scripts. */
-export async function isAdminRequest(req: Request): Promise<boolean> {
-  if (isAuthorized(req, process.env.ADMIN_SECRET)) return true;
-  const user = await getUser();
-  return !!user && isOwner(user.email);
 }

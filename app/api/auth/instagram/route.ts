@@ -1,13 +1,13 @@
 import crypto from "node:crypto";
-import { isAdminRequest } from "@/lib/session";
+import { getUser } from "@/lib/session";
 import { SCOPES, redirectUri } from "@/lib/oauth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/auth/instagram?key=ADMIN_SECRET → abre o login do Instagram (Business Login)
+// GET /api/auth/instagram → abre o login do Instagram (Business Login) para o usuário logado conectar a conta
 export async function GET(req: Request) {
-  if (!(await isAdminRequest(req))) return new Response("unauthorized", { status: 401 });
+  if (!(await getUser())) return Response.redirect(new URL("/entrar?next=/painel/conexao", req.url), 302);
   const appId = process.env.IG_APP_ID;
   if (!appId) return new Response("IG_APP_ID não configurado", { status: 500 });
   const state = crypto.randomBytes(16).toString("hex");

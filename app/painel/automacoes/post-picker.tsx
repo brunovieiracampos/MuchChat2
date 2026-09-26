@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { dateShort } from "@/lib/format";
-import { postKey } from "@/lib/match";
+import { NEXT_POST, isNextPost, postKey } from "@/lib/match";
 import { listMediaAction } from "../actions";
 import { ICONS } from "../_components/icons";
 import { Icon, Toggle, useToast } from "../_components/ui";
@@ -22,7 +22,8 @@ export function PostPicker({ posts, onChange, media, mediaNext, connected, inval
   const [url, setUrl] = useState("");
   const [known, setKnown] = useState<MediaOption[]>(media);
   const anyPost = posts.some((p) => postKey(p) === "*");
-  const specific = posts.filter((p) => postKey(p) !== "*");
+  const nextPost = posts.some(isNextPost);
+  const specific = posts.filter((p) => postKey(p) !== "*" && !isNextPost(p));
   const isSel = (m: MediaOption) => specific.some((p) => matches(p, m));
   const toggle = (m: MediaOption) => onChange(isSel(m) ? specific.filter((p) => !matches(p, m)) : [...specific, m.permalink ?? m.id]);
   const addUrl = () => { const v = url.trim(); if (v) onChange([...specific, v]); setUrl(""); };
@@ -40,6 +41,18 @@ export function PostPicker({ posts, onChange, media, mediaNext, connected, inval
       </div>
 
       {!anyPost && (
+        <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: `1px solid ${nextPost ? "var(--violet-line)" : "#22222B"}`, background: nextPost ? "#120C1F" : "var(--card)", borderRadius: 8, padding: "10px 11px", marginTop: 8 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12.5 }}>Próxima publicação</div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>
+              Para um post agendado: ao ativar, a automação espera e se prende sozinha ao primeiro post ou Reels que você publicar.
+            </div>
+          </div>
+          <Toggle on={nextPost} label="Próxima publicação" onChange={() => onChange(nextPost ? [] : [NEXT_POST])} />
+        </div>
+      )}
+
+      {!anyPost && !nextPost && (
         <>
           {connected ? (
             media.length ? (

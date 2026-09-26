@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import { currentAccount, keyPrefix } from "@/lib/account-context";
 
 /** Interface mínima de armazenamento (Redis em produção, memória em testes/dev). */
 export interface Store {
@@ -82,7 +83,8 @@ export class MemoryStore implements Store {
 
 let _store: Store | null = null;
 
-export function getStore(): Store {
+/** Armazenamento sem prefixo. Só para a migração e manutenção; o resto do código usa getStore(). */
+export function baseStore(): Store {
   if (_store) return _store;
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -96,6 +98,26 @@ export function getStore(): Store {
     _store = g.__dmMemoryStore ??= new MemoryStore();
   }
   return _store;
+}
+
+/** Chaves sempre dentro do prefixo da conta (a:{accountId}:…). */
+export class PrefixedStore implements Store {
+  constructor(private s: Store, private p: string) {}
+  get<T>(k: string) { return this.s.get<T>(this.p + k); }
+  set(k: string, v: unknown, o?: { nx?: boolean; ex?: number }) { return this.s.set(this.p + k, v, o); }
+  del(k: string) { return this.s.del(this.p + k); }
+  hget<T>(k: string, f: string) { return this.s.hget<T>(this.p + k, f); }
+  hset(k: string, v: Record<string, unknown>) { return this.s.hset(this.p + k, v); }
+  hgetall<T extends Record<string, unknown>>(k: string) { return this.s.hgetall<T>(this.p + k); }
+  hincrby(k: string, f: string, by: number) { return this.s.hincrby(this.p + k, f, by); }
+  lpush(k: string, v: unknown, max: number) { return this.s.lpush(this.p + k, v, max); }
+  lrange<T>(k: string, a: number, b: number) { return this.s.lrange<T>(this.p + k, a, b); }
+  expire(k: string, sec: number) { return this.s.expire(this.p + k, sec); }
+}
+
+/** Armazenamento da conta atual (ver lib/account-context.ts). Fora de uma conta, dá erro. */
+export function getStore(): Store {
+  return new PrefixedStore(baseStore(), keyPrefix(currentAccount().accountId));
 }
 
 export function setStoreForTests(s: Store) { _store = s; }

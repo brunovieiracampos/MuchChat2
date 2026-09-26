@@ -1,5 +1,6 @@
 import type { Rule } from "@/config/rules";
-import { isPaused, listAutomations } from "@/lib/automations";
+import { isPaused, listAutomations, storeAutomation } from "@/lib/automations";
+import { isArmed, resolveArmed, type PostInfo } from "@/lib/next-post";
 import {
   clickPayload, parseClickPayload, renderText, stepsOf, waitsForClick,
   type DmStep, type FollowStep, type ReplyStep, type Step,
@@ -17,6 +18,8 @@ import * as ig from "@/lib/instagram";
  */
 
 export type IncomingComment = {
+  /** conta do Instagram que recebeu o comentário (entry.id do webhook) */
+  accountId?: string;
   id: string;
   text: string;
   mediaId: string;
@@ -32,7 +35,11 @@ export type Deps = {
   sendMessage: (igsid: string, m: ig.OutMessage) => Promise<ig.SendResult>;
   replyToComment: (commentId: string, message: string) => Promise<unknown>;
   isFollower: (igsid: string) => Promise<boolean>;
-  getMedia: (mediaId: string) => Promise<{ id: string; shortcode?: string }>;
+  getMedia: (mediaId: string) => Promise<{ id: string; shortcode?: string; timestamp?: string }>;
+  /** Posts recentes, para prender automações à "próxima publicação". */
+  recentMedia?: () => Promise<PostInfo[]>;
+  /** Grava a automação presa ao post. */
+  saveRule?: (rule: Rule) => Promise<void>;
   ownUserId: () => Promise<string | undefined>;
   dryRun: () => boolean;
   paused: () => Promise<boolean>;
@@ -47,6 +54,8 @@ export const defaultDeps: Deps = {
   replyToComment: ig.replyToComment,
   isFollower: ig.isFollower,
   getMedia: ig.getMedia,
+  recentMedia: () => ig.listRecentMedia(10),
+  saveRule: storeAutomation,
   ownUserId: () => ig.igUserId().catch(() => undefined),
   dryRun: ig.isDryRun,
   paused: isPaused,
@@ -126,6 +135,43 @@ async function resolveShortcode(mediaId: string, deps: Deps): Promise<string | u
     console.error("[flow] falha ao buscar shortcode", mediaId, e);
     return undefined;
   }
+}
+
+/** Quando o post foi publicado (guardado por 30 dias; a data de um post não muda). */
+async function mediaTime(mediaId: string, deps: Deps): Promise<number | null> {
+  const store = getStore();
+  const key = `mts:${mediaId}`;
+  const cached = await store.get<number>(key);
+  if (cached) return Number(cached);
+  try {
+    const m = await deps.getMedia(mediaId);
+    const t = m.timestamp ? Date.parse(m.timestamp) : NaN;
+    if (Number.isNaN(t)) return null;
+    await store.set(key, t, { ex: 30 * 86400 });
+    return t;
+  } catch (e) {
+    console.error("[flow] falha ao buscar a data do post", mediaId, e);
+    return null;
+  }
+}
+
+/**
+ * Comentário num post publicado depois de alguma automação armada ("próxima publicação"):
+ * prende essas automações ao post certo (o primeiro publicado depois de armar) e devolve as regras atualizadas.
+ */
+async function bindArmedRules(rules: Rule[], mediaId: string, deps: Deps, now: number): Promise<Rule[]> {
+  const armed = rules.filter(isArmed);
+  if (!armed.length || !deps.recentMedia || !deps.saveRule) return rules;
+  const t = await mediaTime(mediaId, deps);
+  if (t === null || !armed.some((r) => t >= r.armedAt!)) return rules;
+  let media: PostInfo[];
+  try { media = await deps.recentMedia(); } catch (e) { console.error("[flow] falha ao listar posts", e); return rules; }
+  const bound = resolveArmed(rules, media, now);
+  for (const r of bound) {
+    await deps.saveRule(r);
+    console.log("[flow] automação presa à próxima publicação", r.id, r.posts);
+  }
+  return rules.map((r) => bound.find((b) => b.id === r.id) ?? r);
 }
 
 async function pickReply(step: ReplyStep, deps: Deps): Promise<string> {
@@ -337,7 +383,7 @@ export async function processComment(c: IncomingComment, source: string, deps: D
   // Sem registro nem log: ao retomar, a próxima varredura pega o que ficou para trás (dentro dos 7 dias).
   if (await deps.paused()) return "paused";
 
-  const rules = await deps.rules();
+  const rules = await bindArmedRules(await deps.rules(), c.mediaId, deps, now);
   const shortcode = rulesNeedShortcode(rules) ? await resolveShortcode(c.mediaId, deps) : undefined;
   const rule = findRule(c.text, { id: c.mediaId, shortcode }, rules);
   if (!rule) return "no-match";
@@ -384,7 +430,8 @@ export async function processComment(c: IncomingComment, source: string, deps: D
 
 /* ---------- cliques ---------- */
 
-export type IncomingClick = { igsid: string; payload?: string; text?: string };
+/** accountId: conta do Instagram que recebeu a mensagem (entry.id / recipient.id do webhook). */
+export type IncomingClick = { accountId?: string; igsid: string; payload?: string; text?: string };
 
 function buttonTitles(step: Step): string[] {
   if (step.type === "follow") return [step.button, step.retryButton];

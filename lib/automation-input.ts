@@ -1,6 +1,6 @@
 import type { Rule } from "@/config/rules";
 import { stepsOf, validateSteps, type Step } from "@/lib/flow";
-import { postKey } from "@/lib/match";
+import { isNextPost, postKey } from "@/lib/match";
 
 /** Regras do formulário de automação. Sem dependências de servidor: roda também no navegador. */
 
@@ -53,9 +53,10 @@ export function validateAutomation(i: AutomationInput, others: Pick<Rule, "id" |
   const publish = i.active;
   if (!i.name) out.push({ field: "name", message: "Dê um nome para a automação." });
 
-  if (publish && !i.posts.length) out.push({ field: "posts", message: "Escolha pelo menos um post, ou marque “qualquer post”." });
+  if (publish && !i.posts.length) out.push({ field: "posts", message: "Escolha o post, marque “qualquer post” ou “próxima publicação”." });
   for (const p of i.posts) {
     const k = postKey(p);
+    if (isNextPost(p)) continue;
     if (k !== "*" && !/^[A-Za-z0-9_-]+$/.test(k)) out.push({ field: "posts", message: `Não reconheci o post “${p}”. Cole o link do post ou do Reels.` });
   }
 

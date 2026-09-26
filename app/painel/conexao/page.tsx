@@ -1,96 +1,127 @@
 import Link from "next/link";
 import { PRODUCT } from "@/config/site";
 import { getSubscribedFields } from "@/lib/instagram";
-import { getActivity, getConnection, getFlags } from "@/lib/panel";
+import { getActivity, getConnection, getFlags, inAccount } from "@/lib/panel";
 import { requireSession } from "@/lib/session";
-import { Badge, Dot, Icon } from "../_components/ui";
+import { SubscribeButton } from "../_components/action-buttons";
+import { Badge, Icon } from "../_components/ui";
 import { ICONS } from "../_components/icons";
 
-export default async function Conexao() {
+const ERRORS: Record<string, string> = {
+  cancelado: "O login no Instagram foi cancelado. Tente de novo quando quiser.",
+  sessao: "A conexão demorou demais ou foi aberta em outra aba. Tente de novo.",
+  meta: "O Instagram não confirmou a conexão. Tente de novo em instantes.",
+  "em-uso": "Esta conta do Instagram já está conectada a outro usuário do Much Chat. Entre com esse usuário ou fale com o suporte.",
+};
+
+export default async function Conexao({ searchParams }: { searchParams: Promise<{ conectado?: string; webhook?: string; erro?: string; conta?: string }> }) {
   await requireSession();
+  const q = await searchParams;
   const [conn, flags, { rules, executions }] = await Promise.all([getConnection(), getFlags(), getActivity()]);
   const ok = conn.state === "connected";
-  const fields = ok ? await getSubscribedFields().catch(() => null) : null;
-  const hasApp = !!process.env.IG_APP_ID && !!process.env.IG_APP_SECRET;
+  const fields = ok ? await inAccount(() => getSubscribedFields()).catch(() => null) : null;
   const active = rules.filter((r) => r.active !== false).length;
   const webhookOk = !!fields && ["comments", "messages", "messaging_postbacks"].every((f) => fields.includes(f));
+  const error = q.erro === "outra-conta"
+    ? `Você já conectou ${q.conta ? `@${q.conta}` : "outra conta"}. Por enquanto, cada usuário conecta uma conta do Instagram.`
+    : q.erro ? ERRORS[q.erro] ?? ERRORS.meta : null;
 
-  const checklist: { label: string; hint: string; ok: boolean | null; action?: { href: string; label: string } }[] = [
-    { label: "Configurar o app da Meta", hint: hasApp ? "IG_APP_ID e IG_APP_SECRET cadastrados na Vercel" : "Cadastre IG_APP_ID e IG_APP_SECRET na Vercel e faça redeploy", ok: hasApp },
-    { label: "Conectar a conta profissional", hint: ok ? `@${conn.username} autorizada pelo login do Instagram` : "Entre com a sua conta profissional do Instagram", ok, action: hasApp && !ok ? { href: "/api/auth/instagram", label: "Conectar" } : undefined },
-    { label: "Publicar a primeira automação", hint: active ? `${active} automaç${active === 1 ? "ão ativa" : "ões ativas"}` : "Post + palavra-chave + mensagem do direct", ok: active > 0, action: active ? undefined : { href: "/painel/automacoes/nova", label: "Criar" } },
-    { label: "Testar em modo de teste", hint: executions.length ? "Já há execuções registradas" : "Com DRY_RUN=true, comente a palavra-chave e rode a varredura", ok: executions.length > 0 },
+  const steps: { label: string; hint: string; done: boolean; action?: React.ReactNode }[] = [
     {
-      label: "Configurar o webhook",
-      hint: fields === null ? "Não foi possível consultar a inscrição"
-        : webhookOk ? "Conta inscrita em comentários, mensagens e cliques em botões"
-        : fields.includes("comments") ? "Falta inscrever em mensagens e cliques (necessário para botões): use Inscrever em Configurações"
-        : "Configure no painel da Meta e inscreva a conta em Configurações",
-      ok: fields === null ? null : webhookOk,
-      action: fields && !webhookOk ? { href: "/painel/configuracoes", label: "Abrir" } : undefined,
+      label: "Conectar sua conta do Instagram",
+      hint: ok ? `@${conn.username} conectada` : "A conta precisa ser profissional (criador ou empresa). Você entra pelo próprio Instagram.",
+      done: ok,
+      action: !ok && conn.hasAppId ? <a href="/api/auth/instagram" className="pn-btn is-sm is-primary">Conectar</a> : undefined,
     },
-    { label: "Sair do modo de teste", hint: flags.dryRun ? "Mude DRY_RUN para false na Vercel quando os testes estiverem ok" : "DRY_RUN desligado: envios reais", ok: !flags.dryRun },
-    { label: "Deixar o app da Meta em modo Live", hint: "Em modo de desenvolvimento a Meta esconde os comentários de quem não é testador. Para a sua própria conta basta publicar o app; não precisa de App Review.", ok: null },
+    {
+      label: "Receber comentários e cliques em tempo real",
+      hint: !ok ? "Liberado depois de conectar." : fields === null ? "Não foi possível conferir agora." : webhookOk ? "Tudo certo: comentários, mensagens e cliques chegam na hora." : "Falta autorizar o recebimento de eventos.",
+      done: webhookOk,
+      action: ok && fields && !webhookOk ? <SubscribeButton /> : undefined,
+    },
+    {
+      label: "Criar a primeira automação",
+      hint: active ? `${active} automaç${active === 1 ? "ão ativa" : "ões ativas"}` : "Escolha o post, a palavra-chave e a mensagem do direct.",
+      done: active > 0,
+      action: ok && !active ? <Link href="/painel/automacoes/nova" className="pn-btn is-sm">Criar</Link> : undefined,
+    },
+    {
+      label: "Ver funcionando",
+      hint: executions.length ? "Já há comentários atendidos." : "Comente a palavra-chave no seu post, de outra conta, e acompanhe em Execuções.",
+      done: executions.length > 0,
+    },
   ];
-
-  const color = ok ? "#2FA37A" : conn.state === "error" ? "#E0A526" : "#E4544F";
 
   return (
     <div style={{ padding: "44px 16px 56px", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 680 }}>
         <div className="pn-row" style={{ gap: 11 }}>
           <div className="pn-logo" style={{ width: 34, height: 34, borderRadius: 10 }}>{PRODUCT.name[0]}</div>
-          <div className="pn-brand-name" style={{ fontSize: 20, letterSpacing: -0.4 }}>{PRODUCT.name}</div>
+          <div className="pn-brand-name" style={{ fontSize: 20, letterSpacing: -0.4 }}>{ok ? `@${conn.username}` : "Conectar o Instagram"}</div>
         </div>
         <p style={{ fontSize: 14, color: "#9C9CA9", lineHeight: 1.6, margin: "16px 0 0", maxWidth: 560 }}>
-          Quando alguém comenta a palavra-chave no seu post, a pessoa recebe o material no direct e o comentário é respondido. Siga o checklist para deixar tudo funcionando.
+          Quando alguém comenta a palavra-chave no seu post, a pessoa recebe o material no direct e o comentário é respondido. São quatro passos.
         </p>
 
-        <div className="pn-row" style={{ gap: 10, marginTop: 22 }}>
-          {hasApp
-            ? <a href="/api/auth/instagram" className={`pn-btn${ok ? "" : " is-primary"}`} style={{ fontSize: 13, padding: "11px 18px" }}>{ok ? "Reconectar Instagram" : "Conectar Instagram"}</a>
-            : <span className="pn-btn" aria-disabled style={{ opacity: .5, cursor: "not-allowed", fontSize: 13, padding: "11px 18px" }}>Conectar Instagram</span>}
-          {flags.dryRun && <span className="pn-test-pill" style={{ fontSize: 11.5, padding: "5px 10px" }}>Modo de teste ligado</span>}
-        </div>
-
+        {q.conectado && ok && (
+          <div className={`pn-alert ${q.webhook === "falhou" ? "" : "is-violet"}`} style={{ marginTop: 18 }}>
+            <Icon d="M5 12l4 4 10-10" size={17} color={q.webhook === "falhou" ? "#E0A526" : "#A78BFA"} width={2} style={{ marginTop: 1 }} />
+            <div>
+              <div className="pn-alert-title">@{conn.username} conectada</div>
+              <div className="pn-alert-body">{q.webhook === "falhou" ? "Falta autorizar o recebimento de eventos: use o botão no passo 2." : "Agora crie a primeira automação."}</div>
+            </div>
+          </div>
+        )}
+        {error && (
+          <div className="pn-alert is-red" style={{ marginTop: 18 }}>
+            <Icon d={ICONS.error} size={17} color="#E4544F" width={1.8} style={{ marginTop: 1 }} />
+            <div><div className="pn-alert-title">Não deu para conectar</div><div className="pn-alert-body">{error}</div></div>
+          </div>
+        )}
         {conn.state === "error" && (
           <div className="pn-alert is-red" style={{ marginTop: 18 }}>
             <Icon d={ICONS.error} size={17} color="#E4544F" width={1.8} style={{ marginTop: 1 }} />
             <div style={{ flex: 1 }}>
-              <div className="pn-alert-title">O Instagram recusou o token salvo</div>
-              <div className="pn-alert-body" style={{ overflowWrap: "anywhere" }}>{conn.error}</div>
+              <div className="pn-alert-title">O Instagram recusou a conexão salva</div>
+              <div className="pn-alert-body" style={{ overflowWrap: "anywhere" }}>Conecte de novo para renovar o acesso. Detalhe: {conn.error}</div>
             </div>
+            {conn.hasAppId && <a href="/api/auth/instagram" className="pn-btn is-danger" style={{ fontSize: 12, padding: "6px 11px" }}>Reconectar</a>}
+          </div>
+        )}
+        {!conn.hasAppId && (
+          <div className="pn-alert" style={{ marginTop: 18 }}>
+            <Icon d={ICONS.warn} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
+            <div><div className="pn-alert-title">Conexão indisponível no momento</div><div className="pn-alert-body">O {PRODUCT.name} está sem as credenciais do app da Meta (IG_APP_ID).</div></div>
+          </div>
+        )}
+        {flags.dryRun && (
+          <div className="pn-alert" style={{ marginTop: 18 }}>
+            <Icon d={ICONS.flask} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
+            <div><div className="pn-alert-title">Modo de teste ligado</div><div className="pn-alert-body">As automações só simulam: nenhuma DM ou resposta sai de verdade.</div></div>
           </div>
         )}
 
-        <div className="pn-card" style={{ marginTop: 20 }}>
-          <div className="pn-card-title">Checklist de configuração</div>
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 6 }}>
-            {checklist.map((c) => (
-              <div key={c.label} className="pn-row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "nowrap", borderTop: "1px solid var(--line)", padding: "13px 0" }}>
-                <span style={{ width: 20, height: 20, borderRadius: "50%", flex: "none", display: "grid", placeItems: "center", fontSize: 11,
-                  background: c.ok ? "#0E1D17" : "#231B08", border: `1px solid ${c.ok ? "#1E3D30" : "#4A3A10"}`, color: c.ok ? "#5CC79E" : "#E0A526" }}>{c.ok ? "✓" : "•"}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13 }}>{c.label}</div>
-                  <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>{c.hint}</div>
-                </div>
-                {c.action && <Link href={c.action.href} className="pn-btn is-sm">{c.action.label}</Link>}
-                <Badge tone={c.ok ? "green" : "amber"}>{c.ok ? "Concluído" : c.ok === null ? "Acompanhar" : "Pendente"}</Badge>
+        <ol className="pn-card" style={{ marginTop: 20, listStyle: "none", padding: "6px 20px" }}>
+          {steps.map((s, i) => (
+            <li key={s.label} className="pn-row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "nowrap", borderTop: i ? "1px solid var(--line)" : "none", padding: "14px 0" }}>
+              <span className="pn-num" style={{ width: 22, height: 22, borderRadius: "50%", flex: "none", display: "grid", placeItems: "center", fontSize: 11.5,
+                background: s.done ? "var(--green-bg)" : "var(--card-3)", border: `1px solid ${s.done ? "var(--green-line)" : "var(--line-3)"}`, color: s.done ? "var(--green-text)" : "var(--text-3)" }}>{s.done ? "✓" : i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5 }}>{s.label}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3, lineHeight: 1.5 }}>{s.hint}</div>
               </div>
-            ))}
-          </div>
-        </div>
+              {s.action}
+              {s.done && <Badge tone="green">Feito</Badge>}
+            </li>
+          ))}
+        </ol>
 
-        <div className="pn-card pn-row" style={{ marginTop: 14, padding: "14px 18px", flexWrap: "nowrap" }}>
-          <Dot color={color} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12.5 }}>{ok ? "Conexão com o Instagram ativa" : conn.state === "error" ? "Conexão com erro" : "Instagram desconectado"}</div>
-            <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>
-              {ok ? (conn.tokenDaysLeft !== null ? `Token válido por mais ${conn.tokenDaysLeft} dias` : "Token definido no ambiente") : "Conecte a conta para o painel ler os posts."}
-            </div>
+        {ok && (
+          <div className="pn-row" style={{ marginTop: 16 }}>
+            <Link href="/painel" className="pn-btn">Ir para a visão geral</Link>
+            {conn.hasAppId && <a href="/api/auth/instagram" className="pn-btn">Reconectar o Instagram</a>}
           </div>
-          <Link href="/painel" className="pn-btn" style={{ fontSize: 12, padding: "7px 12px" }}>Ir para o painel</Link>
-        </div>
+        )}
       </div>
     </div>
   );
