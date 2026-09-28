@@ -62,7 +62,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
             ? <a href="/api/auth/instagram" className={`pn-btn is-sm${ok ? "" : " is-primary"}`}>{ok ? "Reconectar" : "Conectar"}</a>
             : <Badge tone="amber">Indisponível</Badge>,
         },
-        { label: "Permissões pedidas ao Instagram", value: "Ler o perfil e os posts, ler e responder comentários, enviar e receber mensagens no direct." },
+        { label: "Permissões pedidas ao Instagram", value: "Ler o perfil e os posts, ler e responder comentários, enviar e receber mensagens no direct e publicar posts agendados." },
       ]} />
 
       {ok && (

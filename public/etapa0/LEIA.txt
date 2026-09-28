@@ -1,0 +1,1 @@
+Arquivos temporários para testar a preparação de mídia na API do Instagram (etapa 0). Remover depois.
