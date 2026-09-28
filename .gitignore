@@ -9,3 +9,4 @@ reference/_unpacked/
 
 # Backups da migração (têm o token da Meta em texto aberto)
 backup-redis-*.json
+/.swc

@@ -14,6 +14,10 @@ import { listMediaPage } from "@/lib/instagram";
 import { NEXT_POST, isNextPost, postKey } from "@/lib/match";
 import { readLog } from "@/lib/processor";
 import { buildFunnel, readStats, sumCounts } from "@/lib/stats";
+import { deleteMedia, storeFromUrl } from "@/lib/media-store";
+import { allowKey } from "@/lib/ratelimit";
+import { KIND_LABEL, STATUS_META, type ScheduledPost } from "@/lib/posts";
+import { cancelPost, removePost, savePost, type ScheduleResult } from "@/lib/scheduling";
 
 /**
  * Ferramentas do MCP do Much Chat. Rodam dentro da conta do dono do token (app/api/mcp/route.ts),
@@ -88,6 +92,27 @@ function toPosts(p: z.infer<typeof postsSchema>): string[] {
 }
 
 const templateIds = TEMPLATES.map((t) => t.id) as [string, ...string[]];
+
+/* ---------- publicações ---------- */
+
+const TZ = "America/Sao_Paulo";
+const brTime = (ms: number | null) => (ms ? new Date(ms).toLocaleString("pt-BR", { timeZone: TZ, dateStyle: "short", timeStyle: "short" }) + " (Brasília)" : null);
+
+/** Aceita ISO 8601; sem fuso, considera o horário de Brasília. */
+function parseWhen(v: string): number | null {
+  const t = /([zZ]|[+-]\d\d:?\d\d)$/.test(v.trim()) ? Date.parse(v) : Date.parse(`${v.trim()}-03:00`);
+  return Number.isNaN(t) ? null : t;
+}
+
+function describePost(p: ScheduledPost) {
+  return {
+    id: p.id, tipo: KIND_LABEL[p.kind], status: STATUS_META[p.status].label, quando: brTime(p.scheduledAt),
+    legenda: p.caption, imagens: p.media.length, automacao_id: p.automationId, link_no_instagram: p.permalink, publicada_em: brTime(p.publishedAt),
+    aviso: p.error,
+  };
+}
+
+const postResult = (r: ScheduleResult, verb: string): Out => (r.ok ? ok({ [verb]: describePost(r.post) }) : err(issuesText(r.issues as Issue[])));
 
 /* ---------- ferramentas ---------- */
 
@@ -239,6 +264,75 @@ export function registerTools(server: McpServer) {
     const s = summarize(buildExecutions(log, rules), rules, days);
     return ok({ dias: days, comentarios: s.comments, dms_enviadas: s.dmSent, respostas_publicas: s.replies, falhas: s.failed, palavras_chave: s.perKeyword, por_automacao: s.perAutomation, observacao: "Baseado nos últimos 2.000 eventos; o funil de cada automação está em get_automation." });
   });
+
+  server.registerTool("list_scheduled_posts", {
+    title: "Listar publicações",
+    description: "Publicações do Much Chat: agendadas (com horário de Brasília), rascunhos, publicadas e com falha.",
+    inputSchema: z.object({ status: z.enum(["draft", "scheduled", "published", "failed", "canceled"]).optional() }),
+  }, async ({ status }) => {
+    const posts = (await currentAccount().repo.listPosts()).filter((p) => !status || p.status === status || (status === "scheduled" && (p.status === "preparing" || p.status === "publishing")));
+    return ok(posts.map(describePost));
+  });
+
+  server.registerTool("schedule_post", {
+    title: "Agendar publicação",
+    description: "Cria ou atualiza uma publicação no Instagram e agenda (ou salva como rascunho, ou publica agora). "
+      + "Imagens: links https públicos de JPEG (o Claude não envia arquivos do computador; para arquivos locais, a pessoa envia pelo painel e aqui se usa o `id` do rascunho). "
+      + "Uma imagem = post; 2 a 10 = carrossel; story=true = Story (1 imagem vertical, sem legenda). "
+      + "`when`: data e hora ISO (sem fuso = horário de Brasília), \"now\" para publicar em seguida, ou omita para rascunho. "
+      + "Automação: use `automation_id` de uma automação pausada e sem post, ou `new_automation` para criar uma. Ela é ativada quando o post sair. "
+      + "Confirme com a pessoa antes de usar when=\"now\".",
+    inputSchema: z.object({
+      id: z.string().optional().describe("Publicação existente (rascunho ou agendada) para atualizar"),
+      image_urls: z.array(z.string()).max(10).optional(),
+      story: z.boolean().default(false),
+      caption: z.string().optional(),
+      when: z.string().optional(),
+      automation_id: z.string().optional(),
+      new_automation: z.object({ keyword: z.string(), link: z.string().optional(), template: z.enum(templateIds).optional(), name: z.string().optional() }).optional(),
+    }),
+  }, async (a) => {
+    const repo = currentAccount().repo;
+    const prev = a.id ? await repo.getPost(a.id) : null;
+    if (a.id && !prev) return err(`Publicação “${a.id}” não encontrada.`);
+    let media = prev?.media ?? [];
+    const downloaded: string[] = [];
+    if (a.image_urls?.length) {
+      if (!(await allowKey(`mcp-download:${currentAccount().accountId}`, { limit: 20, windowSec: 3600 }))) return err("Muitos agendamentos com download seguidos. Espere alguns minutos.");
+      const got = await Promise.allSettled(a.image_urls.map((u) => storeFromUrl(currentAccount().accountId, u)));
+      for (const g of got) if (g.status === "fulfilled") downloaded.push(g.value.path);
+      const bad = got.find((g) => g.status === "rejected");
+      if (bad) {
+        await deleteMedia(currentAccount().accountId, downloaded).catch(() => {});
+        return err(bad.reason instanceof Error ? bad.reason.message : String(bad.reason));
+      }
+      media = got.map((g) => (g as PromiseFulfilledResult<(typeof media)[number]>).value);
+    }
+    const when = a.when === undefined ? null : a.when === "now" ? "now" as const : parseWhen(a.when);
+    if (a.when && a.when !== "now" && when === null) return err("Não entendi a data. Use por exemplo 2026-10-01T18:00 (horário de Brasília).");
+    const automation = a.new_automation
+      ? { mode: "new" as const, keyword: a.new_automation.keyword.toUpperCase(), link: a.new_automation.link ?? "", template: a.new_automation.template ?? "dm-link", name: a.new_automation.name }
+      : a.automation_id ? { mode: "existing" as const, id: a.automation_id } : undefined;
+    const r = await savePost({
+      id: a.id, story: a.story || prev?.kind === "story", caption: a.caption ?? prev?.caption ?? "", media,
+      scheduledAt: typeof when === "number" ? when : prev?.scheduledAt ?? null, automation,
+    }, when);
+    if (!r.ok && downloaded.length) await deleteMedia(currentAccount().accountId, downloaded).catch(() => {});
+    return postResult(r, when === null ? "rascunho" : when === "now" ? "publicando" : "agendada");
+  });
+
+  server.registerTool("cancel_scheduled_post", {
+    title: "Cancelar agendamento",
+    description: "Cancela o agendamento; a publicação vira rascunho (mídia e automação guardadas).",
+    inputSchema: z.object({ id: z.string() }),
+  }, async ({ id }) => postResult(await cancelPost(id), "cancelada"));
+
+  server.registerTool("delete_scheduled_post", {
+    title: "Excluir publicação",
+    description: "Exclui a publicação do Much Chat e a mídia dela. Não apaga posts já publicados no Instagram. Confirme com a pessoa antes.",
+    inputSchema: z.object({ id: z.string() }),
+    annotations: { destructiveHint: true },
+  }, async ({ id }) => postResult(await removePost(id), "excluida"));
 
   server.registerTool("pause_all", {
     title: "Pausar ou retomar tudo",

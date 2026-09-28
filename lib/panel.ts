@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { withAccount } from "@/lib/account-context";
+import { currentAccount, withAccount } from "@/lib/account-context";
 import { accountForUser } from "@/lib/accounts";
 import { buildExecutions } from "@/lib/activity";
 import { isPaused, listAutomations } from "@/lib/automations";
@@ -7,6 +7,7 @@ import { getMe, isDryRun, listMediaPage, type IgMedia } from "@/lib/instagram";
 import { readLog } from "@/lib/processor";
 import { requireSession } from "@/lib/session";
 import { readStats, type RawStats } from "@/lib/stats";
+import type { ScheduledPost } from "@/lib/posts";
 
 /**
  * Dados das telas do painel (cache por requisição), sempre da conta do Instagram do usuário logado.
@@ -65,6 +66,9 @@ export const getStats = cache(async (): Promise<Map<string, RawStats>> => scoped
   const all = await Promise.all(rules.map(async (r) => [r.id, await readStats(r.id)] as const));
   return new Map(all);
 }, new Map()));
+
+/** Publicações da conta (agendadas, rascunhos, publicadas). */
+export const getPosts = cache(async (): Promise<ScheduledPost[]> => scoped(() => currentAccount().repo.listPosts(), []));
 
 export const PERIODS = [
   { days: 7, label: "7 dias" },

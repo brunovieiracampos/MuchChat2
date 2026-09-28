@@ -17,6 +17,8 @@ export const ICONS = {
   chat: "M4 5h16v10H8l-4 4z",
   refresh: "M20 11a8 8 0 10-2.3 5.7M20 5v6h-6",
   logout: "M15 17l5-5-5-5M20 12H9M11 20H5a1 1 0 01-1-1V5a1 1 0 011-1h6",
+  calendar: "M5 6h14v14H5zM5 10h14M9 3.5V7M15 3.5V7",
+  image: "M4 5h16v14H4zM4 16l5-5 4 4 2.5-2.5L20 17M15.5 9.5h.01",
   link: "M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1",
 } as const;
 

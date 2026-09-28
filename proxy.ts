@@ -32,5 +32,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // Páginas e ações; fica de fora o que não usa sessão (webhook, cron, arquivos estáticos).
-  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)"],
+  // Rotas internas do Workflow (.well-known/workflow) também ficam de fora: o proxy quebraria a retomada dos processos.
+  matcher: ["/((?!api/|_next/static|_next/image|\\.well-known/workflow/|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|webp|ico|mp4)$).*)"],
 };

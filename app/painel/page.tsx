@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { dayKey, summarize } from "@/lib/activity";
-import { num, relTime } from "@/lib/format";
-import { getActivity, getConnection, getFlags, getStats } from "@/lib/panel";
+import { dayName, hourMinute, num, relTime } from "@/lib/format";
+import { getActivity, getConnection, getFlags, getPosts, getStats } from "@/lib/panel";
+import { KIND_LABEL } from "@/lib/posts";
 import { sumCounts } from "@/lib/stats";
 import { requireSession } from "@/lib/session";
 import { SweepButton } from "./_components/action-buttons";
@@ -13,7 +14,9 @@ import { ICONS, initials } from "./_components/icons";
 
 export default async function VisaoGeral() {
   await requireSession();
-  const [conn, flags, { executions, rules }, stats] = await Promise.all([getConnection(), getFlags(), getActivity(), getStats()]);
+  const [conn, flags, { executions, rules }, stats, posts] = await Promise.all([getConnection(), getFlags(), getActivity(), getStats(), getPosts()]);
+  const nextPost = posts.filter((p) => p.status === "scheduled" || p.status === "preparing").sort((a, b) => (a.scheduledAt ?? 0) - (b.scheduledAt ?? 0))[0];
+  const nextAuto = nextPost?.automationId ? rules.find((r) => r.id === nextPost.automationId) : undefined;
   // Primeira vez: sem Instagram conectado não há o que mostrar; o passo a passo fica em Conexão.
   if (conn.state === "disconnected") redirect("/painel/conexao");
   const today = dayKey(Date.now());
@@ -103,6 +106,12 @@ export default async function VisaoGeral() {
             <div className="pn-summary-sub">
               {activeCount} {plural(activeCount, "automação ativa", "automações ativas")}{lastAt ? `. Última atividade ${relTime(lastAt)}.` : "."}
               {week.failed > 0 && <> <Link href="/painel/execucoes?status=falhou">Ver as falhas</Link></>}
+              {nextPost?.scheduledAt && (
+                <div style={{ marginTop: 6 }}>
+                  <Link href={`/painel/publicacoes/${nextPost.id}`}>Próxima publicação: {dayName(nextPost.scheduledAt).toLowerCase()} às {hourMinute(nextPost.scheduledAt)}</Link>
+                  {`, ${KIND_LABEL[nextPost.kind].toLowerCase()}${nextAuto ? `, com a automação ${nextAuto.name ?? nextAuto.id}` : ""}.`}
+                </div>
+              )}
             </div>
           </section>
 

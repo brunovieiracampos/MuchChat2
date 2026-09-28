@@ -53,6 +53,14 @@ ao ativar, o momento em que foi armada (`armedAt`). No primeiro comentário num 
 (ou a varredura) pega o post mais antigo publicado após `armedAt`, troca o marcador pelo link dele e grava (`boundAt`).
 Também dá para salvar a automação como rascunho sem post e associar depois.
 
+**Agendamento de publicações.** Menu Publicações: post, carrossel (até 10) ou Story de imagem, legenda, data e hora, e a
+automação do post junto (nova ou um rascunho sem post, com o marcador `@post:{id}`). As imagens vão do navegador direto para o
+Vercel Blob **privado** (`/api/uploads`, só JPEG até 8 MB, dentro de `posts/{accountId}/`); a Meta recebe um link temporário assinado.
+Cada agendamento inicia um processo do Vercel Workflow (`workflows/publish-post`): dorme até 10 min antes, prepara a mídia na Meta,
+dorme até a hora, publica (sem nunca publicar duas vezes), liga e ativa a automação, e apaga a mídia 1 dia depois.
+A "ficha" `schedule_token` faz reagendar/cancelar invalidar o processo anterior. Tabela `scheduled_posts` com RLS.
+Requer a permissão `instagram_business_content_publish` (limite da Meta: 100 publicações pela API a cada 24h).
+
 **MCP (conector do Claude).** `app/api/mcp` expõe as ferramentas de `lib/mcp.ts` (listar, criar, editar, associar post,
 ativar, excluir, execuções, resumo, pausar tudo). Em Configurações → Acesso pelo Claude, o usuário gera um link
 `https://SEU-DOMINIO/api/mcp/mc_…` e o adiciona no Claude em Configurações → Conectores → Adicionar conector personalizado

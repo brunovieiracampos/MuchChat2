@@ -38,4 +38,9 @@ export async function allow(kind: keyof typeof LIMITS, email?: string): Promise<
   return okIp && okEmail;
 }
 
+/** Limite genérico por chave (ex.: por conta). */
+export async function allowKey(key: string, rule: Rule): Promise<boolean> {
+  return hit(key, rule);
+}
+
 export const RATE_MESSAGE = "Muitas tentativas seguidas. Espere alguns minutos e tente de novo.";

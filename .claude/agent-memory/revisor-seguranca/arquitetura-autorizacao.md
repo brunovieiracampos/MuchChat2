@@ -18,3 +18,9 @@ Achados recorrentes a revalidar: safeNext não bloqueia tab/newline (/%09/evil.c
 
 **Why:** reduzir ruído nas próximas revisões desse repositório.
 **How to apply:** partir dessas camadas ao revisar novas rotas/actions; conferir se continuam valendo no código atual.
+
+Agendamento de publicações (revisado 2026-09-28, não commitado):
+- scheduled_posts: painel grava com cliente do usuário (RLS owns_account, grant update total), MCP e workflow com service role filtrando account_id. Consequência: o usuário edita qualquer coluna da própria linha pelo PostgREST (media, status, token); ownsMedia só é checado em savePost, não em signedUrls/deleteMedia/buildContainer.
+- Rotas /.well-known/workflow são protegidas pelo @vercel/queue handleCallback (não reportar como endpoint aberto). Inputs dos steps vêm do storage do run, não do request.
+- Links assinados do Blob (@vercel/blob 2.8 issueSignedToken+presignUrl) são por pathname; clientSigningToken não vai na URL. storeFromUrl é só https com validação de certificado: rebinding tem impacto baixo.
+- Falso positivo descartado: token da Meta vai no header Authorization, não aparece em GraphError/logs.

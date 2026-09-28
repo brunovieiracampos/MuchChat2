@@ -1,5 +1,5 @@
 import { summarize } from "@/lib/activity";
-import { postKey, waitsNextPost } from "@/lib/match";
+import { postKey, scheduledPostIdOf, waitsNextPost } from "@/lib/match";
 import { getActivity } from "@/lib/panel";
 import { requireSession } from "@/lib/session";
 import { AutomationList, type AutomationRow } from "./list";
@@ -13,6 +13,7 @@ export default async function Automacoes() {
     const anyPost = r.posts.some((p) => postKey(p) === "*");
     const active = r.active !== false;
     const scope = anyPost ? "Qualquer post"
+      : scheduledPostIdOf(r) ? "Esperando a publicação agendada"
       : waitsNextPost(r) ? (active ? "Esperando a próxima publicação" : "Próxima publicação: ative para começar a esperar")
       : !r.posts.length ? "Sem post: escolha o post para ativar"
       : `${r.posts.length} post${r.posts.length > 1 ? "s" : ""}${r.boundAt ? ", preso na publicação seguinte" : ""}`;

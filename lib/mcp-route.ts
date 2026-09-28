@@ -10,7 +10,8 @@ const handler = createMcpHandler(registerTools, {
   serverInfo: { name: "muchchat", version: "1.0.0" },
   instructions: `Ferramentas do ${PRODUCT.name}: automações que respondem comentários do Instagram e mandam o material no direct. `
     + "Para um post agendado que ainda não saiu, crie a automação com posts \"proxima\" e ative; ou crie como rascunho e associe o post depois com set_automation_post. "
-    + "Antes de excluir, confirme com a pessoa.",
+    + "Para agendar um post no Instagram, use schedule_post (imagens por link https JPEG, ou o id de um rascunho enviado pelo painel); a automação pode ir junto e é ativada quando o post sair. "
+    + "Horários sem fuso são de Brasília. Antes de excluir ou publicar agora, confirme com a pessoa.",
 });
 
 const unauthorized = (message: string) => Response.json({ error: message }, {

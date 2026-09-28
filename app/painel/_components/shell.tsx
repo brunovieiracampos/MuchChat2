@@ -21,6 +21,7 @@ const NAV = [
   { href: "/painel", label: "Visão geral", icon: ICONS.dashboard },
   { href: null, label: "Caixa de entrada", icon: ICONS.inbox, soon: true },
   { href: "/painel/automacoes", label: "Automações", icon: ICONS.automations },
+  { href: "/painel/publicacoes", label: "Publicações", icon: ICONS.calendar },
   { href: "/painel/contatos", label: "Contatos", icon: ICONS.contacts },
   { href: "/painel/execucoes", label: "Execuções", icon: ICONS.executions, alert: true },
   { href: "/painel/metricas", label: "Métricas", icon: ICONS.metrics },
@@ -32,6 +33,8 @@ function titleFor(path: string): string {
   if (path === "/painel/automacoes/nova" || path.endsWith("/editar")) return "Construtor de automação";
   if (path.startsWith("/painel/automacoes/")) return "Detalhes da automação";
   if (path.startsWith("/painel/automacoes")) return "Automações";
+  if (path === "/painel/publicacoes/nova" || /^\/painel\/publicacoes\/[^/]+$/.test(path)) return "Publicação";
+  if (path.startsWith("/painel/publicacoes")) return "Publicações";
   if (path.startsWith("/painel/contatos")) return "Contatos";
   if (path.startsWith("/painel/execucoes")) return "Execuções";
   if (path.startsWith("/painel/metricas")) return "Métricas";

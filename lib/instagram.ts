@@ -154,3 +154,41 @@ export function isDryRun() { return process.env.DRY_RUN === "true"; }
 export async function getMe(): Promise<{ user_id?: string; username?: string; account_type?: string; name?: string }> {
   return call("GET", "me", { fields: "user_id,username,account_type,name" });
 }
+
+/* ---------- publicação (agendamento) ---------- */
+
+export type ContainerStatus = "IN_PROGRESS" | "FINISHED" | "PUBLISHED" | "ERROR" | "EXPIRED";
+
+/** Prepara uma mídia na Meta (não publica). Devolve o id do "container". */
+export async function createContainer(params: Record<string, string>): Promise<string> {
+  const r = await call<{ id: string }>("POST", `${await igUserId()}/media`, params);
+  return r.id;
+}
+
+export async function containerStatus(id: string): Promise<{ code: ContainerStatus; detail?: string }> {
+  const r = await call<{ status_code?: ContainerStatus; status?: string }>("GET", id, { fields: "status_code,status" });
+  return { code: r.status_code ?? "IN_PROGRESS", detail: r.status };
+}
+
+/** Publica um container já pronto. Devolve o id do post publicado. */
+export async function publishContainer(creationId: string): Promise<string> {
+  const r = await call<{ id: string }>("POST", `${await igUserId()}/media_publish`, { creation_id: creationId });
+  return r.id;
+}
+
+export async function getMediaLink(id: string): Promise<{ permalink?: string; timestamp?: string }> {
+  return call("GET", id, { fields: "permalink,timestamp" });
+}
+
+/** Publicações feitas pela API nas últimas 24h e o limite da conta. */
+export async function publishingQuota(): Promise<{ used: number; total: number }> {
+  const r = await call<{ data?: { quota_usage?: number; config?: { quota_total?: number } }[] }>("GET", `${await igUserId()}/content_publishing_limit`, { fields: "config,quota_usage" });
+  const d = r.data?.[0];
+  return { used: d?.quota_usage ?? 0, total: d?.config?.quota_total ?? 100 };
+}
+
+/** Stories no ar (não aparecem em /media). */
+export async function listStories(): Promise<{ id: string; timestamp?: string }[]> {
+  const r = await call<{ data?: { id: string; timestamp?: string }[] }>("GET", `${await igUserId()}/stories`, { fields: "id,timestamp" });
+  return r.data ?? [];
+}

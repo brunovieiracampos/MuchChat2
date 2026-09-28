@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { STEP_META, renderText, stepsOf } from "@/lib/flow";
 import { dateTime, num, relTime } from "@/lib/format";
-import { postKey, waitsNextPost } from "@/lib/match";
+import { postKey, scheduledPostIdOf, waitsNextPost } from "@/lib/match";
 import { PERIODS, getActivity, getStats, periodOf } from "@/lib/panel";
 import { buildFunnel, funnelStages, sumCounts } from "@/lib/stats";
 import { requireSession } from "@/lib/session";
@@ -24,7 +24,9 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
   const active = rule.active !== false;
   const anyPost = rule.posts.some((p) => postKey(p) === "*");
   const next = waitsNextPost(rule);
+  const scheduledPost = scheduledPostIdOf(rule);
   const where = anyPost ? "em qualquer post"
+    : scheduledPost ? "na publicação agendada, assim que ela sair"
     : next ? "no próximo post que você publicar"
     : rule.posts.length ? `em ${rule.posts.length} post${rule.posts.length > 1 ? "s" : ""}` : "(ainda sem post escolhido)";
   const steps = stepsOf(rule);
@@ -99,6 +101,7 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
           <div className="pn-fields" style={{ marginTop: 12 }}>
             <div className="pn-field-row"><div>Palavras-chave</div><div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{rule.keywords.map((k) => <span className="pn-tag" key={k}>{k}</span>)}</div></div>
             <div className="pn-field-row"><div>Posts</div><div>{anyPost ? "Qualquer post ou Reels"
+              : scheduledPost ? <Link href={`/painel/publicacoes/${scheduledPost}`}>Publicação agendada (ativa quando sair)</Link>
               : next ? (active && rule.armedAt ? `Próxima publicação: esperando desde ${dateTime(rule.armedAt)}` : "Próxima publicação: ative para começar a esperar")
               : !rule.posts.length ? <Link href={`/painel/automacoes/${rule.id}/editar`}>Escolher o post</Link>
               : rule.posts.map((p) => <div key={p} className="pn-mono" style={{ fontSize: 11.5 }}>{/^https?:/.test(p) ? <a href={p} target="_blank" rel="noreferrer">{postKey(p)}</a> : postKey(p)}</div>)}{rule.boundAt && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 3 }}>Preso automaticamente em {dateTime(rule.boundAt)}</div>}</div></div>

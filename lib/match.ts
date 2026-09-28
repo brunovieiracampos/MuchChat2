@@ -29,9 +29,15 @@ export const NEXT_POST = "@next";
 export const isNextPost = (p: string) => p.trim() === NEXT_POST;
 export const waitsNextPost = (r: Pick<Rule, "posts">) => r.posts.some(isNextPost);
 
+/** Marcador de publicação agendada no Much Chat ("@post:{id}"): vira o link do post quando ele é publicado. */
+export const isScheduledPostMarker = (p: string) => p.trim().startsWith("@post:");
+export const scheduledPostIdOf = (r: Pick<Rule, "posts">) => r.posts.find(isScheduledPostMarker)?.trim().slice(6) ?? null;
+/** Marcadores que ainda não são um post de verdade. */
+export const isPlaceholderPost = (p: string) => isNextPost(p) || isScheduledPostMarker(p);
+
 export function ruleAppliesToMedia(rule: Rule, media: MediaRef): boolean {
   return rule.posts.some((p) => {
-    if (isNextPost(p)) return false;
+    if (isPlaceholderPost(p)) return false;
     const k = postKey(p);
     return k === "*" || k === media.id || (!!media.shortcode && k === media.shortcode);
   });
@@ -48,5 +54,5 @@ export function findRule(text: string, media: MediaRef, rules: Rule[] = RULES): 
 
 /** Algum post da regra precisa do shortcode (URL/shortcode em vez de ID/"*")? */
 export function rulesNeedShortcode(rules: Rule[] = RULES): boolean {
-  return rules.some((r) => r.posts.some((p) => { const k = postKey(p); return k !== "*" && !isNextPost(p) && !/^\d+$/.test(k); }));
+  return rules.some((r) => r.posts.some((p) => { const k = postKey(p); return k !== "*" && !isPlaceholderPost(p) && !/^\d+$/.test(k); }));
 }

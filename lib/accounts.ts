@@ -1,7 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Rule } from "@/config/rules";
-import type { AccountCtx, AccountRepo } from "@/lib/account-context";
+import type { AccountCtx, AccountRepo, PostCond } from "@/lib/account-context";
+import type { ScheduledPost } from "@/lib/posts";
 import { open, seal } from "@/lib/secret-box";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
@@ -46,12 +47,77 @@ class SupabaseRepo implements AccountRepo {
     if (error) throw new Error(`Falha ao excluir a automação: ${error.message}`);
   }
 
+  async listPosts(): Promise<ScheduledPost[]> {
+    const { data, error } = await this.db.from("scheduled_posts").select("*").eq("account_id", this.accountId).order("scheduled_at", { ascending: true, nullsFirst: false });
+    if (error) throw new Error(`Falha ao ler publicações: ${error.message}`);
+    return (data ?? []).map(toPost);
+  }
+
+  async getPost(id: string): Promise<ScheduledPost | null> {
+    const { data, error } = await this.db.from("scheduled_posts").select("*").eq("account_id", this.accountId).eq("id", id).maybeSingle();
+    if (error) throw new Error(`Falha ao ler a publicação: ${error.message}`);
+    return data ? toPost(data) : null;
+  }
+
+  // Escritas de publicações só pelo servidor (o navegador tem acesso só de leitura), sempre filtrando pela conta.
+  async createPost(p: Partial<ScheduledPost>): Promise<ScheduledPost> {
+    const { data, error } = await createAdminClient().from("scheduled_posts").insert({ ...fromPost(p), account_id: this.accountId }).select("*").single();
+    if (error) throw new Error(`Falha ao criar a publicação: ${error.message}`);
+    return toPost(data);
+  }
+
+  async updatePost(id: string, patch: Partial<ScheduledPost>, cond: PostCond = {}): Promise<ScheduledPost | null> {
+    let q = createAdminClient().from("scheduled_posts").update({ ...fromPost(patch), updated_at: new Date().toISOString() })
+      .eq("account_id", this.accountId).eq("id", id);
+    if (cond.token !== undefined) q = cond.token === null ? q.is("schedule_token", null) : q.eq("schedule_token", cond.token);
+    if (cond.statuses) q = q.in("status", cond.statuses);
+    const { data, error } = await q.select("*").maybeSingle();
+    if (error) throw new Error(`Falha ao salvar a publicação: ${error.message}`);
+    return data ? toPost(data) : null;
+  }
+
+  async deletePost(id: string): Promise<void> {
+    const { error } = await createAdminClient().from("scheduled_posts").delete().eq("account_id", this.accountId).eq("id", id);
+    if (error) throw new Error(`Falha ao excluir a publicação: ${error.message}`);
+  }
+
   async saveToken(token: string, refreshedAt: number): Promise<void> {
     const { error } = await createAdminClient().from("instagram_accounts")
       .update({ token_ciphertext: seal(token), token_refreshed_at: new Date(refreshedAt).toISOString(), updated_at: new Date().toISOString() })
       .eq("id", this.accountId);
     if (error) throw new Error(`Falha ao salvar o token: ${error.message}`);
   }
+}
+
+/* ---------- publicações: linha do banco ↔ objeto ---------- */
+
+type PostRow = Record<string, unknown>;
+const ms = (v: unknown) => (v ? Date.parse(String(v)) : null);
+const iso = (v: number | null | undefined) => (v ? new Date(v).toISOString() : null);
+
+function toPost(r: PostRow): ScheduledPost {
+  return {
+    id: String(r.id), kind: r.kind as ScheduledPost["kind"], caption: String(r.caption ?? ""), media: (r.media as ScheduledPost["media"]) ?? [],
+    scheduledAt: ms(r.scheduled_at), status: r.status as ScheduledPost["status"], scheduleToken: (r.schedule_token as string) ?? null,
+    runId: (r.run_id as string) ?? null, containerId: (r.container_id as string) ?? null, igMediaId: (r.ig_media_id as string) ?? null,
+    permalink: (r.permalink as string) ?? null, publishedAt: ms(r.published_at), automationId: (r.automation_id as string) ?? null,
+    attempts: Number(r.attempts ?? 0), error: (r.error as string) ?? null, mediaDeletedAt: ms(r.media_deleted_at),
+    createdAt: ms(r.created_at) ?? Date.now(), updatedAt: ms(r.updated_at) ?? Date.now(),
+  };
+}
+
+/** Só os campos presentes em `p` vão para o banco. */
+function fromPost(p: Partial<ScheduledPost>): PostRow {
+  const map: [keyof ScheduledPost, string, (v: never) => unknown][] = [
+    ["kind", "kind", (v) => v], ["caption", "caption", (v) => v], ["media", "media", (v) => v],
+    ["scheduledAt", "scheduled_at", iso], ["status", "status", (v) => v], ["scheduleToken", "schedule_token", (v) => v],
+    ["runId", "run_id", (v) => v], ["containerId", "container_id", (v) => v], ["igMediaId", "ig_media_id", (v) => v],
+    ["permalink", "permalink", (v) => v], ["publishedAt", "published_at", iso], ["automationId", "automation_id", (v) => v],
+    ["attempts", "attempts", (v) => v], ["error", "error", (v) => v], ["mediaDeletedAt", "media_deleted_at", iso],
+  ];
+  const row: PostRow = {};
+  for (const [k, col, f] of map) if (k in p) row[col] = f(p[k] as never);
+  return row;
 }
 
 function toCtx(row: AccountRow, db: SupabaseClient): AccountCtx {
@@ -73,6 +139,14 @@ export async function accountForUser(userId: string): Promise<AccountCtx | null>
 export async function accountForOwnerService(userId: string): Promise<AccountCtx | null> {
   const db = createAdminClient();
   const { data, error } = await db.from("instagram_accounts").select(COLUMNS).eq("owner_id", userId).maybeSingle<AccountRow>();
+  if (error) throw new Error(`Falha ao ler a conta: ${error.message}`);
+  return data ? toCtx(data, db) : null;
+}
+
+/** Conta pelo id interno (processo de publicação, que roda sem usuário logado). */
+export async function accountById(accountId: string): Promise<AccountCtx | null> {
+  const db = createAdminClient();
+  const { data, error } = await db.from("instagram_accounts").select(COLUMNS).eq("id", accountId).maybeSingle<AccountRow>();
   if (error) throw new Error(`Falha ao ler a conta: ${error.message}`);
   return data ? toCtx(data, db) : null;
 }

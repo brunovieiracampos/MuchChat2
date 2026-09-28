@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { dateShort } from "@/lib/format";
-import { NEXT_POST, isNextPost, postKey } from "@/lib/match";
+import { NEXT_POST, isNextPost, isScheduledPostMarker, postKey } from "@/lib/match";
 import { listMediaAction } from "../actions";
 import { ICONS } from "../_components/icons";
 import { Icon, Toggle, useToast } from "../_components/ui";
@@ -23,12 +23,27 @@ export function PostPicker({ posts, onChange, media, mediaNext, connected, inval
   const [known, setKnown] = useState<MediaOption[]>(media);
   const anyPost = posts.some((p) => postKey(p) === "*");
   const nextPost = posts.some(isNextPost);
+  const scheduled = posts.find(isScheduledPostMarker);
   const specific = posts.filter((p) => postKey(p) !== "*" && !isNextPost(p));
   const isSel = (m: MediaOption) => specific.some((p) => matches(p, m));
   const toggle = (m: MediaOption) => onChange(isSel(m) ? specific.filter((p) => !matches(p, m)) : [...specific, m.permalink ?? m.id]);
   const addUrl = () => { const v = url.trim(); if (v) onChange([...specific, v]); setUrl(""); };
   // Posts escolhidos fora dos 3 recentes aparecem como lista, com miniatura quando já carregada.
   const chosenElsewhere = specific.filter((p) => !media.slice(0, 3).some((m) => matches(p, m)));
+
+  if (scheduled) {
+    return (
+      <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: "1px solid var(--violet-line)", background: "#120C1F", borderRadius: 8, padding: "10px 11px" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12.5 }}>Publicação agendada</div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>
+            Ligada a um post agendado no Much Chat. É ativada sozinha quando ele sair. <a href={`/painel/publicacoes/${scheduled.trim().slice(6)}`}>Ver publicação</a>
+          </div>
+        </div>
+        <button type="button" className="pn-btn is-sm" onClick={() => onChange([])}>Desligar</button>
+      </div>
+    );
+  }
 
   return (
     <div>

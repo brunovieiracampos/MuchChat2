@@ -39,3 +39,17 @@ export const EXEC_STATUS: Record<ExecStatus, { label: string; tone: "green" | "a
   simulacao: { label: "Simulação", tone: "amber" },
   expirada: { label: "Expirada", tone: "" },
 };
+
+/** "Hoje", "Amanhã", "Ontem" ou "qua., 1 de out." (fuso de Brasília). */
+export function dayName(ms: number, now = Date.now()): string {
+  const key = (t: number) => new Date(t).toLocaleDateString("en-CA", { timeZone: TZ });
+  const d = key(ms);
+  if (d === key(now)) return "Hoje";
+  if (d === key(now + 864e5)) return "Amanhã";
+  if (d === key(now - 864e5)) return "Ontem";
+  return new Date(ms).toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" });
+}
+
+export function hourMinute(ms: number): string {
+  return new Date(ms).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+}
