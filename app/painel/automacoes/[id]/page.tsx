@@ -105,8 +105,8 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
               : next ? (active && rule.armedAt ? `Próxima publicação: esperando desde ${dateTime(rule.armedAt)}` : "Próxima publicação: ative para começar a esperar")
               : !rule.posts.length ? <Link href={`/painel/automacoes/${rule.id}/editar`}>Escolher o post</Link>
               : rule.posts.map((p) => <div key={p} className="pn-mono" style={{ fontSize: 11.5 }}>{/^https?:/.test(p) ? <a href={p} target="_blank" rel="noreferrer">{postKey(p)}</a> : postKey(p)}</div>)}{rule.boundAt && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 3 }}>Preso automaticamente em {dateTime(rule.boundAt)}</div>}</div></div>
-            <div className="pn-field-row"><div>Link</div><div>{rule.link ? <a href={rule.link} target="_blank" rel="noreferrer" className="pn-ellipsis" style={{ display: "block" }}>{rule.link}</a> : "—"}</div></div>
-            <div className="pn-field-row"><div>Alterada</div><div>{rule.updatedAt ? relTime(rule.updatedAt) : "—"}</div></div>
+            <div className="pn-field-row"><div>Link</div><div>{rule.link ? <a href={rule.link} target="_blank" rel="noreferrer" className="pn-ellipsis" style={{ display: "block" }}>{rule.link}</a> : "-"}</div></div>
+            <div className="pn-field-row"><div>Alterada</div><div>{rule.updatedAt ? relTime(rule.updatedAt) : "-"}</div></div>
           </div>
           <div className="pn-section-label" style={{ marginTop: 18 }}>Fluxo</div>
           <ol style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>

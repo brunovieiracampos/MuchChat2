@@ -41,13 +41,13 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
     <div className="pn-page is-narrow">
       {conectado && ok && (
         <div className="pn-alert is-violet">
-          <Icon d="M5 12l4 4 10-10" size={17} color="#A78BFA" width={2} style={{ marginTop: 1 }} />
+          <Icon d="M5 12l4 4 10-10" size={17} color="var(--violet-3)" width={2} style={{ marginTop: 1 }} />
           <div><div className="pn-alert-title">Conta @{conn.username} conectada</div><div className="pn-alert-body">O acesso vale por 60 dias e é renovado sozinho.</div></div>
         </div>
       )}
       {flags.dryRun && (
         <div className="pn-alert">
-          <Icon d={ICONS.flask} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
+          <Icon d={ICONS.flask} size={17} color="var(--amber)" width={1.8} style={{ marginTop: 1 }} />
           <div><div className="pn-alert-title">Modo de teste ligado</div><div className="pn-alert-body">As automações só simulam: nenhuma DM ou resposta sai de verdade.</div></div>
         </div>
       )}

@@ -59,7 +59,7 @@ export function ExecutionList({ executions, automations, initial }: {
       </div>
       <div className="pn-row" style={{ gap: 8 }}>
         <div className="pn-search" style={{ width: 280, maxWidth: "100%" }}>
-          <Icon d={ICONS.search} size={14} color="#6E6E7D" width={1.8} />
+          <Icon d={ICONS.search} size={14} color="var(--muted-2)" width={1.8} />
           <input type="search" className="pn-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar usuário, comentário ou automação" aria-label="Buscar execução" />
         </div>
         <select className="pn-select" style={{ width: "auto" }} value={auto} onChange={(e) => setAuto(e.target.value)} aria-label="Filtrar por automação">
@@ -83,7 +83,7 @@ export function ExecutionList({ executions, automations, initial }: {
               <div className="pn-narrow-only pn-cell-sub pn-ellipsis">{e.username ? `@${e.username}: ` : ""}{e.step}</div>
               <div className="pn-ellipsis" style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 2 }}>“{e.text}”, {dateTime(e.startedAt)}</div>
             </div>
-            <div className="pn-wide-only pn-ellipsis" style={{ fontSize: 12.5, color: "var(--text-3)" }}>{e.username ? `@${e.username}` : "—"}</div>
+            <div className="pn-wide-only pn-ellipsis" style={{ fontSize: 12.5, color: "var(--text-3)" }}>{e.username ? `@${e.username}` : "-"}</div>
             <div><ExecBadge status={e.status} /></div>
             <div className="pn-wide-only pn-ellipsis" style={{ fontSize: 12.5, color: "var(--text-3)" }}>{e.step}</div>
             <div style={{ textAlign: "right" }}>
@@ -103,7 +103,7 @@ export function ExecutionList({ executions, automations, initial }: {
           <div className="pn-fields">
             <div className="pn-field-row"><div>Contato</div><div>{current.username ? <a href={`https://instagram.com/${current.username}`} target="_blank" rel="noreferrer">@{current.username}</a> : "Não identificado"}</div></div>
             <div className="pn-field-row"><div>Comentário</div><div>“{current.text}”</div></div>
-            <div className="pn-field-row"><div>Palavra-chave</div><div>{current.keyword ? <span className="pn-tag">{current.keyword}</span> : "—"}</div></div>
+            <div className="pn-field-row"><div>Palavra-chave</div><div>{current.keyword ? <span className="pn-tag">{current.keyword}</span> : "-"}</div></div>
             <div className="pn-field-row"><div>Etapa atual</div><div>{current.step}</div></div>
             <div className="pn-field-row"><div>Última atualização</div><div>{relTime(current.lastAt)}</div></div>
             <div className="pn-field-row"><div>ID do comentário</div><div className="pn-mono" style={{ fontSize: 11.5 }}>{current.commentId}</div></div>
@@ -122,7 +122,7 @@ export function ExecutionList({ executions, automations, initial }: {
           <div>
             {current.steps.map((s, i) => (
               <div className="pn-timeline-item" key={i}>
-                <div className="pn-timeline-rail"><Dot color={s.ok ? (s.action === "dry-run" ? "#E0A526" : "#2FA37A") : "#E4544F"} size={8} /><span /></div>
+                <div className="pn-timeline-rail"><Dot color={s.ok ? (s.action === "dry-run" ? "var(--amber)" : "var(--green)") : "var(--red)"} size={8} /><span /></div>
                 <div style={{ paddingBottom: 14, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, color: "var(--text-2)" }}>{s.label}</div>
                   <div className="pn-num" style={{ fontSize: 11.5, color: "var(--muted-2)", marginTop: 2 }}>{timeOnly(s.at)}</div>

@@ -33,7 +33,7 @@ export function PostPicker({ posts, onChange, media, mediaNext, connected, inval
 
   if (scheduled) {
     return (
-      <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: "1px solid var(--violet-line)", background: "#120C1F", borderRadius: 8, padding: "10px 11px" }}>
+      <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: "1px solid var(--violet-line)", background: "var(--violet-soft)", borderRadius: 8, padding: "10px 11px" }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12.5 }}>Publicação agendada</div>
           <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>
@@ -47,7 +47,7 @@ export function PostPicker({ posts, onChange, media, mediaNext, connected, inval
 
   return (
     <div>
-      <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: "1px solid #22222B", background: "var(--card)", borderRadius: 8, padding: "10px 11px" }}>
+      <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: "1px solid var(--line-2)", background: "var(--card)", borderRadius: 8, padding: "10px 11px" }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12.5 }}>Qualquer post ou Reels</div>
           <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Inclui os posts que você publicar depois</div>
@@ -56,7 +56,7 @@ export function PostPicker({ posts, onChange, media, mediaNext, connected, inval
       </div>
 
       {!anyPost && (
-        <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: `1px solid ${nextPost ? "var(--violet-line)" : "#22222B"}`, background: nextPost ? "#120C1F" : "var(--card)", borderRadius: 8, padding: "10px 11px", marginTop: 8 }}>
+        <div className="pn-row" style={{ gap: 10, flexWrap: "nowrap", border: `1px solid ${nextPost ? "var(--violet-line)" : "var(--line-2)"}`, background: nextPost ? "var(--violet-soft)" : "var(--card)", borderRadius: 8, padding: "10px 11px", marginTop: 8 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12.5 }}>Próxima publicação</div>
             <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>
@@ -90,7 +90,7 @@ export function PostPicker({ posts, onChange, media, mediaNext, connected, inval
               <div key={p} className="pn-row" style={{ gap: 8, flexWrap: "nowrap", marginTop: 8, fontSize: 12 }}>
                 {m?.thumb
                   ? <img src={m.thumb} alt="" referrerPolicy="no-referrer" style={{ width: 28, height: 28, borderRadius: 5, objectFit: "cover", flex: "none" }} />
-                  : <Icon d={ICONS.link} size={14} color="#8A8A99" />}
+                  : <Icon d={ICONS.link} size={14} color="var(--muted)" />}
                 <span className="pn-ellipsis" style={{ flex: 1, fontSize: 11.5 }}>{m?.caption || postKey(p)}</span>
                 <button type="button" className="pn-btn is-sm" onClick={() => onChange(specific.filter((x) => x !== p))}>Remover</button>
               </div>

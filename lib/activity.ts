@@ -85,7 +85,7 @@ export function buildExecutions(log: LogEntry[], rules: Rule[]): Execution[] {
       commentId,
       mediaId: first.mediaId,
       ruleId: first.rule,
-      ruleName: rule?.name ?? first.rule ?? "—",
+      ruleName: rule?.name ?? first.rule ?? "-",
       username: chrono.find((e) => e.username)?.username,
       text: first.text,
       keyword: rule && first.text ? rule.keywords.find((k) => hasKeyword(first.text!, k)) : undefined,

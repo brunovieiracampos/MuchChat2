@@ -74,7 +74,7 @@ export function AutomationList({ rows }: { rows: AutomationRow[] }) {
             </div>
             <div className="pn-wide-only" style={{ fontSize: 12.5, color: "var(--text-3)", minWidth: 0 }}>{r.trigger}</div>
             <div><Badge tone={r.active ? "green" : "amber"}>{r.active ? "Ativa" : "Pausada"}</Badge></div>
-            <div className="pn-wide-only" style={{ fontSize: 12.5, color: "var(--muted)" }}>{r.updatedAt ? relTime(r.updatedAt) : "—"}</div>
+            <div className="pn-wide-only" style={{ fontSize: 12.5, color: "var(--muted)" }}>{r.updatedAt ? relTime(r.updatedAt) : "-"}</div>
             <div className="pn-wide-only pn-num" style={{ fontSize: 13, textAlign: "right" }}>{r.runs}</div>
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
               <Link href={`/painel/automacoes/${r.id}/editar`} className="pn-btn is-sm">Editar</Link>

@@ -96,8 +96,8 @@ export default async function Metricas({ searchParams }: { searchParams: Promise
               <div className="pn-ellipsis pn-cell-main">{a.name}</div>
               <div className="pn-num" style={cell}>{a.c.comment}</div>
               <div className="pn-num pn-wide-only" style={cell}>{a.c.dm}</div>
-              <div className="pn-num pn-wide-only" style={{ ...cell, color: a.clicks ? undefined : "var(--muted-2)" }}>{a.clicks ? `${a.c.click}${pct(a.c.click)}` : "—"}</div>
-              <div className="pn-num" style={{ ...cell, color: a.follow ? "var(--green-text)" : "var(--muted-2)" }}>{a.follow ? a.c.gained : "—"}</div>
+              <div className="pn-num pn-wide-only" style={{ ...cell, color: a.clicks ? undefined : "var(--muted-2)" }}>{a.clicks ? `${a.c.click}${pct(a.c.click)}` : "-"}</div>
+              <div className="pn-num" style={{ ...cell, color: a.follow ? "var(--green-text)" : "var(--muted-2)" }}>{a.follow ? a.c.gained : "-"}</div>
               <div className="pn-num" style={cell}>{`${a.c.done}${pct(a.c.done)}`}</div>
               <div className="pn-num pn-wide-only" style={{ ...cell, color: a.c.failed ? "var(--red-text)" : "var(--muted)" }}>{a.c.failed}</div>
             </Link>

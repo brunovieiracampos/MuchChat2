@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 
 export function Icon({ d, size = 16, color = "currentColor", width = 1.7, style }: { d: string; size?: number; color?: string; width?: number; style?: React.CSSProperties }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", ...style }} aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" stroke={color === "currentColor" ? color : undefined} style={{ flex: "none", ...(color === "currentColor" ? null : { stroke: color }), ...style }} aria-hidden>
       <path d={d} />
     </svg>
   );
@@ -30,7 +30,7 @@ export function Toggle({ on, onChange, label, disabled }: { on: boolean; onChang
 /* ---------- toast ---------- */
 
 type ToastTone = "green" | "amber" | "red" | "violet";
-const TONE: Record<ToastTone, string> = { green: "#2FA37A", amber: "#E0A526", red: "#E4544F", violet: "#7C3AED" };
+const TONE: Record<ToastTone, string> = { green: "var(--green)", amber: "var(--amber)", red: "var(--red)", violet: "var(--violet)" };
 const ToastCtx = createContext<(text: string, tone?: ToastTone) => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {

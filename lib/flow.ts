@@ -28,9 +28,9 @@ export const REPLY_MAX = 300;
 export const MAX_STEPS = 12;
 
 export const STEP_META: Record<StepType, { label: string; color: string; help: string }> = {
-  reply: { label: "Responder comentário", color: "#2FA37A", help: "Resposta pública no comentário" },
-  dm: { label: "Enviar DM", color: "#A78BFA", help: "Mensagem no direct, com ou sem botão" },
-  follow: { label: "Verificar se segue", color: "#E0A526", help: "Só continua para quem segue o perfil" },
+  reply: { label: "Responder comentário", color: "var(--green)", help: "Resposta pública no comentário" },
+  dm: { label: "Enviar DM", color: "var(--violet-3)", help: "Mensagem no direct, com ou sem botão" },
+  follow: { label: "Verificar se segue", color: "var(--amber)", help: "Só continua para quem segue o perfil" },
 };
 
 export function newStepId(): string {

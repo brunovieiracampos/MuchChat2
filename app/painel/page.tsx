@@ -40,7 +40,7 @@ export default async function VisaoGeral() {
 
       {conn.state !== "connected" && (
         <div className="pn-alert is-red">
-          <Icon d={ICONS.error} size={17} color="#E4544F" width={1.8} style={{ marginTop: 1 }} />
+          <Icon d={ICONS.error} size={17} color="var(--red)" width={1.8} style={{ marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div className="pn-alert-title">{conn.state === "error" ? "A conexão com o Instagram está com erro" : "Instagram ainda não conectado"}</div>
             <div className="pn-alert-body">{conn.state === "error" ? conn.error : "Conecte a conta para o painel ler os posts e responder comentários."}</div>
@@ -50,7 +50,7 @@ export default async function VisaoGeral() {
       )}
       {conn.state === "connected" && conn.tokenDaysLeft !== null && conn.tokenDaysLeft <= 10 && (
         <div className="pn-alert">
-          <Icon d={ICONS.warn} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
+          <Icon d={ICONS.warn} size={17} color="var(--amber)" width={1.8} style={{ marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div className="pn-alert-title">O token da Meta expira em {conn.tokenDaysLeft} dias</div>
             <div className="pn-alert-body">A varredura diária renova sozinha. Se o aviso continuar, reconecte a conta.</div>
@@ -60,7 +60,7 @@ export default async function VisaoGeral() {
       )}
       {flags.paused && (
         <div className="pn-alert">
-          <Icon d={ICONS.warn} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
+          <Icon d={ICONS.warn} size={17} color="var(--amber)" width={1.8} style={{ marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div className="pn-alert-title">Automações pausadas</div>
             <div className="pn-alert-body">Nenhum comentário está sendo respondido. Use “Retomar automações” no topo.</div>
@@ -69,7 +69,7 @@ export default async function VisaoGeral() {
       )}
       {flags.dryRun && (
         <div className="pn-alert is-violet">
-          <Icon d={ICONS.flask} size={17} color="#A78BFA" width={1.8} style={{ marginTop: 1 }} />
+          <Icon d={ICONS.flask} size={17} color="var(--violet-3)" width={1.8} style={{ marginTop: 1 }} />
           <div style={{ flex: 1 }}>
             <div className="pn-alert-title">Modo de teste ligado (DRY_RUN=true)</div>
             <div className="pn-alert-body">O painel mostra o que seria enviado, mas nenhuma DM ou resposta sai de verdade. Desligue na Vercel quando quiser ir para produção.</div>
@@ -79,7 +79,7 @@ export default async function VisaoGeral() {
 
       {executions.length === 0 ? (
         <div className="pn-empty">
-          <div className="pn-empty-icon"><Icon d={ICONS.chat} size={20} color="#7C3AED" width={1.6} /></div>
+          <div className="pn-empty-icon"><Icon d={ICONS.chat} size={20} color="var(--violet)" width={1.6} /></div>
           <div className="pn-empty-title">Nenhuma atividade registrada ainda</div>
           <div className="pn-empty-body">
             Assim que alguém comentar uma palavra-chave num post com automação ativa, os números aparecem aqui.

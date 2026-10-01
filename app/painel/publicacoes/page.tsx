@@ -15,7 +15,7 @@ function PostRow({ p, thumb, automation }: { p: ScheduledPost; thumb?: string; a
   return (
     <Link href={`/painel/publicacoes/${p.id}`} className="pn-post-row" style={{ color: "var(--text)" }}>
       <span className={`pn-post-thumb${p.kind === "story" ? " is-story" : ""}`}>
-        {thumb ? <img src={thumb} alt="" /> : <Icon d={ICONS.image} size={18} color="#6E6E7D" />}
+        {thumb ? <img src={thumb} alt="" /> : <Icon d={ICONS.image} size={18} color="var(--muted-2)" />}
         {p.media.length > 1 && <span className="pn-post-count">{p.media.length}</span>}
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
@@ -57,7 +57,7 @@ export default async function Publicacoes() {
         {conn.state === "connected" && <Link href="/painel/publicacoes/nova" className="pn-btn is-primary pn-spacer"><Icon d={ICONS.plus} size={14} width={2} />Nova publicação</Link>}
       </div>
       {conn.state !== "connected" && (
-        <div className="pn-alert"><Icon d={ICONS.warn} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
+        <div className="pn-alert"><Icon d={ICONS.warn} size={17} color="var(--amber)" width={1.8} style={{ marginTop: 1 }} />
           <div><div className="pn-alert-title">Conecte o Instagram para agendar</div><div className="pn-alert-body"><Link href="/painel/conexao">Ir para Conexão</Link></div></div>
         </div>
       )}
@@ -71,7 +71,7 @@ export default async function Publicacoes() {
 
       {!posts.length && conn.state === "connected" && (
         <div className="pn-empty">
-          <div className="pn-empty-icon"><Icon d={ICONS.calendar} size={20} color="#7C3AED" width={1.6} /></div>
+          <div className="pn-empty-icon"><Icon d={ICONS.calendar} size={20} color="var(--violet)" width={1.6} /></div>
           <div className="pn-empty-title">Agende o próximo post</div>
           <div className="pn-empty-body">Envie a imagem, escreva a legenda e escolha o horário. Se quiser, monte a automação junto: ela começa a responder no instante em que o post sair.</div>
           <div className="pn-row" style={{ justifyContent: "center", marginTop: 18 }}><Link href="/painel/publicacoes/nova" className="pn-btn is-primary">Nova publicação</Link></div>

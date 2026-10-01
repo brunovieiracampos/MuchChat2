@@ -17,8 +17,8 @@ import type { MediaOption, OtherAutomation } from "./builder-data";
 import { PostPicker } from "./post-picker";
 
 type Sel = "trigger" | string;
-const TRIGGER_COLOR = "#7C3AED";
-const END_COLOR = "#5F5F6E";
+const TRIGGER_COLOR = "var(--violet)";
+const END_COLOR = "var(--end-node)";
 
 export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected, account, others, defaultReplies }: {
   initial: AutomationInput;
@@ -159,7 +159,7 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
         )}
         <div className="pn-row pn-spacer" style={{ gap: 8 }}>
           <label className="pn-hide-sm" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--text-3)", cursor: "pointer" }}>
-            <input type="checkbox" checked={showPath} onChange={() => setShowPath(!showPath)} style={{ accentColor: "#7C3AED", width: 14, height: 14 }} />
+            <input type="checkbox" checked={showPath} onChange={() => setShowPath(!showPath)} style={{ accentColor: "var(--violet)", width: 14, height: 14 }} />
             Caminho de execução
           </label>
           {form.id && <button type="button" className="pn-btn is-danger" style={{ fontSize: 12, padding: "7px 12px" }} onClick={() => setAskDelete(true)}>Excluir</button>}
@@ -274,7 +274,7 @@ function FlowNode({ on, onSelect, color, type, title, sub, issues, children }: {
       <div className="pn-node-sub">{sub}</div>
       {issues.slice(0, 2).map((i) => (
         <div className="pn-node-err" key={i.message}>
-          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#E4544F", marginTop: 5, flex: "none" }} />
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)", marginTop: 5, flex: "none" }} />
           {i.message}
         </div>
       ))}
@@ -316,8 +316,8 @@ function Edge({ hot, label, onAdd, menuOpen, onPick }: { hot: boolean; label?: s
   return (
     <div className={`pn-edge${hot ? " is-hot" : ""}`} style={{ height: 52 }}>
       <svg width="12" height="52" viewBox="0 0 12 52" aria-hidden>
-        <path d="M6 0 V44" stroke="#3A3A47" strokeWidth={hot ? 2 : 1.4} fill="none" />
-        <path d="M1.5 42 L6 49 L10.5 42z" fill={hot ? "#7C3AED" : "#3A3A47"} />
+        <path d="M6 0 V44" style={{ stroke: hot ? "var(--violet)" : "var(--edge)" }} strokeWidth={hot ? 2 : 1.4} fill="none" />
+        <path d="M1.5 42 L6 49 L10.5 42z" style={{ fill: hot ? "var(--violet)" : "var(--edge)" }} />
       </svg>
       {onAdd && (
         <button type="button" className="pn-edge-add" onClick={onAdd} aria-label="Adicionar bloco aqui" aria-expanded={menuOpen} title="Adicionar bloco">+</button>
@@ -528,7 +528,7 @@ function TestPanel({ form, anyPost, account }: { form: AutomationInput; anyPost:
       <label className="pn-field-label" htmlFor="test-user" style={{ marginTop: 10 }}>Usuário</label>
       <input id="test-user" className="pn-input" value={user} onChange={(e) => setUser(e.target.value.replace(/^@/, ""))} />
       <label className="pn-row" style={{ gap: 8, marginTop: 10, fontSize: 12, color: "var(--text-3)", cursor: "pointer" }}>
-        <input type="checkbox" checked={follows} onChange={() => setFollows(!follows)} style={{ accentColor: "#7C3AED" }} />
+        <input type="checkbox" checked={follows} onChange={() => setFollows(!follows)} style={{ accentColor: "var(--violet)" }} />
         A pessoa segue o perfil
       </label>
 

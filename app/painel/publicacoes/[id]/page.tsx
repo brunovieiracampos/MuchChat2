@@ -38,12 +38,12 @@ export default async function Publicacao({ params }: { params: Promise<{ id: str
       <div className="pn-page">
         {header}
         {post.status === "scheduled" && (
-          <div className="pn-alert is-violet"><Icon d={ICONS.calendar} size={17} color="#A78BFA" width={1.8} style={{ marginTop: 1 }} />
+          <div className="pn-alert is-violet"><Icon d={ICONS.calendar} size={17} color="var(--violet-3)" width={1.8} style={{ marginTop: 1 }} />
             <div><div className="pn-alert-title">Agendada para {when}</div><div className="pn-alert-body">Dá para editar até 10 minutos antes. Salvar mantém o agendamento no horário escolhido.</div></div>
           </div>
         )}
         {post.status === "failed" && (
-          <div className="pn-alert is-red"><Icon d={ICONS.error} size={17} color="#E4544F" width={1.8} style={{ marginTop: 1 }} />
+          <div className="pn-alert is-red"><Icon d={ICONS.error} size={17} color="var(--red)" width={1.8} style={{ marginTop: 1 }} />
             <div><div className="pn-alert-title">A publicação não saiu</div><div className="pn-alert-body">{post.error ?? "Motivo desconhecido."} Ajuste e agende de novo.</div></div>
           </div>
         )}
@@ -58,7 +58,7 @@ export default async function Publicacao({ params }: { params: Promise<{ id: str
     <div className="pn-page is-narrow">
       {header}
       {post.status === "published" && post.error && (
-        <div className="pn-alert"><Icon d={ICONS.warn} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} /><div className="pn-alert-body">{post.error}</div></div>
+        <div className="pn-alert"><Icon d={ICONS.warn} size={17} color="var(--amber)" width={1.8} style={{ marginTop: 1 }} /><div className="pn-alert-body">{post.error}</div></div>
       )}
       <section className="pn-card">
         <p className="pn-summary" style={{ fontSize: 19 }}>
@@ -69,7 +69,7 @@ export default async function Publicacao({ params }: { params: Promise<{ id: str
         <div className="pn-media-grid" style={{ marginTop: 14 }}>
           {post.media.map((m) => (
             <div key={m.path} className={`pn-media-tile${post.kind === "story" ? " is-story" : ""}`}>
-              {thumbs[m.path] ? <img src={thumbs[m.path]} alt="" /> : <Icon d={ICONS.image} size={18} color="#6E6E7D" />}
+              {thumbs[m.path] ? <img src={thumbs[m.path]} alt="" /> : <Icon d={ICONS.image} size={18} color="var(--muted-2)" />}
             </div>
           ))}
         </div>

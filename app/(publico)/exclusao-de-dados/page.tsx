@@ -1,6 +1,6 @@
-import { SITE } from "@/config/site";
+import { PRODUCT, SITE } from "@/config/site";
 
-export const metadata = { title: `Exclusão de dados — ${SITE.account}` };
+export const metadata = { title: `Exclusão de dados | ${PRODUCT.name}` };
 
 export default function Exclusao() {
   return (

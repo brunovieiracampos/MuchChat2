@@ -37,7 +37,7 @@ export function ContactList({ contacts, history }: { contacts: Contact[]; histor
     <div className="pn-page">
       <div className="pn-row" style={{ gap: 10 }}>
         <div className="pn-search" style={{ width: 280, maxWidth: "100%" }}>
-          <Icon d={ICONS.search} size={14} color="#6E6E7D" width={1.8} />
+          <Icon d={ICONS.search} size={14} color="var(--muted-2)" width={1.8} />
           <input type="search" className="pn-input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por usuário ou palavra-chave" aria-label="Buscar contato" />
         </div>
         <div className="pn-row" style={{ gap: 6 }}>

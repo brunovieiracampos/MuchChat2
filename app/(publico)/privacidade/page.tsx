@@ -1,6 +1,6 @@
-import { SITE } from "@/config/site";
+import { PRODUCT, SITE } from "@/config/site";
 
-export const metadata = { title: `Política de privacidade — ${SITE.account}` };
+export const metadata = { title: `Política de privacidade | ${PRODUCT.name}` };
 
 export default function Privacidade() {
   return (

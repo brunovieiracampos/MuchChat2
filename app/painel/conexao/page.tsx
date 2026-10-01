@@ -59,13 +59,13 @@ export default async function Conexao({ searchParams }: { searchParams: Promise<
           <div className="pn-logo" style={{ width: 34, height: 34, borderRadius: 10 }}>{PRODUCT.name[0]}</div>
           <div className="pn-brand-name" style={{ fontSize: 20, letterSpacing: -0.4 }}>{ok ? `@${conn.username}` : "Conectar o Instagram"}</div>
         </div>
-        <p style={{ fontSize: 14, color: "#9C9CA9", lineHeight: 1.6, margin: "16px 0 0", maxWidth: 560 }}>
+        <p style={{ fontSize: 14, color: "var(--soft-text)", lineHeight: 1.6, margin: "16px 0 0", maxWidth: 560 }}>
           Quando alguém comenta a palavra-chave no seu post, a pessoa recebe o material no direct e o comentário é respondido. São quatro passos.
         </p>
 
         {q.conectado && ok && (
           <div className={`pn-alert ${q.webhook === "falhou" ? "" : "is-violet"}`} style={{ marginTop: 18 }}>
-            <Icon d="M5 12l4 4 10-10" size={17} color={q.webhook === "falhou" ? "#E0A526" : "#A78BFA"} width={2} style={{ marginTop: 1 }} />
+            <Icon d="M5 12l4 4 10-10" size={17} color={q.webhook === "falhou" ? "var(--amber)" : "var(--violet-3)"} width={2} style={{ marginTop: 1 }} />
             <div>
               <div className="pn-alert-title">@{conn.username} conectada</div>
               <div className="pn-alert-body">{q.webhook === "falhou" ? "Falta autorizar o recebimento de eventos: use o botão no passo 2." : "Agora crie a primeira automação."}</div>
@@ -74,13 +74,13 @@ export default async function Conexao({ searchParams }: { searchParams: Promise<
         )}
         {error && (
           <div className="pn-alert is-red" style={{ marginTop: 18 }}>
-            <Icon d={ICONS.error} size={17} color="#E4544F" width={1.8} style={{ marginTop: 1 }} />
+            <Icon d={ICONS.error} size={17} color="var(--red)" width={1.8} style={{ marginTop: 1 }} />
             <div><div className="pn-alert-title">Não deu para conectar</div><div className="pn-alert-body">{error}</div></div>
           </div>
         )}
         {conn.state === "error" && (
           <div className="pn-alert is-red" style={{ marginTop: 18 }}>
-            <Icon d={ICONS.error} size={17} color="#E4544F" width={1.8} style={{ marginTop: 1 }} />
+            <Icon d={ICONS.error} size={17} color="var(--red)" width={1.8} style={{ marginTop: 1 }} />
             <div style={{ flex: 1 }}>
               <div className="pn-alert-title">O Instagram recusou a conexão salva</div>
               <div className="pn-alert-body" style={{ overflowWrap: "anywhere" }}>Conecte de novo para renovar o acesso. Detalhe: {conn.error}</div>
@@ -90,13 +90,13 @@ export default async function Conexao({ searchParams }: { searchParams: Promise<
         )}
         {!conn.hasAppId && (
           <div className="pn-alert" style={{ marginTop: 18 }}>
-            <Icon d={ICONS.warn} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
+            <Icon d={ICONS.warn} size={17} color="var(--amber)" width={1.8} style={{ marginTop: 1 }} />
             <div><div className="pn-alert-title">Conexão indisponível no momento</div><div className="pn-alert-body">O {PRODUCT.name} está sem as credenciais do app da Meta (IG_APP_ID).</div></div>
           </div>
         )}
         {flags.dryRun && (
           <div className="pn-alert" style={{ marginTop: 18 }}>
-            <Icon d={ICONS.flask} size={17} color="#E0A526" width={1.8} style={{ marginTop: 1 }} />
+            <Icon d={ICONS.flask} size={17} color="var(--amber)" width={1.8} style={{ marginTop: 1 }} />
             <div><div className="pn-alert-title">Modo de teste ligado</div><div className="pn-alert-body">As automações só simulam: nenhuma DM ou resposta sai de verdade.</div></div>
           </div>
         )}

@@ -20,6 +20,9 @@ export const ICONS = {
   calendar: "M5 6h14v14H5zM5 10h14M9 3.5V7M15 3.5V7",
   image: "M4 5h16v14H4zM4 16l5-5 4 4 2.5-2.5L20 17M15.5 9.5h.01",
   link: "M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1",
+  sun: "M12 16a4 4 0 100-8 4 4 0 000 8zM12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4",
+  moon: "M20 14.2A8 8 0 019.8 4a8 8 0 1010.2 10.2z",
+  monitor: "M3.5 5h17v11h-17zM9 20h6M12 16v4",
 } as const;
 
 export function initials(name: string): string {

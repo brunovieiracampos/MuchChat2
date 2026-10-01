@@ -1,0 +1,179 @@
+/*
+ * Tema do Much Chat: tokens de cor para o modo escuro (padrão) e o claro.
+ * O script no <head> (app/layout.tsx) põe data-theme="light|dark" no <html>, pela escolha salva ou pelo sistema.
+ * Sem JavaScript, fica o escuro.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0B0B0F;
+  --panel: #0D0D12;
+  --card: #14141A;
+  --card-2: #15151B;
+  --card-3: #17171E;
+  --line: #1F1F27;
+  --line-2: #24242D;
+  --line-3: #2A2A34;
+  --row: #17171E;
+  --text: #F4F4F6;
+  --text-2: #DCDCE4;
+  --text-3: #B9B9C6;
+  --muted: #8A8A99;
+  --muted-2: #6E6E7D;
+  --faint: #5C5C6B;
+  --violet: #7C3AED;
+  --violet-2: #8B5CF6;
+  --violet-3: #A78BFA;
+  --violet-4: #C4B5FD;
+  --violet-bg: #180F2B;
+  --violet-line: #34215C;
+  --green: #2FA37A;
+  --green-text: #5CC79E;
+  --green-bg: #0E1D17;
+  --green-line: #1E3D30;
+  --amber: #E0A526;
+  --amber-bg: #231B08;
+  --amber-bg-2: #1C1708;
+  --amber-line: #4A3A10;
+  --red: #E4544F;
+  --red-text: #EF8A86;
+  --red-bg: #1B0C0C;
+  --red-line: #4A1A18;
+
+  /* superfícies e estados */
+  --hover: #121218;
+  --hover-2: #1A1A21;
+  --soft: #16161D;
+  --soft-text: #9C9CA9;
+  --surface-raised: #111117;
+  --empty-bg: #101015;
+  --seg-on: #22222B;
+  --divider-2: #22222B;
+  --primary-hover: #6D2FE0;
+  --toggle-off: #1B1B23;
+  --toggle-knob: #5F5F6E;
+  --skel: #24242D;
+  --track: #17171E;
+  --track-2: #1C1C24;
+  --hatch: #2A2A34;
+  --hatch-warn: #8A6516;
+  --overlay: rgb(6 6 9 / .62);
+  --shadow: rgb(0 0 0 / .5);
+  --scroll-thumb: #2B2B36;
+  --nav-bg: rgb(11 11 15 / .86);
+
+  /* alertas */
+  --amber-title: #F0DCA8;
+  --amber-body: #A79A7C;
+  --amber-strong: #EBC66B;
+  --red-title: #F4C7C5;
+  --red-body: #A98A88;
+  --violet-soft: #120C1F;
+  --violet-title: #E4DBFE;
+  --violet-body: #9C93B5;
+  --violet-soft-text: #CFC6EA;
+  --avatar-bg: #3B2168;
+  --avatar-text: #EDE9FE;
+
+  /* construtor de fluxo e prévias do Instagram */
+  --canvas: #0A0A0E;
+  --canvas-dot: #1C1C24;
+  --node-line: #26262F;
+  --node-line-hover: #33333E;
+  --edge: #3A3A47;
+  --end-node: #5F5F6E;
+  --bubble-out: #3A1F7A;
+  --bubble-in: #26262F;
+  --bubble-reply: #1E1E26;
+  --ig-bg: #000000;
+  --ig-media: #111111;
+  --ig-text: #F2F2F2;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #F6F6F8;
+  --panel: #FFFFFF;
+  --card: #FFFFFF;
+  --card-2: #FFFFFF;
+  --card-3: #F3F3F6;
+  --line: #E5E5EB;
+  --line-2: #DCDCE4;
+  --line-3: #D0D0DA;
+  --row: #EFEFF3;
+  --text: #15151C;
+  --text-2: #2A2A34;
+  --text-3: #45454F;
+  --muted: #5F5F6B;
+  --muted-2: #6E6E79;
+  --faint: #767681;
+  --violet: #7C3AED;
+  --violet-2: #6D28D9;
+  --violet-3: #6D28D9;
+  --violet-4: #5B21B6;
+  --violet-bg: #F2ECFF;
+  --violet-line: #D9C8FB;
+  --green: #1E8A62;
+  --green-text: #157352;
+  --green-bg: #E9F7F0;
+  --green-line: #BDE3D1;
+  --amber: #9A6200;
+  --amber-bg: #FFF5E0;
+  --amber-bg-2: #FFF8EA;
+  --amber-line: #EED39C;
+  --red: #CF3A35;
+  --red-text: #B02B27;
+  --red-bg: #FDEEEE;
+  --red-line: #F1C4C2;
+
+  --hover: #F0F0F4;
+  --hover-2: #EBEBF0;
+  --soft: #F1F1F5;
+  --soft-text: #555561;
+  --surface-raised: #FFFFFF;
+  --empty-bg: #FAFAFC;
+  --seg-on: #FFFFFF;
+  --divider-2: #E8E8EE;
+  --primary-hover: #6D28D9;
+  --toggle-off: #E2E2E9;
+  --toggle-knob: #FFFFFF;
+  --skel: #E6E6EC;
+  --track: #EDEDF2;
+  --track-2: #E8E8EE;
+  --hatch: #CACAD4;
+  --hatch-warn: #E0A526;
+  --overlay: rgb(20 20 30 / .32);
+  --shadow: rgb(30 30 50 / .14);
+  --scroll-thumb: #CDCDD6;
+  --nav-bg: rgb(246 246 248 / .86);
+
+  --amber-title: #6E4600;
+  --amber-body: #80602A;
+  --amber-strong: #8A5A00;
+  --red-title: #8E1F1B;
+  --red-body: #9A4744;
+  --violet-soft: #F6F2FF;
+  --violet-title: #4C1D95;
+  --violet-body: #6A5A92;
+  --violet-soft-text: #3F3566;
+  --avatar-bg: #E9DEFF;
+  --avatar-text: #4C1D95;
+
+  --canvas: #F3F3F6;
+  --canvas-dot: #D6D6DF;
+  --node-line: #E0E0E7;
+  --node-line-hover: #CBCBD5;
+  --edge: #C2C2CC;
+  --end-node: #9A9AA6;
+  --bubble-out: #7C3AED;
+  --bubble-in: #EFEFF3;
+  --bubble-reply: #F3F3F6;
+  --ig-bg: #FFFFFF;
+  --ig-media: #EFEFEF;
+  --ig-text: #111111;
+}
+
+html { background: var(--bg); }
+body { background: var(--bg); color: var(--text); }

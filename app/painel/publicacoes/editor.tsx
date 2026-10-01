@@ -205,8 +205,8 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
 
         {issues.length > 0 && (
           <div className="pn-alert is-red" role="alert">
-            <Icon d={ICONS.error} size={17} color="#E4544F" width={1.8} style={{ marginTop: 1 }} />
-            <div>{issues.map((i, k) => <div key={k} className="pn-alert-body" style={{ color: "#F4C7C5" }}>{i.message}</div>)}</div>
+            <Icon d={ICONS.error} size={17} color="var(--red)" width={1.8} style={{ marginTop: 1 }} />
+            <div>{issues.map((i, k) => <div key={k} className="pn-alert-body" style={{ color: "var(--red-title)" }}>{i.message}</div>)}</div>
           </div>
         )}
 

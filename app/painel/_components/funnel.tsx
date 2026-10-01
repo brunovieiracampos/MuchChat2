@@ -56,7 +56,7 @@ export function Funnel({ rows, c }: { rows: FunnelRow[]; c: Counts }) {
             </div>
             {i > 0 && (
               <div className="pn-funnel-meta">
-                <span>{r.ofPrev === null ? "—" : `${pct(r.ofPrev)} passaram da etapa anterior`}</span>
+                <span>{r.ofPrev === null ? "-" : `${pct(r.ofPrev)} passaram da etapa anterior`}</span>
                 {lost > 0 && <span className="pn-funnel-lostn">{num(lost)} {lost === 1 ? "parou" : "pararam"}</span>}
               </div>
             )}

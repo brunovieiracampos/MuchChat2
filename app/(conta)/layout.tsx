@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { PRODUCT } from "@/config/site";
+import { ThemeToggle } from "../painel/_components/theme-toggle";
 import "../painel/painel.css";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default function ContaLayout({ children }: { children: ReactNode }) {
         </Link>
         {children}
       </div>
+      <ThemeToggle className="pn-auth-theme" />
     </div>
   );
 }
