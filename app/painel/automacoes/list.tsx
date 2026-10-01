@@ -14,7 +14,7 @@ export type AutomationRow = {
 };
 
 const FILTERS = ["Todas", "Ativas", "Pausadas", "Com erros"] as const;
-const COLS = "minmax(0,2.4fr) minmax(0,1.5fr) 100px 120px 92px 170px";
+const COLS = "minmax(0,2.4fr) minmax(0,1.5fr) 100px 120px 92px 200px";
 const NARROW = "minmax(150px,1fr) 96px 90px";
 
 export function AutomationList({ rows }: { rows: AutomationRow[] }) {

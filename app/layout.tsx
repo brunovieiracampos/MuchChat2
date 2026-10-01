@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, Space_Grotesk } from "next/font/google";
+import { DM_Sans, Fira_Code, Plus_Jakarta_Sans } from "next/font/google";
 import { PRODUCT, SITE_URL } from "@/config/site";
 import { THEME_SCRIPT } from "@/lib/theme";
 import "./theme.css";
@@ -14,14 +14,14 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0B0B0F" },
-    { media: "(prefers-color-scheme: light)", color: "#F6F6F8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A1020" },
+    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
   ],
 };
 
-const sans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-sans" });
-const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" });
-const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono" });
+const sans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-sans" });
+const display = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" });
+const mono = Fira_Code({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-mono" });
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

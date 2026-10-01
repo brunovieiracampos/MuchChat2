@@ -9,12 +9,8 @@
 .lp-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text) !important; }
 .lp-brand .pn-brand-name { font-size: 15px; }
 .lp-nav-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.lp-btn-quiet { background: transparent; border-color: transparent; color: var(--text-2) !important; }
+.lp-btn-quiet { background: transparent; border-color: transparent; }
 .lp-btn-quiet:hover { background: var(--card); }
-.lp .pn-btn.is-primary, .lp .pn-btn.is-primary:hover { color: #fff !important; }
-.lp .pn-btn:not(.is-primary) { color: var(--text) !important; }
-.lp .pn-btn { transition: background-color .15s ease, transform .12s ease; }
-.lp .pn-btn:active { transform: translateY(1px) scale(.98); }
 .lp-btn-lg { font-size: 14px; padding: 12px 18px; }
 
 /* ---------- topo ---------- */
@@ -47,7 +43,7 @@
 .lp-cell .lp-body { margin-top: 0; }
 .lp-cell-1 { grid-column: span 2; background: linear-gradient(140deg, var(--violet-bg) 0%, var(--card) 70%); border-color: var(--violet-line); }
 .lp-cell-1 .lp-h3 { font-size: 22px; }
-.lp-cell-1 .lp-cell-icon { background: var(--violet); border-color: var(--violet-2); color: #fff; }
+.lp-cell-1 .lp-cell-icon { background: var(--violet); border-color: var(--violet-2); color: var(--on-primary); }
 .lp-cell-3 { background: var(--card-3); }
 .lp-cell-4 { grid-column: span 2; }
 .lp-cell-1, .lp-cell-4 { justify-content: flex-end; }
@@ -120,3 +116,47 @@
 .lp-doc strong { color: var(--text); font-weight: 600; }
 .lp-doc hr { border: 0; height: 1px; background: var(--line); margin: 44px 0 0; }
 .lp-doc a { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ======================================================================
+   Verdana (example/verdana-health-design-system-DESIGN.md): camada da página inicial e dos documentos.
+   ====================================================================== */
+.lp { font-size: 16px; }
+.lp-nav { border-bottom: 1px solid var(--line); }
+.lp-brand .pn-brand-name { font-size: 16px; }
+.lp .pn-btn.lp-btn-quiet { border-color: transparent; background: transparent; box-shadow: none; color: var(--muted); }
+.lp .pn-btn.lp-btn-quiet:hover { background: var(--hover-2); color: var(--text); }
+.lp .pn-btn.lp-btn-lg { min-height: 48px; font-size: 16px; padding: 12px 28px; }
+
+.lp-hero { padding-top: 88px; padding-bottom: 104px; }
+.lp-h1 { font-weight: 700; font-size: clamp(32px, 3.7vw, 46px); line-height: 1.15; letter-spacing: -0.025em; }
+.lp-h1-mark { color: var(--sage-text); }
+.lp-lead { font-size: 18px; line-height: 1.6; color: var(--muted); }
+.lp-h2 { font-weight: 700; font-size: clamp(26px, 2.8vw, 32px); line-height: 1.2; letter-spacing: -0.02em; }
+.lp-h3 { font-weight: 600; font-size: 18px; line-height: 1.3; }
+.lp-body { font-size: 15px; line-height: 1.6; color: var(--muted); }
+.lp-caption { font-size: 12px; font-weight: 500; }
+
+/* relatório: cartão elevado com faixa de cabeçalho marinho */
+.lp-report { padding: 0; overflow: hidden; border: none; border-radius: var(--r-lg); box-shadow: var(--shadow-md); }
+.lp-report-head { padding: 10px 24px; background: #0F172A; color: #F8FAFC; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+.lp-report-body { padding: 22px 24px 26px; }
+.lp-report .pn-summary { font-size: 17px; }
+
+/* etapas: cartões brancos de borda fina; o primeiro em sálvia, o terceiro em ardósia */
+.lp-section { padding-top: 104px; padding-bottom: 104px; }
+.lp-cell { border-radius: var(--r); border: 1px solid var(--line); background: var(--card); padding: 24px; }
+.lp-cell-1 { background: var(--sage-soft); border-color: color-mix(in srgb, var(--sage) 30%, transparent); }
+.lp-cell-1 .lp-h3 { font-size: 22px; font-weight: 700; }
+.lp-cell-3 { background: var(--card-3); border-color: var(--line); }
+.lp-cell-icon { border-radius: var(--r); border: 1px solid var(--line); background: var(--card); color: var(--text); }
+.lp-cell-1 .lp-cell-icon { background: var(--sage); border-color: var(--sage); color: #F8FAFC; }
+.lp-photo { border-radius: var(--r-lg); border: none; box-shadow: var(--shadow-df); }
+.lp-list { gap: 32px; }
+
+.lp-final { padding-top: 104px; padding-bottom: 104px; }
+.lp-foot-links a { font-weight: 500; }
+
+.lp-doc h1 { font-weight: 700; letter-spacing: -0.02em; }
+.lp-doc h2 { font-weight: 600; }
+.lp-doc a { color: var(--violet-3) !important; }
+:root:not([data-theme="light"]) .lp-report-head { background: #1E293B; }

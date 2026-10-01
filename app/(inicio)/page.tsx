@@ -13,6 +13,9 @@ import fotoDirect from "../../public/img/direct-mesa.webp";
 import fotoMaos from "../../public/img/celular-maos.webp";
 
 const TITLE = `${PRODUCT.name}: ${PRODUCT.tagline}`;
+/** Última palavra do slogan em verde-sálvia. */
+const TAGLINE_LEAD = PRODUCT.tagline.slice(0, PRODUCT.tagline.lastIndexOf(" "));
+const TAGLINE_LAST = PRODUCT.tagline.slice(PRODUCT.tagline.lastIndexOf(" ") + 1);
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -31,14 +34,14 @@ const EXAMPLE_ROWS: FunnelRow[] = (["comment", "dm", "click", "follower", "done"
 }));
 
 const FLOW = [
-  { title: "Comentou a palavra-chave", body: "Você escolhe o post e as palavras. Cada comentário que bate dispara o fluxo.", icon: ICONS.chat },
+  { title: "Comentou a palavra-chave", body: "Você escolhe o post e as palavras. Cada comentário com a palavra dispara o fluxo.", icon: ICONS.chat },
   { title: "Recebe no direct", body: "A mensagem chega com um botão para a pessoa pegar o material.", icon: ICONS.inbox },
   { title: "Confirma que segue", body: "Antes de entregar, o Much Chat confere se a pessoa segue o perfil.", icon: ICONS.contacts },
   { title: "Resposta pública", body: "O comentário também ganha uma resposta, escrita por você.", icon: ICONS.refresh },
 ];
 
 const MORE = [
-  { title: "Agende o post junto", body: "Programe a publicação no painel. Quando o post sai, a automação já começa ativa.", icon: ICONS.calendar },
+  { title: "Agende o post com a automação", body: "Programe a publicação no painel. Quando o post sai, a automação já começa ativa.", icon: ICONS.calendar },
   { title: "Peça pelo Claude", body: "Conecte o Much Chat ao Claude e crie automações, agende posts ou veja resultados conversando.", icon: ICONS.link },
   { title: "Veja onde o fluxo perde gente", body: "O relatório aponta a etapa com mais desistência e sugere o que ajustar.", icon: ICONS.metrics },
 ];
@@ -53,7 +56,7 @@ export default async function Home() {
       <main>
         <section className="lp-wrap lp-hero">
           <div className="lp-hero-copy">
-            <h1 className="lp-h1">{PRODUCT.tagline}</h1>
+            <h1 className="lp-h1">{TAGLINE_LEAD} <span className="lp-h1-mark">{TAGLINE_LAST}</span></h1>
             <p className="lp-lead">
               Quem comenta a palavra-chave recebe o material no direct. Você monta o fluxo uma vez e acompanha os resultados.
             </p>
@@ -65,8 +68,11 @@ export default async function Home() {
 
           <figure className="lp-hero-visual">
             <div className="pn-card lp-report lp-funnel-in">
-              <FunnelSummary c={EXAMPLE} hasFollow />
-              <Funnel rows={EXAMPLE_ROWS} c={EXAMPLE} />
+              <div className="lp-report-head">Relatório da automação</div>
+              <div className="lp-report-body">
+                <FunnelSummary c={EXAMPLE} hasFollow />
+                <Funnel rows={EXAMPLE_ROWS} c={EXAMPLE} />
+              </div>
             </div>
             <figcaption className="lp-caption">Relatório de uma automação no painel, com números de exemplo.</figcaption>
           </figure>
