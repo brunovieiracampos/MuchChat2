@@ -77,9 +77,12 @@ function labelOf(key: string, days: number): string {
 
 /* ---------- semana do calendário ---------- */
 
-export type Week = { start: string; days: { key: string; weekday: string; date: string; isToday: boolean }[]; from: number; to: number };
+export type CalDay = { key: string; weekday: string; date: string; isToday: boolean; /** Na vista de mês: o dia pertence ao mês mostrado. */ inMonth?: boolean };
+export type Week = { start: string; days: CalDay[]; from: number; to: number };
+/** Qualquer intervalo de dias do calendário (semana, grade do mês, período livre). */
+export type CalRange = Week;
 
-const addDays = (key: string, n: number) => {
+export const addDays = (key: string, n: number) => {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 };
@@ -131,7 +134,7 @@ const igKind = (m: IgMedia): CalItem["kind"] =>
  * do agendamento. Um post publicado pelo Much Chat usa os números do Instagram quando a mídia aparece na lista.
  */
 export function calendarItems(
-  week: Week, posts: ScheduledPost[], media: IgMedia[], rules: Rule[],
+  week: CalRange, posts: ScheduledPost[], media: IgMedia[], rules: Rule[],
   stats: Map<string, RawStats>, thumbs: Record<string, string>,
 ): CalItem[] {
   const keys = new Set(week.days.map((d) => d.key));
@@ -197,4 +200,56 @@ export function overallFunnel(rules: Rule[], c: Counts): FunnelRow[] {
     const prev = i ? c[stages[i - 1]] : null;
     return { stage, label: stageLabel(stage), hint: "", value: c[stage], ofFirst: c[stages[0]] ? c[stage] / c[stages[0]] : null, ofPrev: prev ? c[stage] / prev : null };
   });
+}
+
+/* ---------- intervalos do calendário de publicações ---------- */
+
+export const isDayKey = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T12:00:00Z`));
+
+const weekdayOf = (key: string) => WEEKDAYS[new Date(`${key}T12:00:00Z`).getUTCDay()];
+const startMs = (key: string) => Date.parse(`${key}T00:00:00-03:00`);
+
+function rangeFrom(start: string, count: number, now: number, month?: string): CalRange {
+  const today = dayKey(now);
+  const days = Array.from({ length: count }, (_, i) => {
+    const key = addDays(start, i);
+    const [, mm, dd] = key.split("-");
+    return { key, weekday: weekdayOf(key), date: `${dd}/${mm}`, isToday: key === today, ...(month ? { inMonth: key.slice(0, 7) === month } : {}) };
+  });
+  return { start, days, from: startMs(start) - 864e5, to: startMs(start) + (count + 1) * 864e5 };
+}
+
+/** Segunda-feira da semana que contém o dia. */
+export function mondayOf(key: string): string {
+  return addDays(key, -((new Date(`${key}T12:00:00Z`).getUTCDay() + 6) % 7));
+}
+
+/** Semana (segunda a domingo) que contém o dia. */
+export const weekContaining = (key: string, now = Date.now()) => rangeFrom(mondayOf(key), 7, now);
+
+/** Grade do mês que contém o dia: semanas completas de segunda a domingo (4 a 6 linhas). */
+export function monthGrid(key: string, now = Date.now()): CalRange {
+  const month = key.slice(0, 7);
+  const first = `${month}-01`;
+  const [y, m] = month.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  const start = mondayOf(first);
+  const end = addDays(mondayOf(last), 6);
+  const count = Math.round((Date.parse(`${end}T12:00:00Z`) - Date.parse(`${start}T12:00:00Z`)) / 864e5) + 1;
+  return rangeFrom(start, count, now, month);
+}
+
+/** Período livre entre dois dias (inclusive), limitado a 93 dias. Datas invertidas são trocadas. */
+export function customRange(a: string, b: string, now = Date.now()): CalRange {
+  const [from, to] = a <= b ? [a, b] : [b, a];
+  const count = Math.min(93, Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 864e5) + 1);
+  return rangeFrom(from, count, now);
+}
+
+/** Mesmo dia em outro mês (passa para o último dia quando o mês é mais curto). */
+export function shiftMonth(key: string, n: number): string {
+  const [y, m, d] = key.split("-").map(Number);
+  const target = new Date(Date.UTC(y, m - 1 + n, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), Math.min(d, lastDay))).toISOString().slice(0, 10);
 }

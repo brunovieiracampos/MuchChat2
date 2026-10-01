@@ -3,7 +3,7 @@ import type { Rule } from "@/config/rules";
 import type { IgMedia } from "@/lib/instagram";
 import type { ScheduledPost } from "@/lib/posts";
 import type { RawStats } from "@/lib/stats";
-import { answered, automationStatus, calendarItems, dailyComments, periodStart, topByComments, totals, weekOf } from "@/lib/overview";
+import { customRange, isDayKey, mondayOf, monthGrid, shiftMonth, weekContaining, overallFunnel, answered, automationStatus, calendarItems, dailyComments, periodStart, topByComments, totals, weekOf } from "@/lib/overview";
 
 // quinta-feira, 1 de outubro de 2026, 15h em Brasília
 const NOW = Date.parse("2026-10-01T18:00:00Z");
@@ -80,6 +80,32 @@ describe("visão geral", () => {
   it("ordena o top de publicações por comentários e ignora as sem comentário", () => {
     const top = topByComments([{ id: "a", comments_count: 2 }, { id: "b", comments_count: 9 }, { id: "c", comments_count: 0 }, { id: "d" }], 5);
     expect(top.map((m) => m.id)).toEqual(["b", "a"]);
+  });
+
+  it("funil só com as etapas das automações informadas", () => {
+    const semBotao = rule({ id: "g", steps: [{ id: "d", type: "dm", text: "Oi" }, { id: "r", type: "reply", replies: ["ok"] }] });
+    const c = { comment: 4, reply: 4, dm: 4, click: 0, follower: 0, gained: 0, done: 4, failed: 0 };
+    expect(overallFunnel([semBotao], c).map((r) => r.stage)).toEqual(["comment", "dm", "done"]);
+  });
+
+  it("monta a grade do mês, a semana de um dia e o período livre", () => {
+    const out = monthGrid("2026-10-15", NOW);
+    expect(out.days[0].key).toBe("2026-09-28");
+    expect(out.days.at(-1)!.key).toBe("2026-11-01");
+    expect(out.days).toHaveLength(35);
+    expect(out.days[0].inMonth).toBe(false);
+    expect(out.days.find((d) => d.key === "2026-10-01")).toMatchObject({ inMonth: true, isToday: true, weekday: "Qui" });
+    const feb = monthGrid("2026-02-10", NOW).days; // 1º de fevereiro de 2026 é domingo
+    expect([feb[0].key, feb.at(-1)!.key, feb.length]).toEqual(["2026-01-26", "2026-03-01", 35]);
+    expect(monthGrid("2026-12-05", NOW).days.at(-1)!.key).toBe("2027-01-03");
+    expect(mondayOf("2026-10-04")).toBe("2026-09-28");
+    expect(weekContaining("2026-10-04", NOW).days.map((d) => d.key)[0]).toBe("2026-09-28");
+    const r = customRange("2026-10-20", "2026-10-10", NOW);
+    expect([r.days[0].key, r.days.at(-1)!.key, r.days.length]).toEqual(["2026-10-10", "2026-10-20", 11]);
+    expect(customRange("2026-01-01", "2026-12-31", NOW).days).toHaveLength(93);
+    expect(shiftMonth("2026-01-31", 1)).toBe("2026-02-28");
+    expect(shiftMonth("2026-01-15", -1)).toBe("2025-12-15");
+    expect([isDayKey("2026-10-01"), isDayKey("2026-13-40"), isDayKey("x")]).toEqual([true, false, false]);
   });
 
   it("começa o período à meia-noite de Brasília", () => {

@@ -8,6 +8,7 @@ import {
 } from "@/lib/overview";
 import { getAccount, getActivity, getConnection, getFlags, getMediaSince, getPosts, getProfile, getStats } from "@/lib/panel";
 import { requireSession } from "@/lib/session";
+import { sumCounts } from "@/lib/stats";
 import { SweepButton } from "./_components/action-buttons";
 import { ExecBadge } from "./_components/exec-badge";
 import { Funnel } from "./_components/funnel";
@@ -47,7 +48,8 @@ export default async function VisaoGeral({ searchParams }: { searchParams: Promi
   const topMax = Math.max(1, ...top.map((m) => m.comments_count ?? 0));
   const contacts = buildContacts(executions).filter((x) => x.username !== "desconhecido").slice(0, 5);
   const perDay = dailyComments(stats, days);
-  const funnel = overallFunnel(rules, c);
+  // Só as automações com comentários no período definem as etapas (uma sem botão não deve mostrar "clicaram").
+  const funnel = overallFunnel(rules.filter((r) => sumCounts(stats.get(r.id) ?? {}, days).comment > 0), c);
 
   const href = (q: Partial<{ periodo: number; semana: number }>) => {
     const s = new URLSearchParams();

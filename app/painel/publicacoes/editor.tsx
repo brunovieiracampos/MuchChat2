@@ -37,8 +37,10 @@ async function toJpeg(file: File): Promise<{ blob: Blob; width: number; height: 
 const pad = (n: number) => String(n).padStart(2, "0");
 const toLocalInput = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
-export function PostEditor({ post, previews, prefix, username, automations, templates }: {
+export function PostEditor({ post, previews, prefix, username, automations, templates, initialWhen }: {
   post?: ScheduledPost;
+  /** Data e hora vindas do calendário ("AAAA-MM-DDTHH:MM", horário local), para uma publicação nova. */
+  initialWhen?: string;
   previews: Record<string, string>;
   prefix: string;
   username?: string;
@@ -51,7 +53,7 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
   const [story, setStory] = useState(post?.kind === "story");
   const [items, setItems] = useState<Item[]>(() => (post?.media ?? []).map((m) => ({ key: m.path, path: m.path, url: previews[m.path] ?? "", width: m.width, height: m.height, size: m.size })));
   const [caption, setCaption] = useState(post?.caption ?? "");
-  const [when, setWhen] = useState(() => toLocalInput(post?.scheduledAt ?? (Math.ceil(Date.now() / 3600e3) + 1) * 3600e3));
+  const [when, setWhen] = useState(() => (!post && initialWhen) ? initialWhen : toLocalInput(post?.scheduledAt ?? (Math.ceil(Date.now() / 3600e3) + 1) * 3600e3));
   const [mode, setMode] = useState<AutoMode>(post?.automationId ? "existing" : "none");
   const [existing, setExisting] = useState(post?.automationId ?? automations[0]?.id ?? "");
   const [keyword, setKeyword] = useState("");

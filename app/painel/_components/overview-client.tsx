@@ -92,6 +92,21 @@ function statusOf(it: CalItem): { label: string; tone: string } {
 
 const isLive = (it: CalItem) => it.status === "published" || it.status === "instagram";
 
+/** Cartãozinho de uma publicação no calendário (miniatura, hora, tipo); abre o modal de detalhes. */
+export function EventChip({ item: it, onOpen }: { item: CalItem; onOpen: (it: CalItem) => void }) {
+  const s = statusOf(it);
+  return (
+    <button type="button" className={`ov-event is-${s.tone || "plain"}`} onClick={(e) => { e.stopPropagation(); onOpen(it); }}
+      aria-label={`${KIND[it.kind]} ${s.label.toLowerCase()} às ${hourMinute(it.at)}. Ver detalhes`}>
+      {it.thumb ? <img src={it.thumb} alt="" className="ov-event-thumb" /> : <span className="ov-event-thumb is-empty"><Icon d={ICONS.image} size={12} /></span>}
+      <span className="ov-event-text">
+        <span className="ov-event-time">{hourMinute(it.at)}</span>
+        <span className="ov-event-kind">{KIND[it.kind]}</span>
+      </span>
+    </button>
+  );
+}
+
 export function WeekCalendar({ days, items }: { days: Day[]; items: CalItem[] }) {
   const [open, setOpen] = useState<CalItem | null>(null);
   const close = useCallback(() => setOpen(null), []);
@@ -107,19 +122,7 @@ export function WeekCalendar({ days, items }: { days: Day[]; items: CalItem[] })
                 <span className="ov-day-date">{d.date}</span>
               </div>
               <div className="ov-day-body">
-                {list.map((it) => {
-                  const s = statusOf(it);
-                  return (
-                    <button key={it.id} type="button" className={`ov-event is-${s.tone || "plain"}`} onClick={() => setOpen(it)}
-                      aria-label={`${KIND[it.kind]} ${s.label.toLowerCase()} às ${hourMinute(it.at)}. Ver detalhes`}>
-                      {it.thumb ? <img src={it.thumb} alt="" className="ov-event-thumb" /> : <span className="ov-event-thumb is-empty"><Icon d={ICONS.image} size={12} /></span>}
-                      <span className="ov-event-text">
-                        <span className="ov-event-time">{hourMinute(it.at)}</span>
-                        <span className="ov-event-kind">{KIND[it.kind]}</span>
-                      </span>
-                    </button>
-                  );
-                })}
+                {list.map((it) => <EventChip key={it.id} item={it} onOpen={setOpen} />)}
               </div>
             </div>
           );
@@ -130,7 +133,7 @@ export function WeekCalendar({ days, items }: { days: Day[]; items: CalItem[] })
   );
 }
 
-function PostModal({ item, onClose }: { item: CalItem; onClose: () => void }) {
+export function PostModal({ item, onClose }: { item: CalItem; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
