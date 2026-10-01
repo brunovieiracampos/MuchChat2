@@ -296,6 +296,7 @@ async function execStep(step: Step, ctx: Ctx): Promise<StepOutcome> {
       await deps.replyToComment(ctx.commentId, msg);
     } catch (e) { return failStep(ctx, step, e, "reply"); }
     await log({ ...ctx.base, step: step.id, action: "reply-sent", detail: msg }, ctx.now);
+    await mark(ctx.commentId, ctx.state, ctx.rule.id, "reply", ctx.now);
     return "next";
   }
 

@@ -23,6 +23,13 @@
   --shadow-lg: 0 8px 32px rgb(0 0 0 / .4);
   --focus-ring: 0 0 0 3px rgb(241 245 249 / .14);
 
+  /* gráficos (validados com o script da skill dataviz contra a superfície dos cartões) */
+  --chart-series: #059669;
+  --chart-active: #059669;
+  --chart-waiting: #3B82F6;
+  --chart-paused: #D97706;
+  --chart-grid: #1E293B;
+
   --bg: #0A1020;
   --panel: #0F172A;
   --card: #111B2E;
@@ -116,6 +123,12 @@
   --shadow-md: 0 4px 16px rgb(15 23 42 / .07);
   --shadow-lg: 0 8px 32px rgb(15 23 42 / .10);
   --focus-ring: 0 0 0 3px rgb(15 23 42 / .09);
+
+  --chart-series: #059669;
+  --chart-active: #047857;
+  --chart-waiting: #2563EB;
+  --chart-paused: #D97706;
+  --chart-grid: #E2E8F0;
 
   --bg: #F8FAFC;
   --panel: #FFFFFF;

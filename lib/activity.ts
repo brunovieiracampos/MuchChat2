@@ -74,7 +74,9 @@ export function buildExecutions(log: LogEntry[], rules: Rule[]): Execution[] {
   const names = new Map(rules.map((r) => [r.id, r]));
   const out: Execution[] = [];
   for (const [commentId, entries] of byId) {
-    const chrono = [...entries].sort((a, b) => a.at - b.at);
+    // O log vem do mais novo para o mais antigo e várias etapas podem ter o mesmo horário; invertendo antes da
+    // ordenação (estável), os empates ficam na ordem em que foram gravados.
+    const chrono = [...entries].reverse().sort((a, b) => a.at - b.at);
     // Em modo de teste a varredura registra a mesma simulação várias vezes; mostra só a última.
     const steps = chrono.filter((e, i) => e.action !== "dry-run" || !chrono.slice(i + 1).some((n) => n.action === "dry-run"));
     const first = chrono[0], last = chrono[chrono.length - 1];

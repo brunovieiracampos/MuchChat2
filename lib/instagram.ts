@@ -48,7 +48,7 @@ async function call<T>(method: "GET" | "POST", path: string, params: Record<stri
 
 export type IgMedia = {
   id: string; shortcode?: string; permalink?: string; timestamp?: string; caption?: string;
-  media_type?: string; media_url?: string; thumbnail_url?: string; comments_count?: number;
+  media_type?: string; media_url?: string; thumbnail_url?: string; comments_count?: number; like_count?: number;
 };
 export type IgComment = { id: string; text?: string; timestamp?: string; username?: string; from?: { id: string; username?: string }; parent_id?: string };
 
@@ -56,7 +56,7 @@ export async function getMedia(mediaId: string): Promise<IgMedia> {
   return call<IgMedia>("GET", mediaId, { fields: "id,shortcode,permalink,timestamp" });
 }
 
-const MEDIA_FIELDS = "id,shortcode,permalink,timestamp,caption,media_type,media_url,thumbnail_url,comments_count";
+const MEDIA_FIELDS = "id,shortcode,permalink,timestamp,caption,media_type,media_url,thumbnail_url,comments_count,like_count";
 
 export async function listRecentMedia(limit = 25): Promise<IgMedia[]> {
   return (await listMediaPage(limit)).items;
@@ -153,6 +153,13 @@ export function isDryRun() { return process.env.DRY_RUN === "true"; }
 
 export async function getMe(): Promise<{ user_id?: string; username?: string; account_type?: string; name?: string }> {
   return call("GET", "me", { fields: "user_id,username,account_type,name" });
+}
+
+export type IgProfile = { username?: string; name?: string; profile_picture_url?: string; followers_count?: number; follows_count?: number; media_count?: number };
+
+/** Números do perfil (seguidores, seguindo, publicações). Vêm com a permissão instagram_business_basic. */
+export async function getProfile(): Promise<IgProfile> {
+  return call("GET", "me", { fields: "username,name,profile_picture_url,followers_count,follows_count,media_count" });
 }
 
 /* ---------- publicação (agendamento) ---------- */

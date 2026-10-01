@@ -3,7 +3,7 @@ import { currentAccount, withAccount } from "@/lib/account-context";
 import { accountForUser } from "@/lib/accounts";
 import { buildExecutions } from "@/lib/activity";
 import { isPaused, listAutomations } from "@/lib/automations";
-import { getMe, isDryRun, listMediaPage, type IgMedia } from "@/lib/instagram";
+import { getMe, getProfile as fetchProfile, isDryRun, listMediaPage, type IgMedia, type IgProfile } from "@/lib/instagram";
 import { readLog } from "@/lib/processor";
 import { requireSession } from "@/lib/session";
 import { readStats, type RawStats } from "@/lib/stats";
@@ -96,3 +96,35 @@ export function baseUrl(): string {
   if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
   return "http://localhost:3000";
 }
+
+/** Números do perfil do Instagram (null se a conexão falhar). */
+export const getProfile = cache(async (): Promise<IgProfile | null> => {
+  const conn = await getConnection();
+  if (conn.state !== "connected") return null;
+  return scoped(() => fetchProfile().catch(() => null), null);
+});
+
+/**
+ * Posts do perfil publicados desde `since`, do mais novo para o mais antigo. Pagina só até passar da data
+ * (no máximo 6 páginas de 50). Em falha, devolve o que conseguiu.
+ */
+export const getMediaSince = cache(async (since: number): Promise<IgMedia[]> => {
+  const conn = await getConnection();
+  if (conn.state !== "connected") return [];
+  return scoped(async () => {
+    const out: IgMedia[] = [];
+    let after: string | undefined;
+    try {
+      for (let page = 0; page < 6; page++) {
+        const r = await listMediaPage(50, after);
+        out.push(...r.items);
+        const last = r.items[r.items.length - 1]?.timestamp;
+        if (!r.next || !last || Date.parse(last) < since) break;
+        after = r.next;
+      }
+    } catch (e) {
+      console.error("[painel] falha ao listar posts", e);
+    }
+    return out;
+  }, []);
+});

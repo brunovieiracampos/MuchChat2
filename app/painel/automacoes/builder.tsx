@@ -36,13 +36,13 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
   const [form, setForm] = useState<AutomationInput>(initial);
   const [saved, setSaved] = useState<AutomationInput>(initial);
   const [sel, setSel] = useState<Sel>("trigger");
-  const [showPath, setShowPath] = useState(false);
   const [serverIssues, setServerIssues] = useState<Issue[]>([]);
   const [askDelete, setAskDelete] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
   // Numa automação nova, os erros só aparecem nos blocos depois da primeira tentativa de salvar.
   const [showErrors, setShowErrors] = useState(!isNew);
   const [adding, setAdding] = useState<number | null>(null);
+  const [templateId, setTemplateId] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
@@ -54,6 +54,9 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
   const stepIssues = (id: string) => visible.filter((i) => i.field === "steps" && i.stepId === id);
   const flowIssues = visible.filter((i) => (i.field === "steps" && !i.stepId) || i.field === "link");
   const nameIssue = visible.find((i) => i.field === "name");
+  // Estado de cada bloco no canvas (verde = pronto, vermelho = falta configurar). Usa todos os problemas, desde o início.
+  const triggerPending = issues.filter((i) => i.field === "posts" || i.field === "keywords");
+  const stepPending = (id: string) => issues.filter((i) => i.field === "steps" && i.stepId === id);
 
   const set = <K extends keyof AutomationInput>(k: K, v: AutomationInput[K]) => {
     setServerIssues([]);
@@ -103,8 +106,11 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
     const next = { ...clean, id: r.id, active };
     setForm(next);
     setSaved(next);
-    toast(active && !saved.active ? "Automação publicada e ativa" : active ? "Alterações salvas" : saved.active ? "Automação pausada" : "Rascunho salvo", active ? "green" : "amber");
-    if (isNew) router.replace(`/painel/automacoes/${r.id}/editar`);
+    const published = active && !saved.active;
+    toast(published ? "Automação publicada e ativa" : active ? "Alterações salvas" : saved.active ? "Automação pausada" : "Rascunho salvo", active ? "green" : "amber");
+    // Ao publicar, volta para a lista (a mais recente aparece primeiro).
+    if (published) router.push("/painel/automacoes");
+    else if (isNew) router.replace(`/painel/automacoes/${r.id}/editar`);
     else router.refresh();
   });
 
@@ -131,6 +137,7 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
     const t = TEMPLATES.find((x) => x.id === id);
     if (!t) return;
     setSteps(() => t.build(defaultReplies));
+    setTemplateId(id);
     setSel("trigger");
   };
 
@@ -158,12 +165,8 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
           </button>
         )}
         <div className="pn-row pn-spacer" style={{ gap: 8 }}>
-          <label className="pn-hide-sm" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--text-3)", cursor: "pointer" }}>
-            <input type="checkbox" checked={showPath} onChange={() => setShowPath(!showPath)} style={{ accentColor: "var(--violet)", width: 14, height: 14 }} />
-            Caminho de execução
-          </label>
           {form.id && <button type="button" className="pn-btn is-danger" style={{ fontSize: 12, padding: "7px 12px" }} onClick={() => setAskDelete(true)}>Excluir</button>}
-          <button type="button" className="pn-btn" style={{ fontSize: 12, padding: "7px 12px" }} onClick={() => { setShowPath(true); setTestOpen(true); }}>Testar</button>
+          <button type="button" className="pn-btn" style={{ fontSize: 12, padding: "7px 12px" }} aria-pressed={testOpen} onClick={() => setTestOpen((o) => !o)}>{testOpen ? "Fechar teste" : "Testar"}</button>
           {saved.active && form.id ? (
             <>
               <button type="button" className="pn-btn" style={{ fontSize: 12, padding: "7px 12px" }} disabled={pending} onClick={() => save(false)}>Pausar</button>
@@ -196,8 +199,8 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
                 <div className="pn-section-label" style={{ marginBottom: 8 }}>Começar com um modelo</div>
                 <div className="pn-templates-grid">
                   {TEMPLATES.map((t) => (
-                    <button key={t.id} type="button" className="pn-template" onClick={() => applyTemplate(t.id)}>
-                      <div style={{ fontSize: 12.5, fontWeight: 500 }}>{t.name}</div>
+                    <button key={t.id} type="button" className={`pn-template${templateId === t.id ? " is-on" : ""}`} aria-pressed={templateId === t.id} onClick={() => applyTemplate(t.id)}>
+                      <div className="pn-template-name">{t.name}{templateId === t.id && <span className="pn-template-check">Selecionado</span>}</div>
                       <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3, lineHeight: 1.4 }}>{t.desc}</div>
                     </button>
                   ))}
@@ -207,21 +210,21 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
 
             <FlowNode on={sel === "trigger"} onSelect={() => setSel("trigger")} color={TRIGGER_COLOR} type="Gatilho" title={kwTitle}
               sub={anyPost ? "Qualquer post ou Reels do perfil" : clean.posts.some(isNextPost) ? "Próxima publicação (quando sair)" : clean.posts.length ? `${clean.posts.length} post${clean.posts.length > 1 ? "s" : ""} selecionado${clean.posts.length > 1 ? "s" : ""}` : "Nenhum post escolhido"}
-              issues={triggerIssues} />
+              issues={triggerIssues} pending={triggerPending} />
 
             {form.steps.map((s, i) => {
               const prev = form.steps[i - 1];
               const label = prev && waitsForClick(prev) ? `depois do clique em “${prev.type === "follow" ? prev.button : prev.type === "dm" ? prev.button?.title : ""}”` : undefined;
               return (
                 <Fragment key={s.id}>
-                  <Edge hot={showPath} label={label} onAdd={form.steps.length < MAX_STEPS ? () => setAdding(adding === i ? null : i) : undefined} menuOpen={adding === i} onPick={(t) => insertStep(i, t)} />
+                  <Edge label={label} onAdd={form.steps.length < MAX_STEPS ? () => setAdding(adding === i ? null : i) : undefined} menuOpen={adding === i} onPick={(t) => insertStep(i, t)} />
                   <StepNode step={s} index={i} total={form.steps.length} on={sel === s.id} onSelect={() => setSel(s.id)}
-                    onMove={(d) => moveStep(s.id, d)} onRemove={() => removeStep(s.id)} issues={stepIssues(s.id)} link={clean.link} />
+                    onMove={(d) => moveStep(s.id, d)} onRemove={() => removeStep(s.id)} issues={stepIssues(s.id)} pending={stepPending(s.id)} link={clean.link} />
                 </Fragment>
               );
             })}
 
-            <Edge hot={showPath} onAdd={form.steps.length < MAX_STEPS ? () => setAdding(adding === form.steps.length ? null : form.steps.length) : undefined}
+            <Edge onAdd={form.steps.length < MAX_STEPS ? () => setAdding(adding === form.steps.length ? null : form.steps.length) : undefined}
               menuOpen={adding === form.steps.length} onPick={(t) => insertStep(form.steps.length, t)} label={form.steps.length ? undefined : "adicione o primeiro bloco"} />
             <div className="pn-node" style={{ ["--node" as string]: END_COLOR, cursor: "default" }}>
               <div className="pn-row" style={{ gap: 8 }}><Dot color={END_COLOR} size={8} /><span className="pn-node-type">Fim</span></div>
@@ -258,21 +261,25 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
 
 /* ---------- canvas ---------- */
 
-function FlowNode({ on, onSelect, color, type, title, sub, issues, children }: {
-  on: boolean; onSelect: () => void; color: string; type: string; title: string; sub: string; issues: Issue[]; children?: React.ReactNode;
+function FlowNode({ on, onSelect, color, type, title, sub, issues, pending, children }: {
+  on: boolean; onSelect: () => void; color: string; type: string; title: string; sub: string; issues: Issue[]; pending: Issue[]; children?: React.ReactNode;
 }) {
+  // Verde quando o bloco está completo, vermelho quando falta algo; o selo repete o estado em texto.
+  const ready = !pending.length;
+  const shown = issues.length ? issues : pending;
   return (
-    <div className={`pn-node${on ? " is-sel" : ""}${issues.length ? " is-error" : ""}`} style={{ ["--node" as string]: color }}
+    <div className={`pn-node ${ready ? "is-ready" : "is-pending"}${on ? " is-sel" : ""}${issues.length ? " is-error" : ""}`} style={{ ["--node" as string]: color }}
       onClick={onSelect} role="button" tabIndex={0} aria-pressed={on}
       onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect(); } }}>
       <div className="pn-row" style={{ gap: 8, flexWrap: "nowrap" }}>
         <Dot color={color} size={8} />
         <span className="pn-node-type">{type}</span>
+        <span className={`pn-node-state ${ready ? "is-ready" : "is-pending"}`}>{ready ? "Pronto" : "Falta configurar"}</span>
         {children}
       </div>
       <div className="pn-node-title">{title}</div>
       <div className="pn-node-sub">{sub}</div>
-      {issues.slice(0, 2).map((i) => (
+      {shown.slice(0, 2).map((i) => (
         <div className="pn-node-err" key={i.message}>
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--red)", marginTop: 5, flex: "none" }} />
           {i.message}
@@ -295,14 +302,14 @@ function stepSummary(s: Step, link: string): { title: string; sub: string } {
   return { title: "Verificar se segue o perfil", sub: `Pergunta com o botão “${s.button}”; se não seguir, insiste com “${s.retryButton}”` };
 }
 
-function StepNode({ step, index, total, on, onSelect, onMove, onRemove, issues, link }: {
-  step: Step; index: number; total: number; on: boolean; onSelect: () => void; onMove: (d: -1 | 1) => void; onRemove: () => void; issues: Issue[]; link: string;
+function StepNode({ step, index, total, on, onSelect, onMove, onRemove, issues, pending, link }: {
+  step: Step; index: number; total: number; on: boolean; onSelect: () => void; onMove: (d: -1 | 1) => void; onRemove: () => void; issues: Issue[]; pending: Issue[]; link: string;
 }) {
   const meta = STEP_META[step.type];
   const { title, sub } = stepSummary(step, link);
   const stop = (fn: () => void) => (e: React.MouseEvent) => { e.stopPropagation(); fn(); };
   return (
-    <FlowNode on={on} onSelect={onSelect} color={meta.color} type={meta.label} title={title} sub={sub} issues={issues}>
+    <FlowNode on={on} onSelect={onSelect} color={meta.color} type={meta.label} title={title} sub={sub} issues={issues} pending={pending}>
       <span className="pn-node-tools">
         <button type="button" aria-label="Subir bloco" title="Subir" disabled={index === 0} onClick={stop(() => onMove(-1))}>↑</button>
         <button type="button" aria-label="Descer bloco" title="Descer" disabled={index === total - 1} onClick={stop(() => onMove(1))}>↓</button>
@@ -312,12 +319,12 @@ function StepNode({ step, index, total, on, onSelect, onMove, onRemove, issues, 
   );
 }
 
-function Edge({ hot, label, onAdd, menuOpen, onPick }: { hot: boolean; label?: string; onAdd?: () => void; menuOpen?: boolean; onPick?: (t: StepType) => void }) {
+function Edge({ label, onAdd, menuOpen, onPick }: { label?: string; onAdd?: () => void; menuOpen?: boolean; onPick?: (t: StepType) => void }) {
   return (
-    <div className={`pn-edge${hot ? " is-hot" : ""}`} style={{ height: 52 }}>
+    <div className="pn-edge is-hot" style={{ height: 52 }}>
       <svg width="12" height="52" viewBox="0 0 12 52" aria-hidden>
-        <path d="M6 0 V44" style={{ stroke: hot ? "var(--violet)" : "var(--edge)" }} strokeWidth={hot ? 2 : 1.4} fill="none" />
-        <path d="M1.5 42 L6 49 L10.5 42z" style={{ fill: hot ? "var(--violet)" : "var(--edge)" }} />
+        <path d="M6 0 V44" style={{ stroke: "var(--violet)" }} strokeWidth={2} fill="none" />
+        <path d="M1.5 42 L6 49 L10.5 42z" style={{ fill: "var(--violet)" }} />
       </svg>
       {onAdd && (
         <button type="button" className="pn-edge-add" onClick={onAdd} aria-label="Adicionar bloco aqui" aria-expanded={menuOpen} title="Adicionar bloco">+</button>
@@ -445,8 +452,8 @@ function DmConfig({ step, update, issues, link, setLink, username }: {
         <textarea id={`t-${step.id}`} ref={ref} className={`pn-textarea${issues.length ? " is-error" : ""}`} rows={7}
           value={step.text} onChange={(e) => update({ text: e.target.value })} />
         <div className="pn-row" style={{ gap: 6, marginTop: 6 }}>
-          <button type="button" className="pn-chip" onClick={() => insert("{link}")}>+ {"{link}"}</button>
-          <button type="button" className="pn-chip" onClick={() => insert("{usuario}")}>+ {"{usuario}"}</button>
+          <button type="button" className="pn-chip is-var" onClick={() => insert("{link}")}>+ {"{link}"}</button>
+          <button type="button" className="pn-chip is-var" onClick={() => insert("{usuario}")}>+ {"{usuario}"}</button>
           <span className="pn-spacer pn-num" style={{ fontSize: 11.5, color: len > max ? "var(--red)" : "var(--muted-2)" }}>{len}/{max}</span>
         </div>
         <div className="pn-help">{"{link}"} vira o link da automação. {"{usuario}"} vira o @ de quem comentou.</div>

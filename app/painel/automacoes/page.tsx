@@ -9,7 +9,9 @@ export default async function Automacoes() {
   const { executions, rules } = await getActivity();
   const week = summarize(executions, rules, 7);
   const stats = new Map(week.perAutomation.map((a) => [a.id, a]));
-  const rows: AutomationRow[] = rules.map((r) => {
+  // Mais recente primeiro. A ordem do banco (mais antiga primeiro) é mantida no processamento, que a usa para desempatar.
+  const newest = [...rules].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  const rows: AutomationRow[] = newest.map((r) => {
     const anyPost = r.posts.some((p) => postKey(p) === "*");
     const active = r.active !== false;
     const scope = anyPost ? "Qualquer post"

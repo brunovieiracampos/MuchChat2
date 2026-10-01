@@ -129,6 +129,17 @@ describe("execuções a partir do log", () => {
     expect(ex[2].ruleName).toBe("Contador");
   });
 
+  it("com etapas no mesmo horário, vale a última gravada (fluxo concluído)", () => {
+    // como o processador grava: lpush, então o log fica do mais novo para o mais antigo
+    const t = Date.parse("2026-10-01T20:02:24Z");
+    const same: LogEntry[] = (["dm-sent", "reply-sent", "flow-done"] as const)
+      .map((action) => ({ at: t, source: "webhook", commentId: "g1", mediaId: "m", username: "forneriatech", text: "GTA", rule: "r1", action }))
+      .reverse();
+    const [e] = buildExecutions(same, rules);
+    expect(e.status).toBe("concluida");
+    expect(e.steps.map((s) => s.action)).toEqual(["dm-sent", "reply-sent", "flow-done"]);
+  });
+
   it("contatos e resumo do dia", () => {
     const ex = buildExecutions(log, rules);
     const contacts = buildContacts(ex);

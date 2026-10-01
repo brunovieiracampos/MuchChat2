@@ -55,7 +55,7 @@ describe("funil por automação", () => {
     // c3: comentou e não clicou
     await processComment(comment("c3"), "webhook", d);
 
-    expect(await counts()).toEqual({ comment: 3, dm: 3, click: 2, follower: 2, gained: 1, done: 2, failed: 0 });
+    expect(await counts()).toEqual({ comment: 3, reply: 3, dm: 3, click: 2, follower: 2, gained: 1, done: 2, failed: 0 });
   });
 
   it("conta falha e ignora modo de teste", async () => {
@@ -66,7 +66,7 @@ describe("funil por automação", () => {
   });
 
   it("monta o funil só com as etapas do fluxo e calcula as taxas", () => {
-    const c = { comment: 10, dm: 8, click: 4, follower: 3, gained: 1, done: 3, failed: 2 };
+    const c = { comment: 10, reply: 9, dm: 8, click: 4, follower: 3, gained: 1, done: 3, failed: 2 };
     const f = buildFunnel(rule, c);
     expect(f.map((r) => r.stage)).toEqual(["comment", "dm", "click", "follower", "done"]);
     expect(f[2]).toMatchObject({ value: 4, ofFirst: 0.4, ofPrev: 0.5 });
