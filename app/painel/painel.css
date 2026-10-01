@@ -718,3 +718,41 @@ button.pn-trow:hover { background: var(--hover); }
   .pc-week { overflow-x: auto; }
   .pc-week-head, .pc-week-row { min-width: 760px; }
 }
+
+/* ---------- seletor de data e hora (app/painel/_components/datetime-picker.tsx) ---------- */
+.dtp { position: relative; width: fit-content; }
+.dtp-trigger { display: inline-flex; align-items: center; gap: 10px; width: auto; min-width: 260px; cursor: pointer; text-align: left; color: var(--text); }
+.dtp-trigger svg { stroke: var(--muted); }
+.dtp-trigger[aria-expanded="true"] { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text), var(--focus-ring); }
+.dtp-pop { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; display: flex; gap: 16px; padding: 16px; background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--r-md, 12px); box-shadow: var(--shadow-lg); }
+.dtp-cal { width: 266px; }
+.dtp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dtp-month { font-family: var(--display); font-weight: 600; font-size: 14.5px; }
+.dtp-nav { width: 30px; height: 30px; border-radius: var(--r, 8px); border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; font-size: 16px; line-height: 1; }
+.dtp-nav:hover:not(:disabled) { border-color: var(--text); }
+.dtp-nav:disabled { opacity: .35; cursor: default; }
+.dtp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dtp-wd { font-size: 11px; font-weight: 600; color: var(--muted); text-align: center; padding: 4px 0 6px; }
+.dtp-day { height: 34px; border: none; border-radius: var(--r, 8px); background: transparent; color: var(--text); font: inherit; font-size: 13.5px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.dtp-day:hover:not(:disabled) { background: var(--hover-2); }
+.dtp-day.is-out { color: var(--muted); }
+.dtp-day.is-today { box-shadow: inset 0 0 0 1px var(--sage); color: var(--sage-text); font-weight: 600; }
+.dtp-day.is-on { background: var(--violet); color: var(--on-primary); font-weight: 600; box-shadow: none; }
+.dtp-day:disabled { color: var(--faint); opacity: .45; cursor: default; }
+.dtp-quick { display: flex; gap: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--divider-2); }
+.dtp-time { display: grid; grid-template-columns: 56px 56px; grid-template-rows: 1fr auto; gap: 8px; }
+.dtp-col { height: 282px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 2px; scrollbar-width: thin; }
+.dtp-col button { flex: none; height: 34px; border: none; border-radius: var(--r, 8px); background: transparent; color: var(--text); font: inherit; font-size: 13.5px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.dtp-col button:hover:not(:disabled) { background: var(--hover-2); }
+.dtp-col button.is-on { background: var(--violet); color: var(--on-primary); font-weight: 600; }
+.dtp-col button:disabled { color: var(--faint); opacity: .45; cursor: default; }
+.dtp-done { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .dtp, .dtp-trigger { width: 100%; }
+  .dtp-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; flex-direction: column; }
+  .dtp-cal { width: auto; }
+  .dtp-time { grid-template-columns: 1fr 1fr; }
+  .dtp-col { height: 160px; }
+}
+.pc-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dtp-pop.is-up { top: auto; bottom: calc(100% + 8px); }

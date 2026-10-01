@@ -4,12 +4,13 @@ import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import {
-  CAPTION_MAX, CAROUSEL_MAX, HASHTAGS_MAX, KIND_LABEL, countHashtags, kindFor, ratioOk, validatePost,
+  CAPTION_MAX, CAROUSEL_MAX, HASHTAGS_MAX, KIND_LABEL, MIN_LEAD_MS, countHashtags, kindFor, ratioOk, validatePost,
   type PostMedia, type ScheduledPost,
 } from "@/lib/posts";
 import { savePostAction } from "./actions";
 import { ConfirmModal, Icon, useToast } from "../_components/ui";
 import { ICONS } from "../_components/icons";
+import { DateTimePicker } from "../_components/datetime-picker";
 
 type Item = { key: string; path?: string; url: string; width: number; height: number; size: number; uploading?: boolean; error?: string };
 type AutoMode = "none" | "new" | "existing";
@@ -107,7 +108,8 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
       if (!r.ok) { setIssues(r.issues ?? [{ field: "media", message: r.error ?? "Não foi possível salvar." }]); return; }
       setIssues([]);
       toast(action === "draft" ? "Rascunho salvo" : action === "now" ? "Publicando agora" : "Publicação agendada");
-      router.push(`/painel/publicacoes/${r.post.id}`);
+      // Agendou ou publicou: volta para o calendário. Rascunho: continua na publicação para seguir editando.
+      router.push(action === "draft" ? `/painel/publicacoes/${r.post.id}` : "/painel/publicacoes");
       router.refresh();
     });
   };
@@ -170,7 +172,7 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
 
         <section className="pn-card">
           <label className="pn-card-title" htmlFor="when">Quando</label>
-          <input id="when" type="datetime-local" className="pn-input" value={when} onChange={(e) => setWhen(e.target.value)} style={{ marginTop: 10, maxWidth: 240 }} />
+          <div style={{ marginTop: 10 }}><DateTimePicker id="when" value={when} onChange={setWhen} min={Date.now() + MIN_LEAD_MS} /></div>
           <div className="pn-help">No horário do seu computador. A mídia é preparada 10 minutos antes; até lá dá para editar ou cancelar.</div>
         </section>
 

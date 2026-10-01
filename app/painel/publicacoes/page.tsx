@@ -37,13 +37,17 @@ function PostRow({ p, thumb, automation }: { p: ScheduledPost; thumb?: string; a
   );
 }
 
-type Search = { vista?: string; data?: string; de?: string; ate?: string };
+type Search = { vista?: string; data?: string; de?: string; ate?: string; status?: string };
+type StatusFilter = "todos" | "publicados" | "agendados";
+const STATUS_FILTERS: [StatusFilter, string][] = [["todos", "Todos"], ["publicados", "Publicados"], ["agendados", "Agendados"]];
+const PUBLISHED = new Set(["published", "instagram"]);
 
 export default async function Publicacoes({ searchParams }: { searchParams: Promise<Search> }) {
   await requireSession();
   const sp = await searchParams;
   const today = dayKey(Date.now());
   const view: CalView = sp.vista === "semana" || sp.vista === "periodo" ? sp.vista : "mes";
+  const status: StatusFilter = sp.status === "publicados" || sp.status === "agendados" ? sp.status : "todos";
   const anchor = isDayKey(sp.data) ? sp.data : today;
   const from = isDayKey(sp.de) ? sp.de : today;
   const to = isDayKey(sp.ate) ? sp.ate : addDays(from, 29);
@@ -57,7 +61,8 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
   const drafts = posts.filter((p) => p.status === "draft" || p.status === "canceled").sort((a, b) => b.updatedAt - a.updatedAt);
   const withMedia = [...inRange, ...drafts].filter((p) => p.media.length && !p.mediaDeletedAt).map((p) => p.media[0].path);
   const thumbs = account && withMedia.length ? await signedUrls(account.accountId, withMedia, 3600e3).catch(() => ({} as Record<string, string>)) : {};
-  const items = calendarItems(range, posts, media, rules, stats, thumbs);
+  const all = calendarItems(range, posts, media, rules, stats, thumbs);
+  const items = status === "todos" ? all : all.filter((it) => (status === "publicados" ? PUBLISHED.has(it.status) : UPCOMING.has(it.status)));
   const upcoming = posts.filter((p) => UPCOMING.has(p.status)).length;
   const names = new Map(rules.map((r) => [r.id, r.name ?? r.id]));
 
@@ -65,9 +70,11 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
   const href = (q: Partial<Search>) => {
     const s = new URLSearchParams();
     const v = q.vista ?? view;
+    const st = q.status ?? status;
     if (v !== "mes") s.set("vista", v);
     if (v === "periodo") { s.set("de", q.de ?? from); s.set("ate", q.ate ?? to); }
     else { const d = q.data ?? anchor; if (d !== today) s.set("data", d); }
+    if (st !== "todos") s.set("status", st);
     const qs = s.toString();
     return qs ? `/painel/publicacoes?${qs}` : "/painel/publicacoes";
   };
@@ -107,16 +114,24 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
             )}
             <h2 className="pc-title">{title}</h2>
           </div>
-          <div className="pn-seg" role="tablist" aria-label="Visualização">
-            {([["mes", "Mês"], ["semana", "Semana"], ["periodo", "Período"]] as const).map(([v, label]) => (
-              <Link key={v} href={href({ vista: v })} role="tab" aria-selected={view === v} className={view === v ? "is-on" : ""} scroll={false}>{label}</Link>
-            ))}
+          <div className="pc-filters">
+            <div className="pn-seg" role="tablist" aria-label="Status">
+              {STATUS_FILTERS.map(([v, label]) => (
+                <Link key={v} href={href({ status: v })} role="tab" aria-selected={status === v} className={status === v ? "is-on" : ""} scroll={false}>{label}</Link>
+              ))}
+            </div>
+            <div className="pn-seg" role="tablist" aria-label="Visualização">
+              {([["mes", "Mês"], ["semana", "Semana"], ["periodo", "Período"]] as const).map(([v, label]) => (
+                <Link key={v} href={href({ vista: v })} role="tab" aria-selected={view === v} className={view === v ? "is-on" : ""} scroll={false}>{label}</Link>
+              ))}
+            </div>
           </div>
         </div>
 
         {view === "periodo" && (
           <form className="pc-range" action="/painel/publicacoes">
             <input type="hidden" name="vista" value="periodo" />
+            {status !== "todos" && <input type="hidden" name="status" value={status} />}
             <label className="pn-field-label" htmlFor="pc-de">De<input id="pc-de" name="de" type="date" className="pn-input" defaultValue={from} required /></label>
             <label className="pn-field-label" htmlFor="pc-ate">Até<input id="pc-ate" name="ate" type="date" className="pn-input" defaultValue={to} required /></label>
             <button type="submit" className="pn-btn">Mostrar</button>
@@ -127,7 +142,7 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
         <PostsCalendar view={view} days={range.days} items={items} canCreate={canCreate} />
       </section>
 
-      {drafts.length > 0 && (
+      {status === "todos" && drafts.length > 0 && (
         <section className="pn-card" style={{ padding: "14px 18px 6px" }}>
           <div className="pn-card-title">Rascunhos e canceladas</div>
           <div className="pn-card-sub">Sem data no calendário. Abra para escolher o horário.</div>
