@@ -26,7 +26,11 @@ export type PublisherDeps = {
   recentStories: () => Promise<{ id: string; timestamp?: string }[]>;
   wait: (ms: number) => Promise<void>;
   now: () => number;
+  /** Modo de teste (DRY_RUN): nada é enviado ao Instagram. */
+  dryRun: () => boolean;
 };
+
+const DRY_RUN_MSG = "Modo de teste (DRY_RUN): a publicação não foi enviada ao Instagram.";
 
 export type StepResult = "ok" | "stop";
 
@@ -72,6 +76,7 @@ async function buildContainer(p: ScheduledPost, deps: PublisherDeps): Promise<st
 export async function preparePost(postId: string, token: string, deps: PublisherDeps): Promise<StepResult> {
   const p = await current(postId, token, ["scheduled", "preparing"]);
   if (!p) return "stop";
+  if (deps.dryRun()) { await save(p, token, { status: "failed", error: DRY_RUN_MSG }); return "stop"; }
   if (!(await save(p, token, { status: "preparing", attempts: p.attempts + 1, error: null }))) return "stop";
   const containerId = await buildContainer(p, deps);
   await waitReady(containerId, deps);
@@ -92,6 +97,7 @@ export async function publishPost(postId: string, token: string, deps: Publisher
   const p = await current(postId, token, ["scheduled", "preparing", "publishing"]);
   if (!p) return "stop";
   if (p.igMediaId) return "ok";
+  if (deps.dryRun()) { await save(p, token, { status: "failed", error: DRY_RUN_MSG }); return "stop"; }
 
   let containerId = p.containerId;
   if (containerId) {
@@ -203,5 +209,6 @@ export async function defaultPublisherDeps(): Promise<PublisherDeps> {
     recentStories: ig.listStories,
     wait: (ms) => new Promise((r) => setTimeout(r, ms)),
     now: () => Date.now(),
+    dryRun: ig.isDryRun,
   };
 }

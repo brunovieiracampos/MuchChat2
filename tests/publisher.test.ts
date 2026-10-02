@@ -21,6 +21,7 @@ function deps(over: Partial<PublisherDeps> = {}) {
     recentStories: vi.fn(async () => []),
     wait: async () => {},
     now: () => NOW,
+    dryRun: () => false,
     ...over,
   };
   return d;
@@ -53,6 +54,17 @@ describe("publicador", () => {
     const d2 = deps();
     await preparePost(s.id, "T1", d2);
     expect(d2.createContainer).toHaveBeenCalledWith({ media_type: "STORIES", image_url: "https://blob/posts/acc-test/a.jpg?sig" });
+  });
+
+  it("em modo de teste não envia nada à Meta e marca como falha com o motivo", async () => {
+    const p = await newPost({});
+    const d = deps({ dryRun: () => true });
+    expect(await preparePost(p.id, "T1", d)).toBe("stop");
+    expect(d.createContainer).not.toHaveBeenCalled();
+    expect(await currentAccount().repo.getPost(p.id)).toMatchObject({ status: "failed", error: expect.stringMatching(/Modo de teste/) });
+    const q = await newPost({ status: "preparing", containerId: "c5" });
+    expect(await publishPost(q.id, "T1", d)).toBe("stop");
+    expect(d.publishContainer).not.toHaveBeenCalled();
   });
 
   it("ficha trocada (reagendada ou cancelada) não prepara nem publica", async () => {

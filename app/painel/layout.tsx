@@ -13,7 +13,15 @@ export default async function PainelLayout({ children }: { children: ReactNode }
   const [conn, flags, { executions }] = await Promise.all([getConnection(), getFlags(), getActivity()]);
   const since = Date.now() - 7 * 864e5;
   const failedCount = executions.filter((e) => e.status === "falhou" && e.lastAt >= since).length;
+  // Fora da Vercel, sem MUCHCHAT_ENV=dev, o localhost está usando o banco de produção: avisa em todas as telas.
+  const prodFromLocal = !process.env.VERCEL && process.env.MUCHCHAT_ENV !== "dev";
   return (
+    <>
+    {prodFromLocal && (
+      <div className="pn-prod-warning" role="alert">
+        Ambiente local ligado ao banco de PRODUÇÃO: o que você criar ou agendar aqui vale no Instagram de verdade.
+      </div>
+    )}
     <Shell
       connection={{ state: conn.state, username: conn.state === "connected" ? conn.username : undefined }}
       paused={flags.paused}
@@ -23,5 +31,6 @@ export default async function PainelLayout({ children }: { children: ReactNode }
     >
       {children}
     </Shell>
+    </>
   );
 }

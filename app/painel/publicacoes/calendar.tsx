@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { hourMinute } from "@/lib/format";
 import type { CalDay, CalItem } from "@/lib/overview";
 import { EventChip, PostModal } from "../_components/overview-client";
@@ -165,6 +165,14 @@ export function CalendarPanel({ view, title, links, period, days, items, canCrea
   children?: React.ReactNode;
 }) {
   const [status, setStatus] = useState(initialStatus);
+  const router = useRouter();
+  // Trocar de mês, semana ou vista busca no servidor; enquanto isso o calendário atual fica apagado (mantém o quadro).
+  const [loading, startNav] = useTransition();
+  const go = (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    startNav(() => router.push(href, { scroll: false }));
+  };
   const pick = (s: StatusFilter) => {
     setStatus(s);
     window.history.replaceState(null, "", withStatus(window.location.pathname + window.location.search, s));
@@ -174,13 +182,14 @@ export function CalendarPanel({ view, title, links, period, days, items, canCrea
 
   return (
     <>
-      <section className="pn-card pc-card">
+      <section className={`pn-card pc-card${loading ? " is-loading" : ""}`} aria-busy={loading}>
         <div className="pc-toolbar">
           <div className="pc-nav">
-            {links.prev && <Link href={link(links.prev)} className="pn-btn is-sm" scroll={false} aria-label={view === "mes" ? "Mês anterior" : "Semana anterior"}>‹</Link>}
-            {links.next && <Link href={link(links.next)} className="pn-btn is-sm" scroll={false} aria-label={view === "mes" ? "Próximo mês" : "Próxima semana"}>›</Link>}
-            {links.today && <Link href={link(links.today)} className="pn-btn is-sm" scroll={false}>Hoje</Link>}
+            {links.prev && <Link href={link(links.prev)} prefetch onClick={go(link(links.prev))} className="pn-btn is-sm" scroll={false} aria-label={view === "mes" ? "Mês anterior" : "Semana anterior"}>‹</Link>}
+            {links.next && <Link href={link(links.next)} prefetch onClick={go(link(links.next))} className="pn-btn is-sm" scroll={false} aria-label={view === "mes" ? "Próximo mês" : "Próxima semana"}>›</Link>}
+            {links.today && <Link href={link(links.today)} onClick={go(link(links.today))} className="pn-btn is-sm" scroll={false}>Hoje</Link>}
             <h2 className="pc-title">{title}</h2>
+            {loading && <span className="pn-spinner" role="status" aria-label="Carregando" />}
           </div>
           <div className="pc-filters">
             <div className="pn-seg" role="tablist" aria-label="Status">
@@ -190,7 +199,7 @@ export function CalendarPanel({ view, title, links, period, days, items, canCrea
             </div>
             <div className="pn-seg" role="tablist" aria-label="Visualização">
               {VIEWS.map(([v, label]) => (
-                <Link key={v} href={link(links.views[v])} role="tab" aria-selected={view === v} className={view === v ? "is-on" : ""} scroll={false}>{label}</Link>
+                <Link key={v} href={link(links.views[v])} onClick={go(link(links.views[v]))} role="tab" aria-selected={view === v} className={view === v ? "is-on" : ""} scroll={false}>{label}</Link>
               ))}
             </div>
           </div>

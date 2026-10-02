@@ -756,3 +756,8 @@ button.pn-trow:hover { background: var(--hover); }
 }
 .pc-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dtp-pop.is-up { top: auto; bottom: calc(100% + 8px); }
+/* calendário carregando outro período: mantém o quadro atual, apagado */
+.pc-card.is-loading .pc-month, .pc-card.is-loading .pc-week, .pc-card.is-loading .pc-agenda { opacity: .5; pointer-events: none; transition: opacity .15s ease; }
+.pc-nav .pn-spinner { margin-left: 8px; }
+/* aviso: localhost usando o banco de produção (app/painel/layout.tsx) */
+.pn-prod-warning { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 7px 14px; border-radius: 8px; box-shadow: 0 4px 16px rgb(0 0 0 / .25); text-align: center; font-size: 12.5px; font-weight: 600; background: #B91C1C; color: #FEF2F2; }
