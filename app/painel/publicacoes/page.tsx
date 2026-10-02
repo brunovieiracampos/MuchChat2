@@ -4,7 +4,7 @@ import { hourMinute } from "@/lib/format";
 import { signedUrls } from "@/lib/media-store";
 import { addDays, calendarItems, customRange, isDayKey, monthGrid, shiftMonth, weekContaining, type CalRange } from "@/lib/overview";
 import { getAccount, getActivity, getConnection, getMediaSince, getPosts, getStats } from "@/lib/panel";
-import { KIND_LABEL, STATUS_META, type ScheduledPost } from "@/lib/posts";
+import { KIND_LABEL, STATUS_META, thumbPath, type ScheduledPost } from "@/lib/posts";
 import { requireSession } from "@/lib/session";
 import { Badge, Icon } from "../_components/ui";
 import { ICONS } from "../_components/icons";
@@ -56,7 +56,7 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
   const media = conn.state === "connected" ? await getMediaSince(range.from) : [];
   const inRange = posts.filter((p) => { const t = p.publishedAt ?? p.scheduledAt; return t && t >= range.from && t <= range.to; });
   const drafts = posts.filter((p) => p.status === "draft" || p.status === "canceled").sort((a, b) => b.updatedAt - a.updatedAt);
-  const withMedia = [...inRange, ...drafts].filter((p) => p.media.length && !p.mediaDeletedAt).map((p) => p.media[0].path);
+  const withMedia = [...inRange, ...drafts].filter((p) => p.media.length && !p.mediaDeletedAt).map((p) => thumbPath(p.media[0])).filter((x): x is string => !!x);
   const thumbs = account && withMedia.length ? await signedUrls(account.accountId, withMedia, 3600e3).catch(() => ({} as Record<string, string>)) : {};
   // Todas as publicações do intervalo, cada uma com o seu status; o filtro de status roda no navegador.
   const items = calendarItems(range, posts, media, rules, stats, thumbs);
@@ -108,7 +108,7 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
             <div className="pn-card-title">Rascunhos e canceladas</div>
             <div className="pn-card-sub">Sem data no calendário. Abra para escolher o horário.</div>
             <div style={{ marginTop: 4 }}>
-              {drafts.map((p) => <PostRow key={p.id} p={p} thumb={p.media[0] ? thumbs[p.media[0].path] : undefined} automation={p.automationId ? names.get(p.automationId) : undefined} />)}
+              {drafts.map((p) => <PostRow key={p.id} p={p} thumb={p.media[0] ? thumbs[thumbPath(p.media[0]) ?? ""] : undefined} automation={p.automationId ? names.get(p.automationId) : undefined} />)}
             </div>
           </section>
         )}

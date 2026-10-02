@@ -760,4 +760,8 @@ button.pn-trow:hover { background: var(--hover); }
 .pc-card.is-loading .pc-month, .pc-card.is-loading .pc-week, .pc-card.is-loading .pc-agenda { opacity: .5; pointer-events: none; transition: opacity .15s ease; }
 .pc-nav .pn-spinner { margin-left: 8px; }
 /* aviso: localhost usando o banco de produção (app/painel/layout.tsx) */
-.pn-prod-warning { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 7px 14px; border-radius: 8px; box-shadow: 0 4px 16px rgb(0 0 0 / .25); text-align: center; font-size: 12.5px; font-weight: 600; background: #B91C1C; color: #FEF2F2; }
+.pn-prod-warning { position: fixed; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 70; max-width: calc(100vw - 32px); padding: 7px 14px; border-radius: 8px; box-shadow: 0 4px 16px rgb(0 0 0 / .25); text-align: center; font-size: 12.5px; font-weight: 600; background: #B91C1C; color: #FEF2F2; }
+
+/* vídeo: selo de duração na miniatura e player na pré-visualização */
+.pn-media-duration { position: absolute; left: 4px; top: 4px; font-size: 10.5px; font-weight: 600; background: rgba(0,0,0,.65); color: #fff; border-radius: 4px; padding: 1px 5px; font-variant-numeric: tabular-nums; }
+.pn-ig-media video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }

@@ -2,7 +2,7 @@ import { currentAccount } from "@/lib/account-context";
 import { getAutomation, setAutomationActive, storeAutomation } from "@/lib/automations";
 import * as ig from "@/lib/instagram";
 import { isScheduledPostMarker } from "@/lib/match";
-import { scheduledMarker, type ScheduledPost } from "@/lib/posts";
+import { isVideo, mediaFiles, scheduledMarker, type ScheduledPost } from "@/lib/posts";
 
 /**
  * Publicador das publicações agendadas. Roda dentro da conta (withAccount), chamado pelas etapas do
@@ -48,13 +48,18 @@ async function current(postId: string, token: string, allowed: ScheduledPost["st
   return p;
 }
 
-/** Espera a Meta terminar de processar a mídia (imagens levam segundos). */
-async function waitReady(id: string, deps: PublisherDeps, tries = 20): Promise<void> {
+/**
+ * Espera a Meta terminar de processar a mídia. Imagem leva segundos (checa a cada 3 s, por 1 min);
+ * vídeo leva minutos (a cada 15 s, por 4 min, dentro do limite de duração da etapa). Se não ficar pronto,
+ * a etapa falha e o Workflow tenta de novo, reaproveitando o mesmo container.
+ */
+async function waitReady(id: string, deps: PublisherDeps, video = false): Promise<void> {
+  const [tries, every] = video ? [16, 15000] : [20, 3000];
   for (let i = 0; i < tries; i++) {
     const s = await deps.containerStatus(id);
     if (s.code === "FINISHED" || s.code === "PUBLISHED") return;
     if (s.code === "ERROR" || s.code === "EXPIRED") throw new Error(`A Meta recusou a mídia (${s.detail ?? s.code}).`);
-    await deps.wait(3000);
+    await deps.wait(every);
   }
   throw new Error("A Meta demorou demais para processar a mídia.");
 }
@@ -64,7 +69,9 @@ async function buildContainer(p: ScheduledPost, deps: PublisherDeps): Promise<st
   if (!p.media.length) throw new Error("A publicação não tem mídia.");
   if (p.media.some((m) => !mediaOfAccount(m.path))) throw new Error("A publicação tem mídia que não é desta conta.");
   const urls = await Promise.all(p.media.map((m) => deps.signedUrl(m.path)));
-  if (p.kind === "story") return deps.createContainer({ media_type: "STORIES", image_url: urls[0] });
+  const video = isVideo(p.media[0]);
+  if (p.kind === "reel") return deps.createContainer({ media_type: "REELS", video_url: urls[0], caption: p.caption, share_to_feed: "true" });
+  if (p.kind === "story") return deps.createContainer(video ? { media_type: "STORIES", video_url: urls[0] } : { media_type: "STORIES", image_url: urls[0] });
   if (p.kind === "image") return deps.createContainer({ image_url: urls[0], caption: p.caption });
   const children: string[] = [];
   for (const url of urls) children.push(await deps.createContainer({ image_url: url, is_carousel_item: "true" }));
@@ -78,8 +85,20 @@ export async function preparePost(postId: string, token: string, deps: Publisher
   if (!p) return "stop";
   if (deps.dryRun()) { await save(p, token, { status: "failed", error: DRY_RUN_MSG }); return "stop"; }
   if (!(await save(p, token, { status: "preparing", attempts: p.attempts + 1, error: null }))) return "stop";
-  const containerId = await buildContainer(p, deps);
-  await waitReady(containerId, deps);
+  const video = p.media.some(isVideo);
+  // Numa nova tentativa, reaproveita o container que ainda está processando (vídeo pode levar minutos).
+  let containerId = p.containerId;
+  if (containerId) {
+    const s = await deps.containerStatus(containerId);
+    if (s.code === "ERROR" || s.code === "EXPIRED") containerId = null;
+  }
+  if (!containerId) {
+    containerId = await buildContainer(p, deps);
+    // Grava antes de esperar: se a etapa estourar o tempo, a próxima tentativa continua deste container.
+    if (!(await save(p, token, { containerId }))) return "stop";
+  }
+  await waitReady(containerId, deps, video);
+  // Confere a ficha de novo: se a pessoa reagendou ou cancelou durante a espera, este processo para sem gravar.
   return (await save(p, token, { containerId })) ? "ok" : "stop";
 }
 
@@ -99,6 +118,7 @@ export async function publishPost(postId: string, token: string, deps: Publisher
   if (p.igMediaId) return "ok";
   if (deps.dryRun()) { await save(p, token, { status: "failed", error: DRY_RUN_MSG }); return "stop"; }
 
+  const video = p.media.some(isVideo);
   let containerId = p.containerId;
   if (containerId) {
     const s = await deps.containerStatus(containerId);
@@ -110,10 +130,13 @@ export async function publishPost(postId: string, token: string, deps: Publisher
       return "ok";
     }
     if (s.code === "ERROR" || s.code === "EXPIRED") containerId = null;
+    // Vídeo que ainda está processando: espera ficar pronto antes de publicar.
+    else if (s.code === "IN_PROGRESS") await waitReady(containerId, deps, video);
   }
   if (!containerId) {
     containerId = await buildContainer(p, deps);
-    await waitReady(containerId, deps);
+    await save(p, token, { containerId });
+    await waitReady(containerId, deps, video);
   }
   if (!(await save(p, token, { status: "publishing", containerId }))) return "stop";
   const mediaId = await deps.publishContainer(containerId);
@@ -177,7 +200,7 @@ export async function failPost(postId: string, token: string, message: string, d
 export async function cleanupMedia(postId: string, deps: PublisherDeps): Promise<void> {
   const p = await repo().getPost(postId);
   if (!p || p.mediaDeletedAt || !p.media.length) return;
-  await deps.deleteMedia(p.media.map((m) => m.path).filter(mediaOfAccount));
+  await deps.deleteMedia(p.media.flatMap(mediaFiles).filter(mediaOfAccount));
   await repo().updatePost(postId, { mediaDeletedAt: deps.now() });
 }
 

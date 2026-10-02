@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { dateTime, dayName, hourMinute } from "@/lib/format";
 import { signedUrls } from "@/lib/media-store";
 import { getAccount, getActivity, getPosts } from "@/lib/panel";
-import { KIND_LABEL, STATUS_META, isEditable } from "@/lib/posts";
+import { KIND_LABEL, STATUS_META, isEditable, isVideo, thumbPath } from "@/lib/posts";
 import { requireSession } from "@/lib/session";
 import { Badge, Icon } from "../../_components/ui";
 import { ICONS } from "../../_components/icons";
@@ -53,7 +53,7 @@ export default async function Publicacao({ params }: { params: Promise<{ id: str
   }
 
   const account = await getAccount();
-  const thumbs = post.mediaDeletedAt || !account ? {} : await signedUrls(account.accountId, post.media.map((m) => m.path), 3600e3);
+  const thumbs = post.mediaDeletedAt || !account ? {} : await signedUrls(account.accountId, post.media.map(thumbPath).filter((x): x is string => !!x), 3600e3);
   return (
     <div className="pn-page is-narrow">
       {header}
@@ -68,8 +68,9 @@ export default async function Publicacao({ params }: { params: Promise<{ id: str
         </p>
         <div className="pn-media-grid" style={{ marginTop: 14 }}>
           {post.media.map((m) => (
-            <div key={m.path} className={`pn-media-tile${post.kind === "story" ? " is-story" : ""}`}>
-              {thumbs[m.path] ? <img src={thumbs[m.path]} alt="" /> : <Icon d={ICONS.image} size={18} color="var(--muted-2)" />}
+            <div key={m.path} className={`pn-media-tile${post.kind === "story" || isVideo(m) ? " is-story" : ""}`}>
+              {thumbs[thumbPath(m) ?? ""] ? <img src={thumbs[thumbPath(m) ?? ""]} alt="" /> : <Icon d={ICONS.image} size={18} color="var(--muted-2)" />}
+              {isVideo(m) && <span className="pn-media-duration">▶ {m.duration ? `${Math.floor(m.duration / 60)}:${String(Math.round(m.duration % 60)).padStart(2, "0")}` : "vídeo"}</span>}
             </div>
           ))}
         </div>

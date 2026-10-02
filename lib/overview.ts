@@ -2,7 +2,7 @@ import type { Rule } from "@/config/rules";
 import { dayKey } from "@/lib/activity";
 import type { IgMedia } from "@/lib/instagram";
 import { isPlaceholderPost, ruleAppliesToMedia } from "@/lib/match";
-import type { PostKind, PostStatus, ScheduledPost } from "@/lib/posts";
+import { thumbPath, type PostKind, type PostStatus, type ScheduledPost } from "@/lib/posts";
 import { emptyCounts, funnelStages, STAGES, stageLabel, sumCounts, type Counts, type FunnelRow, type RawStats, type Stage } from "@/lib/stats";
 
 /**
@@ -153,7 +153,7 @@ export function calendarItems(
     out.push({
       id: p.id, source: "agendada", status: p.status, kind: p.kind, day: dayKey(at), at,
       caption: p.caption, mediaCount: p.media.length,
-      thumb: (p.media[0] && thumbs[p.media[0].path]) || ig?.thumbnail_url || ig?.media_url,
+      thumb: (p.media[0] && thumbs[thumbPath(p.media[0]) ?? ""]) || ig?.thumbnail_url || ig?.media_url,
       permalink: p.permalink ?? ig?.permalink,
       likes: ig?.like_count, comments: ig?.comments_count,
       automation: automationOf(p.automationId ? ruleById.get(p.automationId) : undefined),

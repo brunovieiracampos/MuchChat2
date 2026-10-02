@@ -7,7 +7,7 @@ import { getAutomation, listAutomations, saveAutomation, storeAutomation, type I
 import { TEMPLATES } from "@/lib/flow";
 import { isPlaceholderPost } from "@/lib/match";
 import { deleteMedia, ownsMedia } from "@/lib/media-store";
-import { isEditable, kindFor, scheduledMarker, validatePost, type PostIssue, type PostMedia, type ScheduledPost } from "@/lib/posts";
+import { isEditable, kindFor, mediaFiles, scheduledMarker, validatePost, type PostIssue, type PostMedia, type ScheduledPost } from "@/lib/posts";
 import { publishPostWorkflow } from "@/workflows/publish-post";
 
 /**
@@ -74,11 +74,11 @@ export async function savePost(input: PostInput, when: number | "now" | null): P
   const prev = input.id ? await repo.getPost(input.id) : null;
   if (input.id && !prev) return fail("Publicação não encontrada.");
   if (prev && !isEditable(prev.status)) return fail(BUSY);
-  if (input.media.some((m) => !ownsMedia(accountId, m.path))) return fail("Mídia inválida. Envie a imagem de novo.");
+  if (input.media.some((m) => mediaFiles(m).some((f) => !ownsMedia(accountId, f)))) return fail("Mídia inválida. Envie o arquivo de novo.");
 
   const now = Date.now();
   const scheduledAt = when === "now" ? now : when ?? input.scheduledAt;
-  const kind = kindFor(input.story, input.media.length);
+  const kind = kindFor(input.story, input.media);
   const draft = { kind, caption: input.story ? "" : input.caption, media: input.media, scheduledAt };
   const issues = validatePost({ ...draft, scheduledAt: when === "now" ? now + 60 * 60e3 : scheduledAt }, { schedule: when !== null, now });
   if (issues.length) return { ok: false, issues };
@@ -92,7 +92,7 @@ export async function savePost(input: PostInput, when: number | "now" | null): P
   let post = saved;
 
   // Mídia que saiu da publicação é apagada do armazenamento.
-  const removed = (prev?.media ?? []).filter((m) => !input.media.some((x) => x.path === m.path)).map((m) => m.path);
+  const removed = (prev?.media ?? []).filter((m) => !input.media.some((x) => x.path === m.path)).flatMap(mediaFiles);
   if (removed.length) await deleteMedia(accountId, removed).catch((e) => console.error("[publicação] apagar mídia", e));
 
   const link = await linkAutomation(post, input.automation ?? (prev?.automationId ? { mode: "existing", id: prev.automationId } : { mode: "none" }));
@@ -129,7 +129,7 @@ export async function removePost(id: string): Promise<ScheduleResult> {
   const claimed = await repo.updatePost(id, { scheduleToken: null }, { statuses: [...EDITABLE, "published"] });
   if (!claimed) return fail("A publicação está sendo feita agora; espere terminar.");
   await releaseAutomation(p);
-  if (!p.mediaDeletedAt && p.media.length) await deleteMedia(accountId, p.media.map((m) => m.path)).catch((e) => console.error("[publicação] apagar mídia", e));
+  if (!p.mediaDeletedAt && p.media.length) await deleteMedia(accountId, p.media.flatMap(mediaFiles)).catch((e) => console.error("[publicação] apagar mídia", e));
   await repo.deletePost(id);
   return { ok: true, post: p };
 }

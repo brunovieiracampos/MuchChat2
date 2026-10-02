@@ -7,6 +7,7 @@ import {
   answered, automationStatus, calendarItems, dailyComments, mediaSince, overallFunnel, periodStart, topByComments, totals, weekOf,
 } from "@/lib/overview";
 import { getAccount, getActivity, getConnection, getFlags, getMediaSince, getPosts, getProfile, getStats } from "@/lib/panel";
+import { thumbPath } from "@/lib/posts";
 import { requireSession } from "@/lib/session";
 import { sumCounts } from "@/lib/stats";
 import { SweepButton } from "./_components/action-buttons";
@@ -37,7 +38,7 @@ export default async function VisaoGeral({ searchParams }: { searchParams: Promi
 
   const media = await getMediaSince(Math.min(since, week.from));
   const weekPosts = posts.filter((x) => { const at = x.publishedAt ?? x.scheduledAt; return at && at >= week.from && at <= week.to && x.media.length && !x.mediaDeletedAt; });
-  const thumbs = account && weekPosts.length ? await signedUrls(account.accountId, weekPosts.map((x) => x.media[0].path), 3600e3).catch(() => ({})) : {};
+  const thumbs = account && weekPosts.length ? await signedUrls(account.accountId, weekPosts.map((x) => thumbPath(x.media[0])).filter((x): x is string => !!x), 3600e3).catch(() => ({})) : {};
 
   const items = calendarItems(week, posts, media, rules, stats, thumbs);
   const status = automationStatus(rules);

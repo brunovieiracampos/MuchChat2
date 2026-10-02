@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { inAccount } from "@/lib/panel";
-import { CAPTION_MAX, CAROUSEL_MAX, IMAGE_MAX_BYTES, type ScheduledPost } from "@/lib/posts";
+import { CAPTION_MAX, CAROUSEL_MAX, VIDEO_MAX_BYTES, type ScheduledPost } from "@/lib/posts";
 import { cancelPost, removePost, savePost, type PostInput } from "@/lib/scheduling";
 import { requireSession } from "@/lib/session";
 
@@ -25,7 +25,11 @@ const inputSchema = z.object({
     path: z.string().min(1).max(300),
     width: z.number().int().positive().max(20000),
     height: z.number().int().positive().max(20000),
-    size: z.number().int().positive().max(IMAGE_MAX_BYTES),
+    // O limite por tipo (8 MB imagem, 100 ou 300 MB vídeo) é conferido em validatePost.
+    size: z.number().int().positive().max(VIDEO_MAX_BYTES),
+    type: z.enum(["image", "video"]).optional(),
+    duration: z.number().positive().max(24 * 3600).optional(),
+    cover: z.string().min(1).max(300).optional(),
   }).strict()).max(CAROUSEL_MAX),
   scheduledAt: z.number().int().positive().nullable(),
   automation: z.discriminatedUnion("mode", [

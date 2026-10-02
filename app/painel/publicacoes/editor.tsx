@@ -4,7 +4,7 @@ import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import {
-  CAPTION_MAX, CAROUSEL_MAX, HASHTAGS_MAX, KIND_LABEL, MIN_LEAD_MS, countHashtags, kindFor, ratioOk, validatePost,
+  CAPTION_MAX, CAROUSEL_MAX, HASHTAGS_MAX, KIND_LABEL, MIN_LEAD_MS, VIDEO_TYPES, countHashtags, kindFor, ratioOk, validatePost,
   type PostMedia, type ScheduledPost,
 } from "@/lib/posts";
 import { savePostAction } from "./actions";
@@ -12,10 +12,47 @@ import { ConfirmModal, Icon, useToast } from "../_components/ui";
 import { ICONS } from "../_components/icons";
 import { DateTimePicker } from "../_components/datetime-picker";
 
-type Item = { key: string; path?: string; url: string; width: number; height: number; size: number; uploading?: boolean; error?: string };
+type Item = {
+  key: string; path?: string; url: string; width: number; height: number; size: number; uploading?: boolean; error?: string;
+  /** Vídeo: duração em segundos, capa (caminho no armazenamento e endereço para mostrar) e progresso do envio (0 a 100). */
+  type?: "image" | "video"; duration?: number; cover?: string; coverUrl?: string; progress?: number;
+};
 type AutoMode = "none" | "new" | "existing";
 
 const MAX_SIDE = 1440;
+const COVER_SIDE = 720;
+
+const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, "0")}`;
+
+/** Lê duração e dimensões do vídeo e tira um quadro (perto de 1 s) em JPEG para servir de capa no painel. */
+async function readVideo(file: File): Promise<{ width: number; height: number; duration: number; cover: Blob }> {
+  const url = URL.createObjectURL(file);
+  try {
+    const v = document.createElement("video");
+    v.muted = true; v.playsInline = true; v.preload = "auto"; v.src = url;
+    const unreadable = `O navegador não conseguiu ler “${file.name}”. Exporte em MP4 (H.264) e tente de novo.`;
+    // Cada espera tem limite: um arquivo que o navegador não decodifica não pode deixar o envio preso.
+    const step = (ev: "loadeddata" | "seeked", start?: () => void) => new Promise<void>((ok, bad) => {
+      const t = setTimeout(() => bad(new Error(unreadable)), 20_000);
+      v.addEventListener(ev, () => { clearTimeout(t); ok(); }, { once: true });
+      v.addEventListener("error", () => { clearTimeout(t); bad(new Error(unreadable)); }, { once: true });
+      start?.();
+    });
+    await step("loadeddata");
+    const duration = v.duration, width = v.videoWidth, height = v.videoHeight;
+    if (!width || !height || !Number.isFinite(duration)) throw new Error(unreadable);
+    await step("seeked", () => { v.currentTime = Math.min(1, duration / 2); });
+    const scale = Math.min(1, COVER_SIDE / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(width * scale); canvas.height = Math.round(height * scale);
+    canvas.getContext("2d")!.drawImage(v, 0, 0, canvas.width, canvas.height);
+    const cover = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+    if (!cover) throw new Error("Não foi possível gerar a capa do vídeo.");
+    return { width, height, duration, cover };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 /** Lê qualquer imagem que o navegador abre, reduz para no máximo 1440 px e converte para JPEG. */
 async function toJpeg(file: File): Promise<{ blob: Blob; width: number; height: number }> {
@@ -52,7 +89,10 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [story, setStory] = useState(post?.kind === "story");
-  const [items, setItems] = useState<Item[]>(() => (post?.media ?? []).map((m) => ({ key: m.path, path: m.path, url: previews[m.path] ?? "", width: m.width, height: m.height, size: m.size })));
+  const [items, setItems] = useState<Item[]>(() => (post?.media ?? []).map((m) => ({
+    key: m.path, path: m.path, url: previews[m.path] ?? "", width: m.width, height: m.height, size: m.size,
+    type: m.type, duration: m.duration, cover: m.cover, coverUrl: m.cover ? previews[m.cover] : undefined,
+  })));
   const [caption, setCaption] = useState(post?.caption ?? "");
   const [when, setWhen] = useState(() => (!post && initialWhen) ? initialWhen : toLocalInput(post?.scheduledAt ?? (Math.ceil(Date.now() / 3600e3) + 1) * 3600e3));
   const [mode, setMode] = useState<AutoMode>(post?.automationId ? "existing" : "none");
@@ -65,21 +105,41 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
   const [current, setCurrent] = useState(0);
   const [pending, start] = useTransition();
 
-  const kind = kindFor(story, items.length);
+  const kind = kindFor(story, items);
   const uploading = items.some((i) => i.uploading);
   const scheduledAt = when ? new Date(when).getTime() : null;
-  const media: PostMedia[] = items.filter((i) => i.path).map((i) => ({ path: i.path!, width: i.width, height: i.height, size: i.size }));
+  const media: PostMedia[] = items.filter((i) => i.path).map((i) => ({
+    path: i.path!, width: i.width, height: i.height, size: i.size,
+    ...(i.type === "video" ? { type: "video" as const, duration: i.duration, cover: i.cover } : {}),
+  }));
   const tags = countHashtags(caption);
+
+  const patch = (key: string, p: Partial<Item>) => setItems((xs) => xs.map((x) => (x.key === key ? { ...x, ...p } : x)));
+
+  /** Vídeo: lê, gera a capa, envia o vídeo em partes (com progresso) e depois a capa. */
+  const addVideo = async (file: File, key: string) => {
+    const ext = file.type === "video/quicktime" || /\.mov$/i.test(file.name) ? "mov" : "mp4";
+    if (!VIDEO_TYPES.includes(file.type) && !/\.(mp4|mov)$/i.test(file.name)) throw new Error(`“${file.name}” não é MP4 nem MOV.`);
+    const { width, height, duration, cover } = await readVideo(file);
+    patch(key, { type: "video", url: URL.createObjectURL(file), coverUrl: URL.createObjectURL(cover), width, height, duration, size: file.size, progress: 0 });
+    const res = await upload(`${prefix}${key}.${ext}`, file, {
+      access: "private", handleUploadUrl: "/api/uploads", contentType: ext === "mov" ? "video/quicktime" : "video/mp4",
+      multipart: true, onUploadProgress: ({ percentage }) => patch(key, { progress: Math.round(percentage) }),
+    });
+    const c = await upload(`${prefix}${key}-capa.jpg`, cover, { access: "private", handleUploadUrl: "/api/uploads", contentType: "image/jpeg" });
+    patch(key, { path: res.pathname, cover: c.pathname, uploading: false, progress: undefined });
+  };
 
   const addFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     const room = story ? 1 - items.length : CAROUSEL_MAX - items.length;
     const list = [...files].slice(0, Math.max(0, room));
-    if (!list.length) return toast(story ? "Story tem uma imagem só." : `Carrossel aceita até ${CAROUSEL_MAX} imagens.`, "amber");
+    if (!list.length) return toast(story ? "Story tem uma mídia só." : `Carrossel aceita até ${CAROUSEL_MAX} imagens.`, "amber");
     for (const file of list) {
       const key = crypto.randomUUID();
       setItems((xs) => [...xs, { key, url: "", width: 0, height: 0, size: 0, uploading: true }]);
       try {
+        if (file.type.startsWith("video/") || /\.(mp4|mov)$/i.test(file.name)) { await addVideo(file, key); continue; }
         const { blob, width, height } = await toJpeg(file);
         const url = URL.createObjectURL(blob);
         setItems((xs) => xs.map((x) => (x.key === key ? { ...x, url, width, height, size: blob.size } : x)));
@@ -99,7 +159,7 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
 
   const submit = (action: "draft" | "schedule" | "now") => {
     const local = validatePost({ kind, caption: story ? "" : caption, media, scheduledAt: action === "now" ? Date.now() + 3600e3 : scheduledAt }, { schedule: action !== "draft" });
-    if (items.some((i) => i.error)) local.push({ field: "media", message: "Remova as imagens que falharam no envio." });
+    if (items.some((i) => i.error)) local.push({ field: "media", message: "Remova as mídias que falharam no envio." });
     if (action !== "draft" && mode === "new" && !keyword.trim()) local.push({ field: "media", message: "Informe a palavra-chave da automação, ou escolha “Nenhuma”." });
     if (local.length) { setIssues(local); return; }
     start(async () => {
@@ -115,7 +175,8 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
   };
 
   const preview = items[Math.min(current, items.length - 1)];
-  const ratio = preview?.width ? Math.max(4 / 5, Math.min(1.91, preview.width / preview.height)) : 4 / 5;
+  const previewVideo = preview?.type === "video";
+  const ratio = previewVideo ? 9 / 16 : preview?.width ? Math.max(4 / 5, Math.min(1.91, preview.width / preview.height)) : 4 / 5;
 
   return (
     <div className="pn-post-editor">
@@ -129,20 +190,25 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
             </div>
           </div>
           <div className="pn-help" style={{ marginTop: 8 }}>
-            {story ? "Story: uma imagem vertical (9:16 é o ideal), sem legenda." : "Uma imagem vira post; duas ou mais viram carrossel (até 10). Proporção de 4:5 a 1,91:1."}
+            {story
+              ? "Story: uma imagem ou um vídeo vertical (9:16 é o ideal), sem legenda. Vídeo de 3 a 60 segundos, até 100 MB."
+              : "Uma imagem vira post; duas ou mais viram carrossel (até 10). Um vídeo sozinho vira Reels (MP4 ou MOV, de 3 s a 15 min, até 300 MB, 9:16 é o ideal)."}
           </div>
 
           <div className="pn-media-grid" style={{ marginTop: 12 }}>
             {items.map((it, i) => (
-              <div key={it.key} className={`pn-media-tile${story ? " is-story" : ""}${it.error || (it.width && !ratioOk(kind, it)) ? " is-bad" : ""}`}>
-                {it.url ? <img src={it.url} alt={`Imagem ${i + 1}`} /> : <span className="pn-spinner" />}
-                {it.uploading && <span className="pn-media-state">Enviando…</span>}
+              <div key={it.key} className={`pn-media-tile${story || it.type === "video" ? " is-story" : ""}${it.error || (it.width && !ratioOk(kind, it)) ? " is-bad" : ""}`}>
+                {it.type === "video"
+                  ? (it.coverUrl ? <img src={it.coverUrl} alt={`Vídeo ${i + 1}`} /> : <span className="pn-spinner" />)
+                  : it.url ? <img src={it.url} alt={`Imagem ${i + 1}`} /> : <span className="pn-spinner" />}
+                {it.type === "video" && it.duration !== undefined && <span className="pn-media-duration">▶ {clock(it.duration)}</span>}
+                {it.uploading && <span className="pn-media-state">{it.progress !== undefined ? `Enviando ${it.progress}%` : "Enviando…"}</span>}
                 {it.error && <span className="pn-media-state is-bad" title={it.error}>Falhou</span>}
                 {!it.uploading && !it.error && it.width > 0 && !ratioOk(kind, it) && <span className="pn-media-state is-bad">Proporção</span>}
                 <div className="pn-media-tools">
                   {!story && <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Mover para a esquerda">←</button>}
                   {!story && <button type="button" onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="Mover para a direita">→</button>}
-                  <button type="button" onClick={() => remove(i)} aria-label={`Remover imagem ${i + 1}`}>×</button>
+                  <button type="button" onClick={() => remove(i)} aria-label={`Remover mídia ${i + 1}`}>×</button>
                 </div>
               </div>
             ))}
@@ -150,11 +216,11 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
               <button type="button" className={`pn-media-add${story ? " is-story" : ""}`} onClick={() => fileRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void addFiles(e.dataTransfer.files); }}>
                 <Icon d={ICONS.plus} size={18} width={2} />
-                <span>{items.length ? "Adicionar" : "Enviar imagem"}</span>
+                <span>{items.length ? "Adicionar" : "Enviar imagem ou vídeo"}</span>
               </button>
             )}
           </div>
-          <input ref={fileRef} type="file" accept="image/*" multiple={!story} hidden onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
+          <input ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime,.mov" multiple={!story} hidden onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
           {items.find((i) => i.error) && <div className="pn-error-text">{items.find((i) => i.error)!.error}</div>}
         </section>
 
@@ -228,7 +294,9 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
         <div className={`pn-ig${story ? " is-story" : ""}`}>
           {!story && <div className="pn-ig-head"><span className="pn-avatar-grad" style={{ width: 26, height: 26, fontSize: 10 }}>{(username ?? "?")[0]?.toUpperCase()}</span><b>{username ?? "seu_perfil"}</b></div>}
           <div className="pn-ig-media" style={{ aspectRatio: story ? "9 / 16" : String(ratio) }}>
-            {preview?.url ? <img src={preview.url} alt="" /> : <span className="pn-muted" style={{ fontSize: 12 }}>A imagem aparece aqui</span>}
+            {previewVideo && preview.url
+              ? <video key={preview.url} src={preview.url} poster={preview.coverUrl} controls muted playsInline preload="metadata" />
+              : preview?.url ? <img src={preview.url} alt="" /> : <span className="pn-muted" style={{ fontSize: 12 }}>A imagem ou o vídeo aparece aqui</span>}
             {items.length > 1 && (
               <>
                 <button type="button" className="pn-ig-nav is-left" onClick={() => setCurrent((c) => Math.max(0, c - 1))} aria-label="Anterior">‹</button>
@@ -239,7 +307,7 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
           </div>
           {!story && <div className="pn-ig-caption"><b>{username ?? "seu_perfil"}</b> {caption || <span className="pn-muted">sua legenda</span>}</div>}
         </div>
-        <div className="pn-help" style={{ textAlign: "center" }}>{KIND_LABEL[kind]}{items.length > 1 ? ` com ${items.length} imagens` : ""}</div>
+        <div className="pn-help" style={{ textAlign: "center" }}>{KIND_LABEL[kind]}{items.length > 1 ? ` com ${items.length} mídias` : ""}</div>
       </aside>
 
       {askNow && (

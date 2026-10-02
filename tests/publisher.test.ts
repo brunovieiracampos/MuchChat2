@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { currentAccount } from "@/lib/account-context";
 import { listAutomations, storeAutomation } from "@/lib/automations";
 import { failPost, preparePost, publishPost, cleanupMedia, type PublisherDeps } from "@/lib/publisher";
-import { scheduledMarker, validatePost, type ScheduledPost } from "@/lib/posts";
+import { kindFor, scheduledMarker, validatePost, type ScheduledPost } from "@/lib/posts";
 import type { Rule } from "@/config/rules";
 
 const NOW = Date.parse("2026-09-30T15:00:00Z");
 const img = (path: string) => ({ path, width: 1080, height: 1350, size: 200_000 });
+const vid = (path: string, over: object = {}) => ({ path, width: 1080, height: 1920, size: 40_000_000, type: "video" as const, duration: 45, cover: `${path}-capa.jpg`, ...over });
 
 function deps(over: Partial<PublisherDeps> = {}) {
   let n = 0;
@@ -65,6 +66,32 @@ describe("publicador", () => {
     const q = await newPost({ status: "preparing", containerId: "c5" });
     expect(await publishPost(q.id, "T1", d)).toBe("stop");
     expect(d.publishContainer).not.toHaveBeenCalled();
+  });
+
+  it("Reels e Story de vídeo vão para a Meta com video_url", async () => {
+    const r = await newPost({ kind: "reel", media: [vid("posts/acc-test/v.mp4")] });
+    const d = deps();
+    expect(await preparePost(r.id, "T1", d)).toBe("ok");
+    expect(d.createContainer).toHaveBeenCalledWith({ media_type: "REELS", video_url: "https://blob/posts/acc-test/v.mp4?sig", caption: "Legenda", share_to_feed: "true" });
+    const s = await newPost({ kind: "story", caption: "", media: [vid("posts/acc-test/s.mp4")] });
+    const d2 = deps();
+    await preparePost(s.id, "T1", d2);
+    expect(d2.createContainer).toHaveBeenCalledWith({ media_type: "STORIES", video_url: "https://blob/posts/acc-test/s.mp4?sig" });
+  });
+
+  it("vídeo ainda processando: a nova tentativa reaproveita o container e espera antes de publicar", async () => {
+    const r = await newPost({ kind: "reel", media: [vid("posts/acc-test/v.mp4")] });
+    let calls = 0;
+    const slow = deps({ containerStatus: vi.fn(async () => ({ code: "IN_PROGRESS" as const })) });
+    await expect(preparePost(r.id, "T1", slow)).rejects.toThrow(/demorou/);
+    expect(slow.createContainer).toHaveBeenCalledTimes(1);
+    expect((await currentAccount().repo.getPost(r.id))!.containerId).toBe("c1");
+    const ready = deps({ containerStatus: vi.fn(async () => ({ code: (++calls < 3 ? "IN_PROGRESS" : "FINISHED") as "IN_PROGRESS" | "FINISHED" })) });
+    expect(await preparePost(r.id, "T1", ready)).toBe("ok");
+    expect(ready.createContainer).not.toHaveBeenCalled();
+    calls = 0;
+    expect(await publishPost(r.id, "T1", ready)).toBe("ok");
+    expect(ready.publishContainer).toHaveBeenCalledWith("c1");
   });
 
   it("ficha trocada (reagendada ou cancelada) não prepara nem publica", async () => {
@@ -194,6 +221,20 @@ describe("regras da publicação", () => {
     expect(validatePost({ ...base, kind: "story", media: [{ width: 1080, height: 1920, size: 1 }] }, { schedule: true, now: NOW })[0].message).toMatch(/Story não tem legenda/);
     expect(validatePost({ ...base, caption: Array.from({ length: 31 }, (_, i) => `#t${i}`).join(" ") }, { schedule: true, now: NOW })[0].message).toMatch(/30 hashtags/);
   });
+  it("vídeo: Reels, Story de vídeo e limites", () => {
+    expect(kindFor(false, [vid("v")])).toBe("reel");
+    expect(kindFor(true, [vid("v")])).toBe("story");
+    expect(kindFor(false, [{ ...img("a"), type: "image" as const }, vid("v")])).toBe("carousel");
+    const reel = { ...base, kind: "reel" as const, media: [vid("v")] };
+    expect(validatePost(reel, { schedule: true, now: NOW })).toEqual([]);
+    expect(validatePost({ ...reel, media: [vid("v", { duration: 2 })] }, { schedule: true, now: NOW })[0].message).toMatch(/menos de 3 segundos/);
+    expect(validatePost({ ...reel, media: [vid("v", { size: 400 * 1024 * 1024 })] }, { schedule: true, now: NOW })[0].message).toMatch(/300 MB/);
+    expect(validatePost({ ...reel, media: [vid("v", { width: 2160, height: 3840 })] }, { schedule: true, now: NOW })[0].message).toMatch(/1920 px/);
+    const story = { ...base, kind: "story" as const, caption: "", media: [vid("v", { duration: 75 })] };
+    expect(validatePost(story, { schedule: true, now: NOW })[0].message).toMatch(/60 segundos.*Story de vídeo/);
+    expect(validatePost({ ...base, kind: "carousel" as const, media: [img("a"), vid("v")] }, { schedule: true, now: NOW })[0].message).toMatch(/Carrossel com vídeo/);
+  });
+
   it("rascunho pode ficar sem mídia e sem horário", () => {
     expect(validatePost({ ...base, media: [], scheduledAt: null }, { schedule: false, now: NOW })).toEqual([]);
   });
