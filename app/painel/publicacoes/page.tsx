@@ -8,7 +8,7 @@ import { KIND_LABEL, STATUS_META, type ScheduledPost } from "@/lib/posts";
 import { requireSession } from "@/lib/session";
 import { Badge, Icon } from "../_components/ui";
 import { ICONS } from "../_components/icons";
-import { PostsCalendar, type CalView } from "./calendar";
+import { CalendarPanel, type CalView, type StatusFilter } from "./calendar";
 
 const UPCOMING = new Set(["scheduled", "preparing", "publishing"]);
 const MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
@@ -38,9 +38,6 @@ function PostRow({ p, thumb, automation }: { p: ScheduledPost; thumb?: string; a
 }
 
 type Search = { vista?: string; data?: string; de?: string; ate?: string; status?: string };
-type StatusFilter = "todos" | "publicados" | "agendados";
-const STATUS_FILTERS: [StatusFilter, string][] = [["todos", "Todos"], ["publicados", "Publicados"], ["agendados", "Agendados"]];
-const PUBLISHED = new Set(["published", "instagram"]);
 
 export default async function Publicacoes({ searchParams }: { searchParams: Promise<Search> }) {
   await requireSession();
@@ -61,29 +58,31 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
   const drafts = posts.filter((p) => p.status === "draft" || p.status === "canceled").sort((a, b) => b.updatedAt - a.updatedAt);
   const withMedia = [...inRange, ...drafts].filter((p) => p.media.length && !p.mediaDeletedAt).map((p) => p.media[0].path);
   const thumbs = account && withMedia.length ? await signedUrls(account.accountId, withMedia, 3600e3).catch(() => ({} as Record<string, string>)) : {};
-  const all = calendarItems(range, posts, media, rules, stats, thumbs);
-  const items = status === "todos" ? all : all.filter((it) => (status === "publicados" ? PUBLISHED.has(it.status) : UPCOMING.has(it.status)));
+  // Todas as publicações do intervalo, cada uma com o seu status; o filtro de status roda no navegador.
+  const items = calendarItems(range, posts, media, rules, stats, thumbs);
   const upcoming = posts.filter((p) => UPCOMING.has(p.status)).length;
   const names = new Map(rules.map((r) => [r.id, r.name ?? r.id]));
 
-  // links da barra: mudam a vista ou o dia de referência, mantendo o resto
-  const href = (q: Partial<Search>) => {
+  // Links da barra (sem o status, que o navegador acrescenta): mudam a vista ou o dia de referência.
+  const href = (q: { vista?: CalView; data?: string }) => {
     const s = new URLSearchParams();
     const v = q.vista ?? view;
-    const st = q.status ?? status;
     if (v !== "mes") s.set("vista", v);
-    if (v === "periodo") { s.set("de", q.de ?? from); s.set("ate", q.ate ?? to); }
+    if (v === "periodo") { s.set("de", from); s.set("ate", to); }
     else { const d = q.data ?? anchor; if (d !== today) s.set("data", d); }
-    if (st !== "todos") s.set("status", st);
     const qs = s.toString();
     return qs ? `/painel/publicacoes?${qs}` : "/painel/publicacoes";
   };
   const [y, m] = anchor.split("-").map(Number);
   const monthName = MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1);
   const title = view === "mes" ? `${monthName} de ${y}` : `${first.date} a ${last.date}${view === "periodo" ? ` de ${last.key.slice(0, 4)}` : ""}`;
-  const prev = view === "mes" ? shiftMonth(anchor, -1) : addDays(first.key, -7);
-  const next = view === "mes" ? shiftMonth(anchor, 1) : addDays(first.key, 7);
   const isCurrent = view === "mes" ? anchor.slice(0, 7) === today.slice(0, 7) : range.days.some((d) => d.isToday);
+  const links = {
+    prev: view === "periodo" ? undefined : href({ data: view === "mes" ? shiftMonth(anchor, -1) : addDays(first.key, -7) }),
+    next: view === "periodo" ? undefined : href({ data: view === "mes" ? shiftMonth(anchor, 1) : addDays(first.key, 7) }),
+    today: view === "periodo" || isCurrent ? undefined : href({ data: today }),
+    views: { mes: href({ vista: "mes" }), semana: href({ vista: "semana" }), periodo: href({ vista: "periodo" }) },
+  };
   const canCreate = conn.state === "connected";
 
   return (
@@ -102,55 +101,18 @@ export default async function Publicacoes({ searchParams }: { searchParams: Prom
         </div>
       )}
 
-      <section className="pn-card pc-card">
-        <div className="pc-toolbar">
-          <div className="pc-nav">
-            {view !== "periodo" && (
-              <>
-                <Link href={href({ data: prev })} className="pn-btn is-sm" scroll={false} aria-label={view === "mes" ? "Mês anterior" : "Semana anterior"}>‹</Link>
-                <Link href={href({ data: next })} className="pn-btn is-sm" scroll={false} aria-label={view === "mes" ? "Próximo mês" : "Próxima semana"}>›</Link>
-                {!isCurrent && <Link href={href({ data: today })} className="pn-btn is-sm" scroll={false}>Hoje</Link>}
-              </>
-            )}
-            <h2 className="pc-title">{title}</h2>
-          </div>
-          <div className="pc-filters">
-            <div className="pn-seg" role="tablist" aria-label="Status">
-              {STATUS_FILTERS.map(([v, label]) => (
-                <Link key={v} href={href({ status: v })} role="tab" aria-selected={status === v} className={status === v ? "is-on" : ""} scroll={false}>{label}</Link>
-              ))}
+      <CalendarPanel view={view} title={title} links={links} period={view === "periodo" ? { from, to } : undefined}
+        days={range.days} items={items} canCreate={canCreate} initialStatus={status}>
+        {drafts.length > 0 && (
+          <section className="pn-card" style={{ padding: "14px 18px 6px" }}>
+            <div className="pn-card-title">Rascunhos e canceladas</div>
+            <div className="pn-card-sub">Sem data no calendário. Abra para escolher o horário.</div>
+            <div style={{ marginTop: 4 }}>
+              {drafts.map((p) => <PostRow key={p.id} p={p} thumb={p.media[0] ? thumbs[p.media[0].path] : undefined} automation={p.automationId ? names.get(p.automationId) : undefined} />)}
             </div>
-            <div className="pn-seg" role="tablist" aria-label="Visualização">
-              {([["mes", "Mês"], ["semana", "Semana"], ["periodo", "Período"]] as const).map(([v, label]) => (
-                <Link key={v} href={href({ vista: v })} role="tab" aria-selected={view === v} className={view === v ? "is-on" : ""} scroll={false}>{label}</Link>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {view === "periodo" && (
-          <form className="pc-range" action="/painel/publicacoes">
-            <input type="hidden" name="vista" value="periodo" />
-            {status !== "todos" && <input type="hidden" name="status" value={status} />}
-            <label className="pn-field-label" htmlFor="pc-de">De<input id="pc-de" name="de" type="date" className="pn-input" defaultValue={from} required /></label>
-            <label className="pn-field-label" htmlFor="pc-ate">Até<input id="pc-ate" name="ate" type="date" className="pn-input" defaultValue={to} required /></label>
-            <button type="submit" className="pn-btn">Mostrar</button>
-            <span className="pn-help">Até 93 dias.</span>
-          </form>
+          </section>
         )}
-
-        <PostsCalendar view={view} days={range.days} items={items} canCreate={canCreate} />
-      </section>
-
-      {status === "todos" && drafts.length > 0 && (
-        <section className="pn-card" style={{ padding: "14px 18px 6px" }}>
-          <div className="pn-card-title">Rascunhos e canceladas</div>
-          <div className="pn-card-sub">Sem data no calendário. Abra para escolher o horário.</div>
-          <div style={{ marginTop: 4 }}>
-            {drafts.map((p) => <PostRow key={p.id} p={p} thumb={p.media[0] ? thumbs[p.media[0].path] : undefined} automation={p.automationId ? names.get(p.automationId) : undefined} />)}
-          </div>
-        </section>
-      )}
+      </CalendarPanel>
     </div>
   );
 }

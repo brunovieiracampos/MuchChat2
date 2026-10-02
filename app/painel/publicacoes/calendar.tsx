@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hourMinute } from "@/lib/format";
@@ -130,5 +131,85 @@ function AgendaView({ days, byDay, onOpen }: ViewProps) {
         </section>
       ))}
     </div>
+  );
+}
+
+/* ---------- barra + filtro de status (no navegador, sem ir ao servidor) ---------- */
+
+export type StatusFilter = "todos" | "publicados" | "agendados";
+const STATUS_FILTERS: [StatusFilter, string][] = [["todos", "Todos"], ["publicados", "Publicados"], ["agendados", "Agendados"]];
+const PUBLISHED = new Set(["published", "instagram"]);
+const UPCOMING = new Set(["scheduled", "preparing", "publishing"]);
+const VIEWS: [CalView, string][] = [["mes", "Mês"], ["semana", "Semana"], ["periodo", "Período"]];
+
+/** Acrescenta (ou tira) o status da URL; "todos" é o padrão e não aparece. */
+function withStatus(href: string, status: StatusFilter): string {
+  const [path, qs = ""] = href.split("?");
+  const s = new URLSearchParams(qs);
+  if (status === "todos") s.delete("status"); else s.set("status", status);
+  const q = s.toString();
+  return q ? `${path}?${q}` : path;
+}
+
+/**
+ * Calendário com a barra de navegação. O servidor entrega todas as publicações do intervalo com o status de cada
+ * uma; o filtro de status só esconde e mostra no navegador e grava a escolha na URL (sem recarregar a página).
+ * Trocar de mês, semana ou vista ainda busca no servidor, porque muda o intervalo de datas.
+ */
+export function CalendarPanel({ view, title, links, period, days, items, canCreate, initialStatus, children }: {
+  view: CalView; title: string;
+  links: { prev?: string; next?: string; today?: string; views: Record<CalView, string> };
+  period?: { from: string; to: string };
+  days: CalDay[]; items: CalItem[]; canCreate: boolean; initialStatus: StatusFilter;
+  /** Conteúdo que só aparece em "Todos" (lista de rascunhos). */
+  children?: React.ReactNode;
+}) {
+  const [status, setStatus] = useState(initialStatus);
+  const pick = (s: StatusFilter) => {
+    setStatus(s);
+    window.history.replaceState(null, "", withStatus(window.location.pathname + window.location.search, s));
+  };
+  const shown = status === "todos" ? items : items.filter((it) => (status === "publicados" ? PUBLISHED.has(it.status) : UPCOMING.has(it.status)));
+  const link = (href: string) => withStatus(href, status);
+
+  return (
+    <>
+      <section className="pn-card pc-card">
+        <div className="pc-toolbar">
+          <div className="pc-nav">
+            {links.prev && <Link href={link(links.prev)} className="pn-btn is-sm" scroll={false} aria-label={view === "mes" ? "Mês anterior" : "Semana anterior"}>‹</Link>}
+            {links.next && <Link href={link(links.next)} className="pn-btn is-sm" scroll={false} aria-label={view === "mes" ? "Próximo mês" : "Próxima semana"}>›</Link>}
+            {links.today && <Link href={link(links.today)} className="pn-btn is-sm" scroll={false}>Hoje</Link>}
+            <h2 className="pc-title">{title}</h2>
+          </div>
+          <div className="pc-filters">
+            <div className="pn-seg" role="tablist" aria-label="Status">
+              {STATUS_FILTERS.map(([v, label]) => (
+                <button key={v} type="button" role="tab" aria-selected={status === v} className={status === v ? "is-on" : ""} onClick={() => pick(v)}>{label}</button>
+              ))}
+            </div>
+            <div className="pn-seg" role="tablist" aria-label="Visualização">
+              {VIEWS.map(([v, label]) => (
+                <Link key={v} href={link(links.views[v])} role="tab" aria-selected={view === v} className={view === v ? "is-on" : ""} scroll={false}>{label}</Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {period && (
+          <form className="pc-range" action="/painel/publicacoes">
+            <input type="hidden" name="vista" value="periodo" />
+            {status !== "todos" && <input type="hidden" name="status" value={status} />}
+            <label className="pn-field-label" htmlFor="pc-de">De<input id="pc-de" name="de" type="date" className="pn-input" defaultValue={period.from} required /></label>
+            <label className="pn-field-label" htmlFor="pc-ate">Até<input id="pc-ate" name="ate" type="date" className="pn-input" defaultValue={period.to} required /></label>
+            <button type="submit" className="pn-btn">Mostrar</button>
+            <span className="pn-help">Até 93 dias.</span>
+          </form>
+        )}
+
+        <PostsCalendar view={view} days={days} items={shown} canCreate={canCreate} />
+      </section>
+      {status === "todos" && children}
+    </>
   );
 }
