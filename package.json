@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS=--max-http-header-size=65536 next dev",
+    "dev:db": "bash scripts/dev-db.sh",
+    "dev:db:stop": "bash scripts/dev-db.sh stop",
+    "db:seed": "node scripts/seed-dev.mjs",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
@@ -26,6 +29,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
+    "supabase": "^2.119.0",
     "typescript": "^5.6.0",
     "vitest": "^3.2.0"
   }

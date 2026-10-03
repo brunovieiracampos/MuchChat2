@@ -1,0 +1,24 @@
+# Redis do ambiente de desenvolvimento, com a mesma API HTTP do Upstash que o app usa em produção.
+# Sobe junto com o Supabase local em `npm run dev:db`. Os dados ficam no volume muchchat_dev_redis.
+name: muchchat-dev
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - muchchat_dev_redis:/data
+    restart: unless-stopped
+  # Tradutor HTTP compatível com o Upstash (o app fala com o Redis por REST, não pela porta 6379).
+  redis-http:
+    image: hiett/serverless-redis-http:latest
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: muchchat-dev-token
+      SRH_CONNECTION_STRING: redis://redis:6379
+    ports:
+      - "127.0.0.1:8079:80"
+    depends_on:
+      - redis
+    restart: unless-stopped
+volumes:
+  muchchat_dev_redis:

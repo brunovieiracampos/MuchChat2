@@ -11,3 +11,7 @@ reference/_unpacked/
 # Backups da migração (têm o token da Meta em texto aberto)
 backup-redis-*.json
 /.swc
+
+# Seed do ambiente local: cópia de dados reais de produção (nunca vai para o Git)
+supabase/seed.sql
+.DS_Store

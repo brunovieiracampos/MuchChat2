@@ -28,6 +28,24 @@ Fora de uma conta, `getStore()` dá erro, então esquecer esse passo quebra em v
 Migrações do banco em `supabase/migrations` (aplicar com `psql "$POSTGRES_URL_NON_POOLING" -f …`).
 `scripts/migrate-to-accounts.mjs` levou a conta que existia antes das contas de usuário para o dono (roda uma vez).
 
+## Ambiente local (Docker)
+
+O desenvolvimento roda num ambiente separado da produção: Supabase local (Postgres, login e API) e Redis local com a API do Upstash, tudo no Docker (OrbStack).
+
+```bash
+npm run dev:db     # sobe o Supabase e o Redis locais e gera o .env.development.local
+npm run db:seed    # copia os dados de produção para o local (só leitura em produção)
+npm run dev        # app em http://localhost:3000, já no ambiente local
+npm run dev:db:stop
+```
+
+- Login local: os mesmos e-mails de produção, todos com a senha `muchchat-dev`.
+- `DRY_RUN=true` no local: nenhuma DM, resposta ou publicação sai no Instagram. O token do Instagram é trocado por um falso no seed.
+- O seed (`supabase/seed.sql`) tem dados reais e não vai para o Git. `.env.seed` guarda o token somente leitura do Redis de produção.
+- Studio (tabelas): http://127.0.0.1:54323. E-mails de teste: http://127.0.0.1:54324.
+- Uma migração nova em `supabase/migrations` entra no local com `npm run db:seed` (recria o banco). Em produção, aplicar com `psql "$POSTGRES_URL_NON_POOLING" -f …` usando o `.env.local`.
+- Sem o `.env.development.local`, o `localhost` volta a usar o banco de produção e o painel mostra um aviso vermelho.
+
 ## Estrutura
 
 | Arquivo | O quê |
