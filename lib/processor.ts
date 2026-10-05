@@ -58,6 +58,8 @@ export const defaultDeps: Deps = {
   getMedia: ig.getMedia,
   recentMedia: () => ig.listRecentMedia(10),
   saveRule: storeAutomation,
+  // Importado só na hora: o motor também é carregado em testes e scripts, que não têm o Workflow.
+  scheduleReminder: async (commentId, wseq, delayMs) => (await import("@/lib/reminder-schedule")).scheduleReminder(commentId, wseq, delayMs),
   ownUserId: () => ig.igUserId().catch(() => undefined),
   dryRun: ig.isDryRun,
   paused: isPaused,
