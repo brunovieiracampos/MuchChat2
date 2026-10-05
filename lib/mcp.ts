@@ -9,7 +9,7 @@ import {
   deleteAutomation, getAutomation, isPaused, listAutomations, saveAutomation, setAutomationActive, setPaused, toInput,
   type AutomationInput, type Issue,
 } from "@/lib/automations";
-import { TEMPLATES, blankStep, newStepId, stepsOf, type Step } from "@/lib/flow";
+import { REMINDER_DM_DEFAULT, REMINDER_PUBLIC_DEFAULT, TEMPLATES, blankStep, hasWaitingStep, newStepId, stepsOf, type Reminder, type Step } from "@/lib/flow";
 import { listMediaPage } from "@/lib/instagram";
 import { NEXT_POST, isNextPost, postKey } from "@/lib/match";
 import { readLog } from "@/lib/processor";
@@ -51,7 +51,13 @@ async function describe(r: Rule, full: boolean) {
     funil_7_dias: { comentaram: funnel.comment, receberam_dm: funnel.dm, clicaram: funnel.click, novos_seguidores: funnel.gained, concluiram: funnel.done, falhas: funnel.failed },
   };
   if (!full) return { ...base, blocos: stepsOf(r).length };
-  return { ...base, fluxo: stepsOf(r).map(describeStep), funil_detalhado: buildFunnel(r, funnel).map((f) => ({ etapa: f.label, pessoas: f.value })) };
+  return { ...base, fluxo: stepsOf(r).map(describeStep),
+    lembrete: hasWaitingStep(stepsOf(r))
+      ? (r.reminder?.enabled
+        ? { ligado: true, horas_sem_clique: r.reminder.delayHours, texto_publico: r.reminder.publicText, texto_direct: r.reminder.dmText, receberam_7_dias: funnel.reminded, voltaram_7_dias: funnel.recovered }
+        : { ligado: false })
+      : "não se aplica: o fluxo não tem botão de continuar",
+    funil_detalhado: buildFunnel(r, funnel).map((f) => ({ etapa: f.label, pessoas: f.value })) };
 }
 
 /* ---------- entrada do fluxo ---------- */
@@ -77,6 +83,23 @@ function toSteps(input: z.infer<typeof stepSchema>[]): Step[] {
     const d = blankStep("follow") as Extract<Step, { type: "follow" }>;
     return { ...d, text: s.text ?? d.text, button: s.button ?? d.button, retryText: s.retryText ?? d.retryText, retryButton: s.retryButton ?? d.retryButton };
   });
+}
+
+const reminderSchema = z.object({
+  enabled: z.boolean().describe("Liga ou desliga o lembrete para quem parou num botão"),
+  delay_hours: z.union([z.literal(1), z.literal(3), z.literal(6), z.literal(12)]).optional().describe("Horas sem clique até o lembrete; padrão 3"),
+  public_text: z.string().optional().describe("Resposta pública para quem nunca clicou; aceita {usuario}; até 300 caracteres"),
+  dm_text: z.string().optional().describe("DM para quem clicou e parou; vai com o mesmo botão; até 640 caracteres"),
+}).describe("Lembrete: só age em fluxos com botão de continuar. No máximo um público e um por DM por comentário.");
+
+/** Campos omitidos mantêm o que a automação já tinha (ou o padrão). */
+function toReminder(r: z.infer<typeof reminderSchema>, prev?: Reminder): Reminder {
+  return {
+    enabled: r.enabled,
+    delayHours: r.delay_hours ?? prev?.delayHours ?? 3,
+    publicText: r.public_text ?? prev?.publicText ?? REMINDER_PUBLIC_DEFAULT,
+    dmText: r.dm_text ?? prev?.dmText ?? REMINDER_DM_DEFAULT,
+  };
 }
 
 const postsSchema = z.union([
@@ -158,7 +181,7 @@ export function registerTools(server: McpServer) {
 
   server.registerTool("create_automation", {
     title: "Criar automação",
-    description: "Cria uma automação. Sem `active`, fica como rascunho (pausada). Posts: \"qualquer\", \"proxima\" (post agendado que ainda não saiu) ou lista de links; pode ficar vazio num rascunho e ser associado depois com set_automation_post. Fluxo: use `template` (ver list_templates) ou `steps`.",
+    description: "Cria uma automação. Sem `active`, fica como rascunho (pausada). Posts: \"qualquer\", \"proxima\" (post agendado que ainda não saiu) ou lista de links; pode ficar vazio num rascunho e ser associado depois com set_automation_post. Fluxo: use `template` (ver list_templates) ou `steps`. Fluxos com botão nascem com o lembrete ligado (3h); use `reminder` para ajustar ou desligar.",
     inputSchema: z.object({
       name: z.string().min(1),
       keywords: z.array(z.string()).describe("Palavras que disparam (uma palavra cada; maiúsculas e acentos não importam)"),
@@ -166,12 +189,13 @@ export function registerTools(server: McpServer) {
       posts: postsSchema.optional(),
       template: z.enum(templateIds).optional(),
       steps: z.array(stepSchema).optional(),
+      reminder: reminderSchema.optional(),
       active: z.boolean().default(false),
     }),
   }, async (a) => {
     if (a.template && a.steps) return err("Use `template` ou `steps`, não os dois.");
     const steps = a.steps ? toSteps(a.steps) : (TEMPLATES.find((t) => t.id === (a.template ?? "dm-link")) ?? TEMPLATES[0]).build([...DEFAULT_PUBLIC_REPLIES]);
-    const input: AutomationInput = { name: a.name, keywords: a.keywords, link: a.link ?? "", posts: a.posts ? toPosts(a.posts) : [], steps, active: a.active };
+    const input: AutomationInput = { name: a.name, keywords: a.keywords, link: a.link ?? "", posts: a.posts ? toPosts(a.posts) : [], steps, ...(a.reminder ? { reminder: toReminder(a.reminder) } : {}), active: a.active };
     const r = await saveAutomation(input);
     if (!r.ok) return err(issuesText(r.issues));
     return ok({ criada: await describe(r.automation, true) });
@@ -187,6 +211,7 @@ export function registerTools(server: McpServer) {
       link: z.string().optional(),
       posts: postsSchema.optional(),
       steps: z.array(stepSchema).optional(),
+      reminder: reminderSchema.optional(),
       active: z.boolean().optional(),
     }),
   }, async (a) => {
@@ -197,6 +222,7 @@ export function registerTools(server: McpServer) {
       ...base,
       name: a.name ?? base.name, keywords: a.keywords ?? base.keywords, link: a.link ?? base.link,
       posts: a.posts ? toPosts(a.posts) : base.posts, steps: a.steps ? toSteps(a.steps) : base.steps, active: a.active ?? base.active,
+      ...(a.reminder ? { reminder: toReminder(a.reminder, cur.reminder) } : {}),
     };
     const r = await saveAutomation(input);
     if (!r.ok) return err(issuesText(r.issues));
