@@ -239,7 +239,12 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
         <aside className="pn-builder-right" aria-label="Configuração do bloco">
           <div className="pn-section-label" style={{ marginBottom: 0 }}>Configuração do bloco</div>
           {sel === "trigger" || !selStep ? (
-            <TriggerConfig form={form} set={set} media={media} mediaNext={mediaNext} connected={connected} issues={triggerIssues} />
+            <>
+              <TriggerConfig form={form} set={set} media={media} mediaNext={mediaNext} connected={connected} issues={triggerIssues} />
+              {/* O lembrete é da automação inteira, não de um bloco: fica junto do gatilho. */}
+              <ReminderConfig value={form.reminder} hasButton={hasWaitingStep(form.steps)} issues={reminderIssues}
+                onChange={(r) => set("reminder", r)} />
+            </>
           ) : selStep.type === "reply" ? (
             <ReplyConfig step={selStep} update={(p) => updateStep(selStep.id, p)} issues={stepIssues(selStep.id)} />
           ) : selStep.type === "dm" ? (
@@ -248,8 +253,6 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
           ) : (
             <FollowConfig step={selStep} update={(p) => updateStep(selStep.id, p)} issues={stepIssues(selStep.id)} />
           )}
-          <ReminderConfig value={form.reminder} hasButton={hasWaitingStep(form.steps)} issues={reminderIssues}
-            onChange={(r) => set("reminder", r)} />
         </aside>
       </div>
 
