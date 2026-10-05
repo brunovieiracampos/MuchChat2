@@ -40,6 +40,8 @@ export type Deps = {
   recentMedia?: () => Promise<PostInfo[]>;
   /** Grava a automação presa ao post. */
   saveRule?: (rule: Rule) => Promise<void>;
+  /** Agenda a verificação do lembrete para dali a `delayMs`. Sem ela (testes), nada é agendado. */
+  scheduleReminder?: (commentId: string, wseq: number, delayMs: number) => Promise<void>;
   ownUserId: () => Promise<string | undefined>;
   dryRun: () => boolean;
   paused: () => Promise<boolean>;
@@ -279,6 +281,25 @@ async function send(m: ig.OutMessage, ctx: Ctx): Promise<{ fallback: boolean }> 
   return { fallback };
 }
 
+/**
+ * O fluxo parou num botão: numera a espera (um clique depois invalida o lembrete desta) e agenda o lembrete,
+ * se a automação tiver e ainda couber um (público para quem não clicou, DM para quem clicou).
+ * Falha ao agendar não trava o fluxo.
+ */
+async function enterWaiting(ctx: Ctx, patch: Partial<State>): Promise<void> {
+  const wseq = (Number(ctx.state.wseq) || 0) + 1;
+  Object.assign(ctx.state, patch, { status: "waiting", wseq });
+  await getStore().hset(`c:${ctx.commentId}`, { ...patch, status: "waiting", wseq });
+  const r = ctx.rule.reminder;
+  if (!r?.enabled || !ctx.deps.scheduleReminder) return;
+  if (ctx.state.clicked ? ctx.state.rd : ctx.state.rp) return;
+  try {
+    await ctx.deps.scheduleReminder(ctx.commentId, wseq, r.delayHours * 3600e3);
+  } catch (e) {
+    console.error("[flow] falha ao agendar o lembrete", ctx.commentId, e);
+  }
+}
+
 /* ---------- execução ---------- */
 
 type StepOutcome = "next" | "wait" | "error" | "failed";
@@ -355,8 +376,7 @@ async function run(ctx: Ctx): Promise<Result> {
     }
     if (out === "wait") {
       const title = step.type === "follow" ? step.button : step.type === "dm" ? step.button?.title : "";
-      Object.assign(ctx.state, { status: "waiting", waitStep: step.id, at: step.id, attempts: 0 });
-      await store.hset(key, { status: "waiting", waitStep: step.id, at: step.id, attempts: 0 });
+      await enterWaiting(ctx, { waitStep: step.id, at: step.id, attempts: 0 });
       await log({ ...ctx.base, step: step.id, action: "waiting-click", detail: title ? `Aguardando clique em “${title}”` : undefined }, ctx.now);
       return "waiting";
     }
@@ -483,13 +503,15 @@ export async function handleClick(ev: IncomingClick, source: string, deps: Deps 
       if (!buttonTitles(step).some((b) => t.includes(normalize(b).trim()))) return "ignored";
     }
 
-    Object.assign(state, { clicked: 1, igsid: ev.igsid, status: "running", attempts: 0 });
-    await store.hset(key, { clicked: 1, igsid: ev.igsid, status: "running", attempts: 0 });
+    const reminded = !!(state.rp || state.rd);
+    Object.assign(state, { clicked: 1, igsid: ev.igsid, status: "running", attempts: 0, clickAt: now });
+    await store.hset(key, { clicked: 1, igsid: ev.igsid, status: "running", attempts: 0, clickAt: now });
     await store.set(`w:${ev.igsid}`, target.commentId, { ex: 7 * 86400 });
     await log({ ...base, step: target.stepId, action: "clicked", detail: ev.payload ? undefined : `Respondeu “${(ev.text ?? "").slice(0, 60)}”` }, now);
 
     const ctx: Ctx = { commentId: target.commentId, rule, steps, state, base, deps, now };
     await mark(target.commentId, state, rule.id, "click", now);
+    if (reminded) await mark(target.commentId, state, rule.id, "recovered", now);
     if (!step) { state.at = ""; return run(ctx); }
 
     if (step.type === "follow") {
@@ -513,7 +535,7 @@ export async function handleClick(ev: IncomingClick, source: string, deps: Deps 
           await log({ ...base, step: step.id, action: "dm-error", detail: errMsg(e).slice(0, 300) }, now);
           return "dm-error";
         }
-        await store.hset(key, { status: "waiting" });
+        await enterWaiting(ctx, {});
         await log({ ...base, step: step.id, action: "waiting-click", detail: `Aguardando clique em “${step.retryButton}”` }, now);
         return "waiting";
       }

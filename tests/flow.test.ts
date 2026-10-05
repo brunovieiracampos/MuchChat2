@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryStore, setStoreForTests } from "@/lib/store";
+import { MemoryStore, getStore, setStoreForTests } from "@/lib/store";
 import { handleClick, processComment, readLog, type Deps } from "@/lib/processor";
 import { extractClicks } from "@/lib/webhook";
 import { GraphError } from "@/lib/instagram";
-import { TEMPLATES, clickPayload, simulate, validateSteps, type Step } from "@/lib/flow";
+import { TEMPLATES, clickPayload, defaultReminder, simulate, validateSteps, type Step } from "@/lib/flow";
+import { readStats } from "@/lib/stats";
 import type { Rule } from "@/config/rules";
 
 const NOW = Date.parse("2026-09-24T23:00:00Z");
@@ -148,5 +149,72 @@ describe("modelos e simulação", () => {
     const done = simulate(steps, "https://x.com", "ana", true, 1);
     expect(done.waiting).toBe(false);
     expect(done.items.at(-1)).toEqual({ kind: "end" });
+  });
+});
+
+describe("lembrete: o motor agenda e conta quem voltou", () => {
+  const withReminder: Rule = { ...rule, reminder: { ...defaultReminder(), delayHours: 6 } };
+  const state = () => getStore().hgetall<Record<string, unknown>>("c:c1");
+
+  it("ao parar no botão, numera a espera e agenda o lembrete no tempo da automação", async () => {
+    const scheduleReminder = vi.fn(async () => {});
+    const d = deps({ rules: () => [withReminder], scheduleReminder });
+    expect(await processComment(comment, "webhook", d)).toBe("waiting");
+    expect(scheduleReminder).toHaveBeenCalledWith("c1", 1, 6 * 3600e3);
+    expect((await state())?.wseq).toBe(1);
+  });
+
+  it("cada nova espera ganha um número novo e um agendamento novo; o clique grava a hora", async () => {
+    const scheduleReminder = vi.fn(async () => {});
+    const d = deps({ rules: () => [withReminder], scheduleReminder });
+    await processComment(comment, "webhook", d);
+    // Clica em "Me envie": o fluxo anda e para no pedido para seguir (espera nº 2).
+    expect(await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "d1") }, "webhook", d)).toBe("waiting");
+    expect(scheduleReminder).toHaveBeenLastCalledWith("c1", 2, 6 * 3600e3);
+    expect((await state())?.clickAt).toBe(NOW);
+    // Clica em "Já sigo" sem seguir: nova espera (nº 3).
+    expect(await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "f1") }, "webhook", d)).toBe("waiting");
+    expect(scheduleReminder).toHaveBeenLastCalledWith("c1", 3, 6 * 3600e3);
+    expect((await state())?.wseq).toBe(3);
+  });
+
+  it("sem lembrete ligado (ou automação antiga), não agenda", async () => {
+    const scheduleReminder = vi.fn(async () => {});
+    await processComment(comment, "webhook", deps({ scheduleReminder }));
+    await processComment({ ...comment, id: "c2" }, "webhook", deps({ rules: () => [{ ...rule, reminder: defaultReminder(false) }], scheduleReminder }));
+    expect(scheduleReminder).not.toHaveBeenCalled();
+  });
+
+  it("não agenda o tipo que já saiu: público para quem não clicou, DM para quem clicou", async () => {
+    const scheduleReminder = vi.fn(async () => {});
+    const d = deps({ rules: () => [withReminder], scheduleReminder });
+    await processComment(comment, "webhook", d);
+    await getStore().hset("c:c1", { rd: 1 });
+    await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "d1") }, "webhook", d);
+    expect(scheduleReminder).toHaveBeenCalledTimes(1);
+  });
+
+  it("falha ao agendar não trava o fluxo: a pessoa fica esperando e ainda pode clicar", async () => {
+    const d = deps({ rules: () => [withReminder], scheduleReminder: vi.fn(async () => { throw new Error("workflow fora do ar"); }) });
+    expect(await processComment(comment, "webhook", d)).toBe("waiting");
+    expect((await state())?.status).toBe("waiting");
+    expect(await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "d1") }, "webhook", d)).toBe("waiting");
+  });
+
+  it("clique depois de um lembrete conta como recuperado, uma vez", async () => {
+    const d = deps({ rules: () => [withReminder], scheduleReminder: vi.fn(async () => {}) });
+    await processComment(comment, "webhook", d);
+    await getStore().hset("c:c1", { rp: 1 });
+    await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "d1") }, "webhook", d);
+    await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "f1") }, "webhook", d);
+    const raw = await readStats("guia");
+    expect(Object.entries(raw).find(([k]) => k.endsWith(":recovered"))?.[1]).toBe(1);
+  });
+
+  it("clique sem lembrete antes não conta como recuperado", async () => {
+    const d = deps({ rules: () => [withReminder], scheduleReminder: vi.fn(async () => {}) });
+    await processComment(comment, "webhook", d);
+    await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "d1") }, "webhook", d);
+    expect(Object.keys(await readStats("guia")).some((k) => k.endsWith(":recovered"))).toBe(false);
   });
 });
