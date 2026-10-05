@@ -107,7 +107,7 @@ function parseWhen(v: string): number | null {
 function describePost(p: ScheduledPost) {
   return {
     id: p.id, tipo: KIND_LABEL[p.kind], status: STATUS_META[p.status].label, quando: brTime(p.scheduledAt),
-    legenda: p.caption, imagens: p.media.length, automacao_id: p.automationId, link_no_instagram: p.permalink, publicada_em: brTime(p.publishedAt),
+    legenda: p.caption, primeiro_comentario: p.firstComment || null, primeiro_comentario_publicado: !!p.firstCommentId, imagens: p.media.length, automacao_id: p.automationId, link_no_instagram: p.permalink, publicada_em: brTime(p.publishedAt),
     aviso: p.error,
   };
 }
@@ -281,12 +281,14 @@ export function registerTools(server: McpServer) {
       + "Uma imagem = post; 2 a 10 = carrossel; story=true = Story (1 imagem vertical, sem legenda). "
       + "`when`: data e hora ISO (sem fuso = horário de Brasília), \"now\" para publicar em seguida, ou omita para rascunho. "
       + "Automação: use `automation_id` de uma automação pausada e sem post, ou `new_automation` para criar uma. Ela é ativada quando o post sair. "
+      + "`first_comment`: comentário que a própria conta publica logo depois de o post sair (ex.: a chamada com a palavra-chave); não vale para Story. "
       + "Confirme com a pessoa antes de usar when=\"now\".",
     inputSchema: z.object({
       id: z.string().optional().describe("Publicação existente (rascunho ou agendada) para atualizar"),
       image_urls: z.array(z.string()).max(10).optional(),
       story: z.boolean().default(false),
       caption: z.string().optional(),
+      first_comment: z.string().optional().describe("Primeiro comentário, até 300 caracteres; \"\" remove"),
       when: z.string().optional(),
       automation_id: z.string().optional(),
       new_automation: z.object({ keyword: z.string(), link: z.string().optional(), template: z.enum(templateIds).optional(), name: z.string().optional() }).optional(),
@@ -314,7 +316,7 @@ export function registerTools(server: McpServer) {
       ? { mode: "new" as const, keyword: a.new_automation.keyword.toUpperCase(), link: a.new_automation.link ?? "", template: a.new_automation.template ?? "dm-link", name: a.new_automation.name }
       : a.automation_id ? { mode: "existing" as const, id: a.automation_id } : undefined;
     const r = await savePost({
-      id: a.id, story: a.story || prev?.kind === "story", caption: a.caption ?? prev?.caption ?? "", media,
+      id: a.id, story: a.story || prev?.kind === "story", caption: a.caption ?? prev?.caption ?? "", firstComment: a.first_comment, media,
       scheduledAt: typeof when === "number" ? when : prev?.scheduledAt ?? null, automation,
     }, when);
     if (!r.ok && downloaded.length) await deleteMedia(currentAccount().accountId, downloaded).catch(() => {});

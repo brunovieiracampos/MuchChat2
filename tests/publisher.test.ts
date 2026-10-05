@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { currentAccount } from "@/lib/account-context";
 import { listAutomations, storeAutomation } from "@/lib/automations";
-import { failPost, preparePost, publishPost, cleanupMedia, type PublisherDeps } from "@/lib/publisher";
-import { kindFor, scheduledMarker, validatePost, type ScheduledPost } from "@/lib/posts";
+import { failPost, noteFirstCommentFailure, postFirstComment, preparePost, publishPost, cleanupMedia, type PublisherDeps } from "@/lib/publisher";
+import { FIRST_COMMENT_MAX, kindFor, scheduledMarker, suggestFirstComment, validatePost, type ScheduledPost } from "@/lib/posts";
 import type { Rule } from "@/config/rules";
 
 const NOW = Date.parse("2026-09-30T15:00:00Z");
@@ -20,6 +20,8 @@ function deps(over: Partial<PublisherDeps> = {}) {
     getMediaLink: vi.fn(async () => ({ permalink: "https://www.instagram.com/p/NOVO/", timestamp: "2026-09-30T15:00:01+0000" })),
     recentMedia: vi.fn(async () => []),
     recentStories: vi.fn(async () => []),
+    commentOnMedia: vi.fn(async () => "comentario-1"),
+    findOwnComment: vi.fn(async () => null),
     wait: async () => {},
     now: () => NOW,
     dryRun: () => false,
@@ -155,6 +157,65 @@ describe("publicador", () => {
     await cleanupMedia(p.id, d);
     await cleanupMedia(p.id, d);
     expect(d.deleteMedia).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("primeiro comentário", () => {
+  beforeEach(() => vi.clearAllMocks());
+  const published = (over: Partial<ScheduledPost> = {}) =>
+    newPost({ status: "published", igMediaId: "media-1", firstComment: "Comente GUIA que eu te mando no direct 👇", ...over });
+
+  it("comenta no post publicado e guarda o id do comentário", async () => {
+    const p = await published();
+    const d = deps();
+    await postFirstComment(p.id, "T1", d);
+    expect(d.commentOnMedia).toHaveBeenCalledWith("media-1", "Comente GUIA que eu te mando no direct 👇");
+    expect((await currentAccount().repo.getPost(p.id))?.firstCommentId).toBe("comentario-1");
+  });
+
+  it("não comenta sem texto, em Story, antes de publicar ou com a ficha trocada", async () => {
+    const d = deps();
+    await postFirstComment((await published({ firstComment: "  " })).id, "T1", d);
+    await postFirstComment((await published({ kind: "story", caption: "" })).id, "T1", d);
+    await postFirstComment((await newPost({ firstComment: "Oi" })).id, "T1", d);
+    await postFirstComment((await published({ scheduleToken: "T2" })).id, "T1", d);
+    expect(d.commentOnMedia).not.toHaveBeenCalled();
+  });
+
+  it("nunca comenta duas vezes", async () => {
+    const p = await published();
+    const d = deps();
+    await postFirstComment(p.id, "T1", d);
+    await postFirstComment(p.id, "T1", d, true);
+    expect(d.commentOnMedia).toHaveBeenCalledTimes(1);
+  });
+
+  it("nova tentativa: se o comentário já está no post (a resposta se perdeu), só guarda o id", async () => {
+    const p = await published();
+    const d = deps({ findOwnComment: vi.fn(async () => "ja-existe") });
+    await postFirstComment(p.id, "T1", d, true);
+    expect(d.findOwnComment).toHaveBeenCalledWith("media-1", "Comente GUIA que eu te mando no direct 👇");
+    expect(d.commentOnMedia).not.toHaveBeenCalled();
+    expect((await currentAccount().repo.getPost(p.id))?.firstCommentId).toBe("ja-existe");
+  });
+
+  it("falha no comentário não derruba a publicação: fica publicada, com aviso somado ao que já havia", async () => {
+    const p = await published({ error: "Publicado. A automação ligada não existe mais." });
+    const d = deps({ commentOnMedia: vi.fn(async () => { throw new Error("rede"); }) });
+    await expect(postFirstComment(p.id, "T1", d)).rejects.toThrow("rede");
+    await noteFirstCommentFailure(p.id, "T1", "O Instagram recusou: comentários desativados");
+    const post = await currentAccount().repo.getPost(p.id);
+    expect(post).toMatchObject({ status: "published", firstCommentId: null });
+    expect(post?.error).toBe("Publicado. A automação ligada não existe mais. O post saiu, mas o primeiro comentário não foi publicado: O Instagram recusou: comentários desativados");
+  });
+
+  it("regras: limite de caracteres, Story sem comentário e sugestão pela palavra-chave", () => {
+    const base = { kind: "image" as const, caption: "Oi", media: [img("x")], scheduledAt: NOW + 3600e3 };
+    expect(validatePost({ ...base, firstComment: "a".repeat(FIRST_COMMENT_MAX) }, { schedule: true, now: NOW })).toEqual([]);
+    expect(validatePost({ ...base, firstComment: "a".repeat(FIRST_COMMENT_MAX + 1) }, { schedule: true, now: NOW })[0]).toMatchObject({ field: "firstComment" });
+    expect(validatePost({ ...base, kind: "story", caption: "", media: [{ width: 1080, height: 1920, size: 1 }], firstComment: "Oi" }, { schedule: true, now: NOW })[0].message).toMatch(/Story não tem comentários/);
+    expect(suggestFirstComment(" guia ")).toBe("Comente GUIA que eu te mando no direct 👇");
+    expect(suggestFirstComment("")).toBe("");
   });
 });
 

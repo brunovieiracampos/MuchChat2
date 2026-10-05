@@ -36,6 +36,10 @@ export type ScheduledPost = {
   permalink: string | null;
   publishedAt: number | null;
   automationId: string | null;
+  /** Comentário que a própria conta publica logo depois de o post sair (vazio = não comenta). */
+  firstComment: string;
+  /** Id do comentário publicado: com ele, nunca se comenta de novo. */
+  firstCommentId: string | null;
   attempts: number;
   error: string | null;
   mediaDeletedAt: number | null;
@@ -47,6 +51,7 @@ export const CAPTION_MAX = 2200;
 export const HASHTAGS_MAX = 30;
 export const MENTIONS_MAX = 20;
 export const CAROUSEL_MAX = 10;
+export const FIRST_COMMENT_MAX = 300;
 export const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 /** Feed: de 4:5 (retrato) a 1,91:1 (paisagem). */
 export const FEED_RATIO = { min: 4 / 5, max: 1.91 };
@@ -90,6 +95,11 @@ export const kindFor = (story: boolean, media: Pick<PostMedia, "type">[]): PostK
 export function countHashtags(caption: string): number {
   return (caption.match(/(^|\s)#[\p{L}\p{N}_]+/gu) ?? []).length;
 }
+/** Primeiro comentário sugerido para um post com automação: a chamada com a palavra-chave. */
+export function suggestFirstComment(keyword: string): string {
+  const k = keyword.trim().toUpperCase();
+  return k ? `Comente ${k} que eu te mando no direct 👇` : "";
+}
 export function countMentions(caption: string): number {
   return (caption.match(/(^|\s)@[A-Za-z0-9._]+/g) ?? []).length;
 }
@@ -116,14 +126,14 @@ function videoIssues(kind: PostKind, m: Pick<PostMedia, "size" | "width" | "dura
   return out;
 }
 
-export type PostIssue = { field: "media" | "caption" | "scheduledAt"; message: string };
+export type PostIssue = { field: "media" | "caption" | "firstComment" | "scheduledAt"; message: string };
 
 /**
  * Problemas que impedem agendar. Rascunho só precisa de dados bem formados;
  * para agendar (`schedule`), a mídia e o horário precisam estar completos.
  */
 export function validatePost(
-  p: { kind: PostKind; caption: string; media: Pick<PostMedia, "width" | "height" | "size" | "type" | "duration">[]; scheduledAt: number | null },
+  p: { kind: PostKind; caption: string; firstComment?: string; media: Pick<PostMedia, "width" | "height" | "size" | "type" | "duration">[]; scheduledAt: number | null },
   opts: { schedule: boolean; now?: number },
 ): PostIssue[] {
   const out: PostIssue[] = [];
@@ -156,6 +166,10 @@ export function validatePost(
   if (p.caption.length > CAPTION_MAX) out.push({ field: "caption", message: `A legenda pode ter até ${CAPTION_MAX} caracteres.` });
   if (countHashtags(p.caption) > HASHTAGS_MAX) out.push({ field: "caption", message: `O Instagram aceita até ${HASHTAGS_MAX} hashtags.` });
   if (countMentions(p.caption) > MENTIONS_MAX) out.push({ field: "caption", message: `O Instagram aceita até ${MENTIONS_MAX} menções.` });
+
+  const comment = p.firstComment ?? "";
+  if (p.kind === "story" && comment.trim()) out.push({ field: "firstComment", message: "Story não tem comentários. Apague o primeiro comentário ou escolha post ou carrossel." });
+  if (comment.length > FIRST_COMMENT_MAX) out.push({ field: "firstComment", message: `O primeiro comentário pode ter até ${FIRST_COMMENT_MAX} caracteres.` });
 
   if (opts.schedule) {
     if (!p.scheduledAt) out.push({ field: "scheduledAt", message: "Escolha a data e a hora." });

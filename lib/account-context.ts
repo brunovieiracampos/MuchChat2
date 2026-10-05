@@ -98,7 +98,7 @@ export class MemoryRepo implements AccountRepo {
     const created: ScheduledPost = {
       id: p.id ?? `post-${this.posts.length + 1}`, kind: "image", caption: "", media: [], scheduledAt: null, status: "draft",
       scheduleToken: null, runId: null, containerId: null, igMediaId: null, permalink: null, publishedAt: null,
-      automationId: null, attempts: 0, error: null, mediaDeletedAt: null, createdAt: now, ...p, updatedAt: now,
+      automationId: null, firstComment: "", firstCommentId: null, attempts: 0, error: null, mediaDeletedAt: null, createdAt: now, ...p, updatedAt: now,
     };
     this.posts.push(created);
     return { ...created };

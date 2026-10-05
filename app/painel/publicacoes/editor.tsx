@@ -4,7 +4,7 @@ import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import {
-  CAPTION_MAX, CAROUSEL_MAX, HASHTAGS_MAX, KIND_LABEL, MIN_LEAD_MS, VIDEO_TYPES, countHashtags, kindFor, ratioOk, validatePost,
+  CAPTION_MAX, CAROUSEL_MAX, FIRST_COMMENT_MAX, HASHTAGS_MAX, KIND_LABEL, MIN_LEAD_MS, VIDEO_TYPES, countHashtags, kindFor, ratioOk, suggestFirstComment, validatePost,
   type PostMedia, type ScheduledPost,
 } from "@/lib/posts";
 import { savePostAction } from "./actions";
@@ -82,7 +82,7 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
   previews: Record<string, string>;
   prefix: string;
   username?: string;
-  automations: { id: string; name: string }[];
+  automations: { id: string; name: string; keyword: string }[];
   templates: { id: string; name: string; desc: string }[];
 }) {
   const router = useRouter();
@@ -94,6 +94,9 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
     type: m.type, duration: m.duration, cover: m.cover, coverUrl: m.cover ? previews[m.cover] : undefined,
   })));
   const [caption, setCaption] = useState(post?.caption ?? "");
+  const [firstComment, setFirstComment] = useState(post?.firstComment ?? "");
+  // Numa publicação nova, o campo acompanha a sugestão da automação até a pessoa mexer nele.
+  const [commentEdited, setCommentEdited] = useState(!!post);
   const [when, setWhen] = useState(() => (!post && initialWhen) ? initialWhen : toLocalInput(post?.scheduledAt ?? (Math.ceil(Date.now() / 3600e3) + 1) * 3600e3));
   const [mode, setMode] = useState<AutoMode>(post?.automationId ? "existing" : "none");
   const [existing, setExisting] = useState(post?.automationId ?? automations[0]?.id ?? "");
@@ -157,13 +160,16 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
     : mode === "existing" ? { mode: "existing" as const, id: existing }
     : { mode: "new" as const, keyword: keyword.trim(), link: link.trim(), template };
 
+  const autoKeyword = mode === "new" ? keyword : mode === "existing" ? automations.find((a) => a.id === existing)?.keyword ?? "" : "";
+  const comment = story ? "" : commentEdited ? firstComment : suggestFirstComment(autoKeyword);
+
   const submit = (action: "draft" | "schedule" | "now") => {
-    const local = validatePost({ kind, caption: story ? "" : caption, media, scheduledAt: action === "now" ? Date.now() + 3600e3 : scheduledAt }, { schedule: action !== "draft" });
+    const local = validatePost({ kind, caption: story ? "" : caption, firstComment: comment, media, scheduledAt: action === "now" ? Date.now() + 3600e3 : scheduledAt }, { schedule: action !== "draft" });
     if (items.some((i) => i.error)) local.push({ field: "media", message: "Remova as mídias que falharam no envio." });
     if (action !== "draft" && mode === "new" && !keyword.trim()) local.push({ field: "media", message: "Informe a palavra-chave da automação, ou escolha “Nenhuma”." });
     if (local.length) { setIssues(local); return; }
     start(async () => {
-      const r = await savePostAction({ id: post?.id, story, caption, media, scheduledAt, automation }, action);
+      const r = await savePostAction({ id: post?.id, story, caption, firstComment: comment, media, scheduledAt, automation }, action);
       setAskNow(false);
       if (!r.ok) { setIssues(r.issues ?? [{ field: "media", message: r.error ?? "Não foi possível salvar." }]); return; }
       setIssues([]);
@@ -232,6 +238,20 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
             <div className="pn-row" style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6, gap: 14 }}>
               <span className="pn-num" style={{ color: caption.length > CAPTION_MAX ? "var(--red-text)" : undefined }}>{caption.length}/{CAPTION_MAX} caracteres</span>
               <span className="pn-num" style={{ color: tags > HASHTAGS_MAX ? "var(--red-text)" : undefined }}>{tags}/{HASHTAGS_MAX} hashtags</span>
+            </div>
+          </section>
+        )}
+
+        {!story && (
+          <section className="pn-card">
+            <label className="pn-card-title" htmlFor="first-comment">Primeiro comentário</label>
+            <div className="pn-help" style={{ marginTop: 4 }}>Opcional. Sua conta comenta isto logo depois de o post sair. Para ficar no topo, fixe o comentário pelo app do Instagram.</div>
+            <textarea id="first-comment" className="pn-textarea" rows={2} value={comment} style={{ marginTop: 10 }}
+              onChange={(e) => { setCommentEdited(true); setFirstComment(e.target.value); }}
+              placeholder="Ex.: Comente GUIA que eu te mando no direct 👇" />
+            <div className="pn-row" style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6, gap: 14 }}>
+              <span className="pn-num" style={{ color: comment.length > FIRST_COMMENT_MAX ? "var(--red-text)" : undefined }}>{comment.length}/{FIRST_COMMENT_MAX} caracteres</span>
+              {!commentEdited && comment && <span>Sugestão a partir da palavra-chave da automação. Edite ou apague se preferir.</span>}
             </div>
           </section>
         )}
@@ -306,6 +326,7 @@ export function PostEditor({ post, previews, prefix, username, automations, temp
             )}
           </div>
           {!story && <div className="pn-ig-caption"><b>{username ?? "seu_perfil"}</b> {caption || <span className="pn-muted">sua legenda</span>}</div>}
+          {comment.trim() && <div className="pn-ig-caption" style={{ paddingTop: 0 }}><span className="pn-muted">Primeiro comentário · </span><b>{username ?? "seu_perfil"}</b> {comment}</div>}
         </div>
         <div className="pn-help" style={{ textAlign: "center" }}>{KIND_LABEL[kind]}{items.length > 1 ? ` com ${items.length} mídias` : ""}</div>
       </aside>

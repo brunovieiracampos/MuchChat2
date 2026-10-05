@@ -86,6 +86,11 @@ export async function listComments(mediaId: string, maxPages = 10): Promise<IgCo
   return out;
 }
 
+/** Comentário da própria conta num post dela. */
+export async function commentOnMedia(mediaId: string, message: string): Promise<{ id: string }> {
+  return call<{ id: string }>("POST", `${mediaId}/comments`, { message });
+}
+
 /** Resposta pública ao comentário. */
 export async function replyToComment(commentId: string, message: string): Promise<{ id: string }> {
   return call<{ id: string }>("POST", `${commentId}/replies`, { message });

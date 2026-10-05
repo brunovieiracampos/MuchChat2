@@ -78,6 +78,12 @@ export default async function Publicacao({ params }: { params: Promise<{ id: str
         {post.caption && <div style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--text-2)", marginTop: 14, lineHeight: 1.55 }}>{post.caption}</div>}
         <div className="pn-fields">
           <div className="pn-field-row"><div>Automação</div><div>{automation ? <Link href={`/painel/automacoes/${automation.id}`}>{automation.name ?? automation.id}</Link> : "Nenhuma"}</div></div>
+          {post.firstComment && (
+            <div className="pn-field-row"><div>Primeiro comentário</div><div>
+              <div style={{ whiteSpace: "pre-wrap" }}>{post.firstComment}</div>
+              <div className="pn-help">{post.firstCommentId ? "Publicado. Para ficar no topo, fixe pelo app do Instagram." : post.status === "published" ? "Ainda não publicado." : "Sai logo depois do post."}</div>
+            </div></div>
+          )}
           <div className="pn-field-row"><div>Tentativas</div><div className="pn-num">{post.attempts}</div></div>
         </div>
       </section>

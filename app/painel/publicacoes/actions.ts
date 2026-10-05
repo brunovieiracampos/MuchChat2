@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { inAccount } from "@/lib/panel";
-import { CAPTION_MAX, CAROUSEL_MAX, VIDEO_MAX_BYTES, type ScheduledPost } from "@/lib/posts";
+import { CAPTION_MAX, CAROUSEL_MAX, FIRST_COMMENT_MAX, VIDEO_MAX_BYTES, type ScheduledPost } from "@/lib/posts";
 import { cancelPost, removePost, savePost, type PostInput } from "@/lib/scheduling";
 import { requireSession } from "@/lib/session";
 
@@ -21,6 +21,7 @@ const inputSchema = z.object({
   id: z.string().uuid().optional(),
   story: z.boolean(),
   caption: z.string().max(CAPTION_MAX + 200),
+  firstComment: z.string().max(FIRST_COMMENT_MAX + 200).optional(),
   media: z.array(z.object({
     path: z.string().min(1).max(300),
     width: z.number().int().positive().max(20000),

@@ -19,6 +19,8 @@ export type PostInput = {
   id?: string;
   story: boolean;
   caption: string;
+  /** Primeiro comentário (opcional); sem o campo, mantém o que a publicação já tinha. */
+  firstComment?: string;
   media: PostMedia[];
   scheduledAt: number | null;
   /** Automação: nenhuma, uma existente (rascunho sem post) ou uma nova a partir de um modelo. */
@@ -79,7 +81,8 @@ export async function savePost(input: PostInput, when: number | "now" | null): P
   const now = Date.now();
   const scheduledAt = when === "now" ? now : when ?? input.scheduledAt;
   const kind = kindFor(input.story, input.media);
-  const draft = { kind, caption: input.story ? "" : input.caption, media: input.media, scheduledAt };
+  const firstComment = input.story ? "" : (input.firstComment ?? prev?.firstComment ?? "").trim();
+  const draft = { kind, caption: input.story ? "" : input.caption, firstComment, media: input.media, scheduledAt };
   const issues = validatePost({ ...draft, scheduledAt: when === "now" ? now + 60 * 60e3 : scheduledAt }, { schedule: when !== null, now });
   if (issues.length) return { ok: false, issues };
 

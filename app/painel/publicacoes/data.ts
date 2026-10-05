@@ -18,7 +18,7 @@ export async function editorProps(post?: ScheduledPost) {
     previews,
     prefix: mediaPrefix(account.accountId),
     username: conn.state === "connected" ? conn.username : account.username,
-    automations: automations.map((a) => ({ id: a.id, name: a.name ?? a.id })),
+    automations: automations.map((a) => ({ id: a.id, name: a.name ?? a.id, keyword: a.keywords[0] ?? "" })),
     templates: TEMPLATES.map((t) => ({ id: t.id, name: t.name, desc: t.desc })),
   };
 }

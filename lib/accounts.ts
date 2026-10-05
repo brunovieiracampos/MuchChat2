@@ -101,6 +101,7 @@ function toPost(r: PostRow): ScheduledPost {
     scheduledAt: ms(r.scheduled_at), status: r.status as ScheduledPost["status"], scheduleToken: (r.schedule_token as string) ?? null,
     runId: (r.run_id as string) ?? null, containerId: (r.container_id as string) ?? null, igMediaId: (r.ig_media_id as string) ?? null,
     permalink: (r.permalink as string) ?? null, publishedAt: ms(r.published_at), automationId: (r.automation_id as string) ?? null,
+    firstComment: String(r.first_comment ?? ""), firstCommentId: (r.first_comment_id as string) ?? null,
     attempts: Number(r.attempts ?? 0), error: (r.error as string) ?? null, mediaDeletedAt: ms(r.media_deleted_at),
     createdAt: ms(r.created_at) ?? Date.now(), updatedAt: ms(r.updated_at) ?? Date.now(),
   };
@@ -113,6 +114,7 @@ function fromPost(p: Partial<ScheduledPost>): PostRow {
     ["scheduledAt", "scheduled_at", iso], ["status", "status", (v) => v], ["scheduleToken", "schedule_token", (v) => v],
     ["runId", "run_id", (v) => v], ["containerId", "container_id", (v) => v], ["igMediaId", "ig_media_id", (v) => v],
     ["permalink", "permalink", (v) => v], ["publishedAt", "published_at", iso], ["automationId", "automation_id", (v) => v],
+    ["firstComment", "first_comment", (v) => v], ["firstCommentId", "first_comment_id", (v) => v],
     ["attempts", "attempts", (v) => v], ["error", "error", (v) => v], ["mediaDeletedAt", "media_deleted_at", iso],
   ];
   const row: PostRow = {};

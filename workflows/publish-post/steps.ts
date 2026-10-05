@@ -2,8 +2,10 @@ import { getStepMetadata } from "workflow";
 import { withAccount } from "@/lib/account-context";
 import { accountById } from "@/lib/accounts";
 import {
-  cleanupMedia, defaultPublisherDeps, failPost, friendlyError, preparePost, publishPost, type StepResult,
+  cleanupMedia, defaultPublisherDeps, failPost, friendlyError, noteFirstCommentFailure, postFirstComment, preparePost, publishPost,
+  type StepResult,
 } from "@/lib/publisher";
+import { GraphError } from "@/lib/instagram";
 
 /**
  * Etapas do processo de publicação (Node.js completo). Cada uma entra na conta da publicação.
@@ -44,6 +46,21 @@ export async function publishStep(accountId: string, postId: string, token: stri
   return guarded(accountId, postId, token, async () => publishPost(postId, token, await defaultPublisherDeps()));
 }
 publishStep.maxRetries = MAX_RETRIES;
+
+/** O post já saiu: uma falha aqui vira aviso na publicação, nunca "falhou". */
+export async function firstCommentStep(accountId: string, postId: string, token: string): Promise<void> {
+  "use step";
+  const { attempt } = getStepMetadata();
+  try {
+    await inAccount(accountId, async () => postFirstComment(postId, token, await defaultPublisherDeps(), attempt > 1));
+  } catch (e) {
+    console.error("[publicação] primeiro comentário", postId, `tentativa ${attempt}`, e);
+    const final = attempt > MAX_RETRIES || (e instanceof GraphError && e.permanent);
+    if (!final) throw e;
+    await inAccount(accountId, () => noteFirstCommentFailure(postId, token, friendlyError(e)));
+  }
+}
+firstCommentStep.maxRetries = MAX_RETRIES;
 
 export async function cleanupStep(accountId: string, postId: string): Promise<void> {
   "use step";

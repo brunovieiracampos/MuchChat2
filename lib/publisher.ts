@@ -24,6 +24,10 @@ export type PublisherDeps = {
   recentMedia: () => Promise<{ id: string; timestamp?: string; caption?: string }[]>;
   /** Stories no ar (não aparecem na lista do feed). */
   recentStories: () => Promise<{ id: string; timestamp?: string }[]>;
+  /** Comenta no post com a própria conta; devolve o id do comentário. */
+  commentOnMedia: (mediaId: string, text: string) => Promise<string>;
+  /** Comentário da própria conta com este texto, se já estiver no post. */
+  findOwnComment: (mediaId: string, text: string) => Promise<string | null>;
   wait: (ms: number) => Promise<void>;
   now: () => number;
   /** Modo de teste (DRY_RUN): nada é enviado ao Instagram. */
@@ -179,6 +183,27 @@ export async function bindAutomation(p: Pick<ScheduledPost, "id" | "automationId
 }
 
 /**
+ * Etapa extra (logo depois de publicar): o primeiro comentário, feito pela própria conta. Nunca comenta duas vezes:
+ * guarda o id do comentário e, numa nova tentativa (`retry`), antes procura no post um comentário igual
+ * (a Meta pode ter publicado e a resposta ter se perdido). Erros sobem para o Workflow tentar de novo.
+ */
+export async function postFirstComment(postId: string, token: string, deps: PublisherDeps, retry = false): Promise<void> {
+  const p = await current(postId, token, ["published"]);
+  const text = p?.firstComment.trim();
+  if (!p || !text || p.kind === "story" || !p.igMediaId || p.firstCommentId) return;
+  const id = (retry ? await deps.findOwnComment(p.igMediaId, text) : null) ?? (await deps.commentOnMedia(p.igMediaId, text));
+  await save(p, token, { firstCommentId: id });
+}
+
+/** O comentário não saiu depois de todas as tentativas: a publicação continua publicada e ganha um aviso. */
+export async function noteFirstCommentFailure(postId: string, token: string, message: string): Promise<void> {
+  const p = await current(postId, token, ["published"]);
+  if (!p || p.firstCommentId) return;
+  const note = `O post saiu, mas o primeiro comentário não foi publicado: ${message}`;
+  await save(p, token, { error: [p.error, note].filter(Boolean).join(" ").slice(0, 500) });
+}
+
+/**
  * Última tentativa falhou: marca como falha, com o motivo em português. Se a Meta já tinha publicado
  * (o post tem id ou o container está PUBLISHED), marca como publicado com aviso: nunca oferecer "agendar de novo".
  */
@@ -230,6 +255,11 @@ export async function defaultPublisherDeps(): Promise<PublisherDeps> {
     getMediaLink: ig.getMediaLink,
     recentMedia: async () => (await ig.listMediaPage(10)).items,
     recentStories: ig.listStories,
+    commentOnMedia: async (mediaId, text) => (await ig.commentOnMedia(mediaId, text)).id,
+    findOwnComment: async (mediaId, text) => {
+      const own = await ig.igUserId();
+      return (await ig.listComments(mediaId, 1)).find((c) => c.from?.id === own && (c.text ?? "").trim() === text)?.id ?? null;
+    },
     wait: (ms) => new Promise((r) => setTimeout(r, ms)),
     now: () => Date.now(),
     dryRun: ig.isDryRun,

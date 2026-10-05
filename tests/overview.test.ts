@@ -14,7 +14,7 @@ function post(over: Partial<ScheduledPost>): ScheduledPost {
   return {
     id: "p1", kind: "image", caption: "Legenda", media: [{ path: "a/1.jpg", width: 1080, height: 1350, size: 1 }],
     scheduledAt: null, status: "scheduled", scheduleToken: null, runId: null, containerId: null, igMediaId: null,
-    permalink: null, publishedAt: null, automationId: null, attempts: 0, error: null, mediaDeletedAt: null,
+    permalink: null, publishedAt: null, automationId: null, firstComment: "", firstCommentId: null, attempts: 0, error: null, mediaDeletedAt: null,
     createdAt: 0, updatedAt: 0, ...over,
   };
 }
