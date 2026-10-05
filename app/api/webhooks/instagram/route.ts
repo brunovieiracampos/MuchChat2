@@ -4,6 +4,7 @@ import { extractClicks, extractComments } from "@/lib/webhook";
 import { withAccount } from "@/lib/account-context";
 import { accountByIgUserId } from "@/lib/accounts";
 import { handleClick, processComment, type IncomingClick, type IncomingComment } from "@/lib/processor";
+import { autoReply } from "@/lib/auto-reply";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,6 +59,11 @@ export async function POST(req: Request) {
           try {
             const r = await handleClick(k, "webhook");
             if (r !== "ignored") console.log("[webhook] clique", igUserId, k.igsid, r);
+            // Texto que não é de nenhum fluxo: resposta automática de DM, se estiver ligada.
+            else if (!k.payload && k.text) {
+              const a = await autoReply({ igsid: k.igsid, text: k.text });
+              if (a !== "off") console.log("[webhook] resposta automática", igUserId, k.igsid, a);
+            }
           } catch (e) {
             console.error("[webhook] erro no clique", igUserId, k.igsid, e);
           }

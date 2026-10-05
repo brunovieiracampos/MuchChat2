@@ -7,6 +7,7 @@ import {
   type AutomationInput, type Issue,
 } from "@/lib/automations";
 import { listMediaPage, subscribeWebhook } from "@/lib/instagram";
+import { saveAutoReply, type AutoReplyConfig } from "@/lib/auto-reply";
 import { inAccount } from "@/lib/panel";
 import { toMediaOption, type MediaOption } from "./automacoes/builder-data";
 import { resetFailed } from "@/lib/processor";
@@ -72,6 +73,16 @@ export async function setPausedAction(paused: boolean): Promise<ActionResult> {
   try {
     await inAccount(() => setPaused(paused));
     revalidatePath("/painel", "layout");
+    return { ok: true };
+  } catch (e) { return fail(e); }
+}
+
+export async function saveAutoReplyAction(input: AutoReplyConfig): Promise<ActionResult> {
+  await requireSession();
+  try {
+    const r = await inAccount(() => saveAutoReply(input));
+    if (!r.ok) return { ok: false, error: r.error };
+    revalidatePath("/painel/configuracoes");
     return { ok: true };
   } catch (e) { return fail(e); }
 }

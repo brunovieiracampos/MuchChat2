@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { getAutoReply } from "@/lib/auto-reply";
 import { currentAccount, withAccount } from "@/lib/account-context";
 import { accountForUser } from "@/lib/accounts";
 import { buildExecutions } from "@/lib/activity";
@@ -82,6 +83,8 @@ export function periodOf(raw: string | undefined, allowAll = true): number {
   const p = Number(raw ?? "7");
   return PERIODS.some((x) => x.days === p && (allowAll || p)) ? p : 7;
 }
+
+export const getAutoReplyConfig = cache(async () => scoped(getAutoReply, { enabled: false, text: "" }));
 
 export const getFlags = cache(async () => ({ paused: await scoped(isPaused, false), dryRun: isDryRun() }));
 

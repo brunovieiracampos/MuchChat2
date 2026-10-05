@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { baseUrl, getActivity, getConnection, getFlags } from "@/lib/panel";
+import { baseUrl, getActivity, getAutoReplyConfig, getConnection, getFlags } from "@/lib/panel";
 import { listTokens } from "@/lib/api-tokens";
 import { requireSession } from "@/lib/session";
+import { AutoReply } from "./auto-reply";
 import { McpAccess } from "./mcp-access";
 import { PauseToggle, RetryFailedButton, SubscribeButton, SweepButton } from "../_components/action-buttons";
 import { logoutAction } from "../actions";
@@ -32,7 +33,7 @@ function Group({ title, desc, rows }: { title: string; desc: string; rows: Row[]
 
 export default async function Configuracoes({ searchParams }: { searchParams: Promise<{ conectado?: string }> }) {
   await requireSession();
-  const [{ conectado }, conn, flags, { executions }, tokens] = await Promise.all([searchParams, getConnection(), getFlags(), getActivity(), listTokens()]);
+  const [{ conectado }, conn, flags, { executions }, tokens, autoReply] = await Promise.all([searchParams, getConnection(), getFlags(), getActivity(), listTokens(), getAutoReplyConfig()]);
   const url = baseUrl();
   const failed = executions.filter((e) => e.status === "falhou").length;
   const ok = conn.state === "connected";
@@ -76,6 +77,8 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
         { label: "Pausar todas as automações", value: flags.paused ? "Pausadas agora. Ao retomar, os comentários dos últimos 7 dias são recuperados." : "Automações rodando normalmente.", right: ok ? <PauseToggle paused={flags.paused} /> : undefined },
         { label: "DMs recusadas", value: failed ? `${failed} comentário${failed === 1 ? "" : "s"} com DM recusada. Depois de corrigir a causa (veja em Execuções), libere para tentar de novo.` : "Nenhuma DM recusada.", right: failed ? <RetryFailedButton /> : undefined },
       ]} />
+
+      <AutoReply initial={autoReply} connected={ok} />
 
       <McpAccess tokens={tokens} url={`${url}/api/mcp`} connected={ok} />
 
