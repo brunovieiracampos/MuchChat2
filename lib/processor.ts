@@ -216,6 +216,10 @@ async function markFollower(ctx: Pick<Ctx, "commentId" | "state" | "rule" | "now
   if (ctx.state.fno) await mark(ctx.commentId, ctx.state, ctx.rule.id, "gained", ctx.now);
 }
 
+/** Último comentário em que a pessoa clicou ou foi lembrada, por automação: evita lembrar quem já avançou por outro comentário. */
+export const personKey = (ruleId: string, igsid: string) => `u:${ruleId}:${igsid}`;
+export const PERSON_TTL_S = 7 * 86400;
+
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const isPermanent = (e: unknown) => (e instanceof ig.GraphError ? e.permanent : false);
 /** O Instagram recusou o formato (ex.: botão na Private Reply): vale tentar só com texto. */
@@ -509,6 +513,7 @@ export async function handleClick(ev: IncomingClick, source: string, deps: Deps 
     Object.assign(state, { clicked: 1, igsid: ev.igsid, status: "running", attempts: 0, clickAt: now });
     await store.hset(key, { clicked: 1, igsid: ev.igsid, status: "running", attempts: 0, clickAt: now });
     await store.set(`w:${ev.igsid}`, target.commentId, { ex: 7 * 86400 });
+    await store.set(personKey(rule.id, ev.igsid), target.commentId, { ex: PERSON_TTL_S });
     await log({ ...base, step: target.stepId, action: "clicked", detail: ev.payload ? undefined : `Respondeu “${(ev.text ?? "").slice(0, 60)}”` }, now);
 
     const ctx: Ctx = { commentId: target.commentId, rule, steps, state, base, deps, now };

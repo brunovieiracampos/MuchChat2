@@ -55,18 +55,18 @@ export function dayKey(ms: number): string {
 
 /** Status pelo último evento relevante (entradas em ordem cronológica). */
 function statusOf(chrono: LogEntry[]): { status: ExecStatus; step: string } {
-  const last = chrono[chrono.length - 1];
+  // O lembrete não muda o estado do fluxo: o status vem do último evento que não é de lembrete.
+  const newest = chrono[chrono.length - 1];
+  const isReminder = (e: LogEntry) => e.action.startsWith("reminder-");
+  const last = [...chrono].reverse().find((e) => !isReminder(e)) ?? newest;
   switch (last.action) {
     case "flow-done": return { status: "concluida", step: last.detail ?? "Fluxo concluído" };
     case "dm-failed": return { status: "falhou", step: "Mensagem recusada pelo Instagram" };
     case "expired": return { status: "expirada", step: "Fora da janela de 7 dias" };
-    case "waiting-click": return { status: "aguardando", step: last.detail ?? "Esperando o clique" };
+    case "waiting-click": return { status: "aguardando", step: isReminder(newest) ? STEP_LABEL[newest.action] : last.detail ?? "Esperando o clique" };
     case "dry-run": return { status: "simulacao", step: "Modo de teste: nada foi enviado" };
     case "dm-error":
     case "reply-error": return { status: "andamento", step: "Nova tentativa na próxima varredura" };
-    case "reminder-public":
-    case "reminder-dm":
-    case "reminder-failed": return { status: "aguardando", step: STEP_LABEL[last.action] };
     default: return { status: "andamento", step: STEP_LABEL[last.action] ?? "Processando" };
   }
 }

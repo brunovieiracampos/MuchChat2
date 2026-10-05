@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryStore, getStore, setStoreForTests } from "@/lib/store";
 import { readLog } from "@/lib/processor";
-import { ReminderBusy, logReminderFailure, reminderKind, sendReminder, type ReminderDeps } from "@/lib/reminder";
+import { ReminderBusy, logReminderFailure, reminderKind, retryPlan, sendReminder, type ReminderDeps } from "@/lib/reminder";
 import { GraphError } from "@/lib/instagram";
 import { clickPayload, defaultReminder, type Step } from "@/lib/flow";
 import { readStats } from "@/lib/stats";
@@ -149,14 +149,72 @@ describe("lembrete", () => {
     expect(sendMessage.mock.calls[1][1]).toEqual({ text: "Ainda dá tempo! É só tocar no botão aqui embaixo para continuar 👇\n\nResponda “Me envie” aqui para continuar." });
   });
 
-  it("erro da Meta sobe para quem chamou e não marca como enviado; a falha final fica no log", async () => {
+  it("o Instagram recusou (4xx): o erro sobe, o lembrete não fica marcado e pode ser tentado de novo", async () => {
+    await waiting();
+    const refused = new GraphError(400, { error: { code: 4, message: "limite" } });
+    const d = deps({ replyToComment: vi.fn(async () => { throw refused; }) });
+    await expect(sendReminder("c1", 1, d)).rejects.toBe(refused);
+    expect((await state())?.rp).toBeFalsy();
+    expect(await getStore().get("lock:c1")).toBeNull();
+    expect(await sendReminder("c1", 1, deps())).toBe("public");
+  });
+
+  it("sem confirmação do envio (rede, 5xx): nunca repete, para não publicar duas vezes", async () => {
     await waiting();
     const d = deps({ replyToComment: vi.fn(async () => { throw new Error("rede"); }) });
-    await expect(sendReminder("c1", 1, d)).rejects.toThrow("rede");
-    expect((await state())?.rp).toBeUndefined();
-    expect(await getStore().get("lock:c1")).toBeNull();
-    await logReminderFailure("c1", "O Instagram recusou: comentário apagado", d);
+    expect(await sendReminder("c1", 1, d)).toBe("skipped");
+    expect((await readLog())[0]).toMatchObject({ action: "reminder-failed", commentId: "c1" });
+    const again = deps();
+    expect(await sendReminder("c1", 1, again)).toBe("skipped");
+    expect(again.replyToComment).not.toHaveBeenCalled();
+    // O mesmo vale para a DM.
+    await waiting({ at: "f1", waitStep: "f1", clicked: 1, igsid: "IG1", clickAt: NOW - HOUR, wseq: 2 });
+    expect(await sendReminder("c1", 2, deps({ sendMessage: vi.fn(async () => { throw new GraphError(500, { error: { message: "x" } }); }) }))).toBe("skipped");
+    expect(await sendReminder("c1", 2, again)).toBe("skipped");
+    expect(again.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("não segura o comentário durante o envio: um clique nesse instante não é descartado", async () => {
+    await waiting();
+    let lockDuringSend: unknown = "não chamou";
+    const d = deps({ replyToComment: vi.fn(async () => { lockDuringSend = await getStore().get("lock:c1"); return { id: "r" }; }) });
+    await sendReminder("c1", 1, d);
+    expect(lockDuringSend).toBeNull();
+  });
+
+  it("a mesma pessoa em outro comentário da automação: se já clicou ou já foi lembrada lá, não sai lembrete público aqui", async () => {
+    await waiting({ igsid: "IG1" });
+    await getStore().set("u:guia:IG1", "c2");
+    const d = deps();
+    expect(await sendReminder("c1", 1, d)).toBe("skipped");
+    expect(d.replyToComment).not.toHaveBeenCalled();
+    // Dois comentários sem clique: só o primeiro recebe o lembrete público.
+    await getStore().del("u:guia:IG1");
+    await getStore().hset("c:c3", { status: "waiting", rule: "guia", username: "ana", mediaId: "m1", at: "d1", waitStep: "d1", pr: 1, wseq: 1, igsid: "IG1" });
+    expect(await sendReminder("c1", 1, d)).toBe("public");
+    expect(await sendReminder("c3", 1, d)).toBe("skipped");
+    expect(d.replyToComment).toHaveBeenCalledTimes(1);
+  });
+
+  it("falha final só é registrada se a pessoa ainda está na mesma espera", async () => {
+    await waiting();
+    await logReminderFailure("c1", 2, "espera antiga");
+    await waiting({ status: "done" });
+    await logReminderFailure("c1", 1, "fluxo já terminou");
+    expect(await readLog()).toHaveLength(0);
+    await waiting({ status: "waiting" });
+    await logReminderFailure("c1", 1, "O Instagram recusou: comentário apagado", deps());
     expect((await readLog())[0]).toMatchObject({ action: "reminder-failed", commentId: "c1", rule: "guia", detail: "O Instagram recusou: comentário apagado" });
     expect((await state())?.status).toBe("waiting");
+  });
+
+  it("política de nova tentativa: ocupado espera e desiste em silêncio; limite de taxa espera mais; recusa definitiva falha na hora", () => {
+    const busy = new ReminderBusy("ocupado");
+    expect(retryPlan(busy, 1, 3)).toEqual({ kind: "retry", afterSec: 45 });
+    expect(retryPlan(busy, 4, 3)).toEqual({ kind: "skip" });
+    const rate = new GraphError(400, { error: { code: 4, message: "limite" } });
+    expect(retryPlan(rate, 1, 3)).toEqual({ kind: "retry", afterSec: 300 });
+    expect(retryPlan(rate, 4, 3)).toEqual({ kind: "fail" });
+    expect(retryPlan(new GraphError(400, { error: { code: 10, message: "sem permissão" } }), 1, 3)).toEqual({ kind: "fail" });
   });
 });

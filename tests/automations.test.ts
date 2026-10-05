@@ -204,4 +204,14 @@ describe("lembrete: regras", () => {
     expect(execs[0].status).toBe("aguardando");
     expect(execs[0].steps.at(-1)?.label).toBe("Lembrete público enviado");
   });
+
+  it("lembrete que chega depois do fim do fluxo não muda o status da execução", () => {
+    const base = { source: "webhook", commentId: "c9", mediaId: "m1", username: "ana", rule: "guia" };
+    const execs = buildExecutions([
+      { ...base, at: 5, action: "reminder-failed", detail: "x" },
+      { ...base, at: 4, action: "flow-done" },
+      { ...base, at: 2, action: "waiting-click" },
+    ], []);
+    expect(execs[0].status).toBe("concluida");
+  });
 });

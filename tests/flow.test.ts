@@ -217,4 +217,11 @@ describe("lembrete: o motor agenda e conta quem voltou", () => {
     await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "d1") }, "webhook", d);
     expect(Object.keys(await readStats("guia")).some((k) => k.endsWith(":recovered"))).toBe(false);
   });
+
+  it("o clique fica registrado por pessoa e automação (evita lembrete em outro comentário dela)", async () => {
+    const d = deps({ rules: () => [withReminder], scheduleReminder: vi.fn(async () => {}) });
+    await processComment(comment, "webhook", d);
+    await handleClick({ igsid: "IGSID1", payload: clickPayload("c1", "d1") }, "webhook", d);
+    expect(await getStore().get("u:guia:IGSID1")).toBe("c1");
+  });
 });
