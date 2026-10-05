@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { normalizeInput, validateAutomation, type AutomationInput, type Issue } from "@/lib/automation-input";
 import {
-  BUTTON_TITLE_MAX, MAX_STEPS, STEP_META, TEMPLATES, TEMPLATE_TEXT_MAX, TEXT_MAX,
-  blankStep, renderText, simulate, waitsForClick,
-  type Button, type DmStep, type FollowStep, type ReplyStep, type Step, type StepType,
+  BUTTON_TITLE_MAX, MAX_STEPS, REMINDER_DELAYS, REPLY_MAX, STEP_META, TEMPLATES, TEMPLATE_TEXT_MAX, TEXT_MAX,
+  blankStep, defaultReminder, hasWaitingStep, renderText, simulate, waitsForClick,
+  type Button, type DmStep, type FollowStep, type Reminder, type ReplyStep, type Step, type StepType,
 } from "@/lib/flow";
 import { relTime } from "@/lib/format";
 import { hasKeyword, isNextPost, postKey } from "@/lib/match";
@@ -54,6 +54,7 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
   const stepIssues = (id: string) => visible.filter((i) => i.field === "steps" && i.stepId === id);
   const flowIssues = visible.filter((i) => (i.field === "steps" && !i.stepId) || i.field === "link");
   const nameIssue = visible.find((i) => i.field === "name");
+  const reminderIssues = visible.filter((i) => i.field === "reminder");
   // Estado de cada bloco no canvas (verde = pronto, vermelho = falta configurar). Usa todos os problemas, desde o início.
   const triggerPending = issues.filter((i) => i.field === "posts" || i.field === "keywords");
   const stepPending = (id: string) => issues.filter((i) => i.field === "steps" && i.stepId === id);
@@ -247,6 +248,8 @@ export function Builder({ initial, isNew, updatedAt, media, mediaNext, connected
           ) : (
             <FollowConfig step={selStep} update={(p) => updateStep(selStep.id, p)} issues={stepIssues(selStep.id)} />
           )}
+          <ReminderConfig value={form.reminder} hasButton={hasWaitingStep(form.steps)} issues={reminderIssues}
+            onChange={(r) => set("reminder", r)} />
         </aside>
       </div>
 
@@ -568,6 +571,11 @@ function TestPanel({ form, anyPost, account }: { form: AutomationInput; anyPost:
               </div>
             );
           })}
+          {sim.waiting && form.reminder?.enabled && (
+            <div className="pn-sim-note">
+              Sem clique em {form.reminder.delayHours === 1 ? "1 hora" : `${form.reminder.delayHours} horas`}: {clicks ? "lembrete no direct, com este botão" : "lembrete público no comentário"}
+            </div>
+          )}
           {sim.waiting && <div className="pn-sim-note">Toque no botão para simular o clique</div>}
           {clicks > 0 && <button type="button" className="pn-btn is-sm" style={{ marginTop: 10 }} onClick={() => setClicks(0)}>Recomeçar</button>}
         </div>
@@ -577,5 +585,49 @@ function TestPanel({ form, anyPost, account }: { form: AutomationInput; anyPost:
         O teste roda só aqui na tela. Para testar de verdade, publique com o modo de teste ligado e rode a varredura.
       </div>
     </>
+  );
+}
+
+/* ---------- lembrete ---------- */
+
+function ReminderConfig({ value, hasButton, issues, onChange }: {
+  value?: Reminder; hasButton: boolean; issues: Issue[]; onChange: (r: Reminder) => void;
+}) {
+  // Automação antiga não tem o campo: mostra desligado, com os textos padrão prontos para ligar.
+  const r = value ?? defaultReminder(false);
+  const patch = (p: Partial<Reminder>) => onChange({ ...r, ...p });
+  return (
+    <section style={{ marginTop: 22 }}>
+      <div className="pn-section-label" style={{ marginBottom: 0 }}>Lembrete</div>
+      {!hasButton ? (
+        <div className="pn-help">Este fluxo não tem botão de continuar, então ninguém fica esperando um clique. O lembrete vale quando houver um botão “continuar” ou o bloco “Verificar se segue”.</div>
+      ) : (
+        <>
+          <label className="pn-row" style={{ gap: 8, marginTop: 10, fontSize: 12.5, color: "var(--text-2)", cursor: "pointer" }}>
+            <input type="checkbox" checked={r.enabled} onChange={() => patch({ enabled: !r.enabled })} style={{ accentColor: "var(--violet)" }} />
+            Lembrar quem não clicou
+          </label>
+          {r.enabled && (
+            <>
+              <label className="pn-field-label" htmlFor="rem-delay" style={{ marginTop: 12 }}>Depois de quanto tempo</label>
+              <select id="rem-delay" className="pn-select" value={r.delayHours} onChange={(e) => patch({ delayHours: Number(e.target.value) as Reminder["delayHours"] })}>
+                {REMINDER_DELAYS.map((h) => <option key={h} value={h}>{h === 1 ? "1 hora" : `${h} horas`}</option>)}
+              </select>
+
+              <label className="pn-field-label" htmlFor="rem-public" style={{ marginTop: 12 }}>Para quem nunca clicou (resposta no comentário)</label>
+              <textarea id="rem-public" className="pn-textarea" rows={3} value={r.publicText} onChange={(e) => patch({ publicText: e.target.value })} />
+              <div className="pn-help">Fica visível no post. Use {"{usuario}"} para marcar a pessoa. Até {REPLY_MAX} caracteres.</div>
+
+              <label className="pn-field-label" htmlFor="rem-dm" style={{ marginTop: 12 }}>Para quem clicou e parou (direct)</label>
+              <textarea id="rem-dm" className="pn-textarea" rows={3} value={r.dmText} onChange={(e) => patch({ dmText: e.target.value })} />
+              <div className="pn-help">Vai com o mesmo botão em que a pessoa parou. Até {TEMPLATE_TEXT_MAX} caracteres.</div>
+
+              <div className="pn-help">Cada pessoa recebe no máximo um lembrete de cada tipo. Se ela clicar antes, o lembrete não sai.</div>
+            </>
+          )}
+          {issues.map((i) => <div className="pn-error-text" key={i.message}>{i.message}</div>)}
+        </>
+      )}
+    </section>
   );
 }

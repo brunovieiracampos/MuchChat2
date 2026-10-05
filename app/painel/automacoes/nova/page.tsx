@@ -1,5 +1,5 @@
 import { DEFAULT_PUBLIC_REPLIES } from "@/config/rules";
-import { TEMPLATES } from "@/lib/flow";
+import { TEMPLATES, defaultReminder } from "@/lib/flow";
 import { getActivity, getConnection, getRecentMedia } from "@/lib/panel";
 import { requireSession } from "@/lib/session";
 import { Builder } from "../builder";
@@ -10,7 +10,7 @@ export default async function NovaAutomacao() {
   const [{ rules }, media, conn] = await Promise.all([getActivity(), getRecentMedia(), getConnection()]);
   return (
     <Builder
-      initial={{ name: "Nova automação", posts: [], keywords: [], link: "", steps: TEMPLATES[0].build(DEFAULT_PUBLIC_REPLIES), active: false }}
+      initial={{ name: "Nova automação", posts: [], keywords: [], link: "", steps: TEMPLATES[0].build(DEFAULT_PUBLIC_REPLIES), reminder: defaultReminder(), active: false }}
       isNew
       media={media.items.map(toMediaOption)}
       mediaNext={media.next}

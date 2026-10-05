@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { STEP_META, renderText, stepsOf } from "@/lib/flow";
+import { STEP_META, hasWaitingStep, renderText, stepsOf } from "@/lib/flow";
 import { dateTime, num, relTime } from "@/lib/format";
 import { postKey, scheduledPostIdOf, waitsNextPost } from "@/lib/match";
 import { PERIODS, getActivity, getStats, periodOf } from "@/lib/panel";
@@ -65,6 +65,11 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
             <FunnelSummary c={c} hasFollow={hasFollow} />
             {c.failed > 0 && <div className="pn-funnel-failed">{num(c.failed)} {c.failed === 1 ? "mensagem foi recusada" : "mensagens foram recusadas"} pelo Instagram. <Link href={`/painel/execucoes?automacao=${rule.id}`}>Ver em Execuções</Link></div>}
             <Funnel rows={funnel} c={c} />
+            {c.reminded > 0 && (
+              <div className="pn-help" style={{ marginTop: 12 }}>
+                Lembretes: {num(c.reminded)} {c.reminded === 1 ? "pessoa recebeu" : "pessoas receberam"} · {num(c.recovered)} {c.recovered === 1 ? "voltou a clicar" : "voltaram a clicar"}
+              </div>
+            )}
           </>
         ) : (
           <p className="pn-summary">Ninguém comentou a palavra-chave {days ? `nos últimos ${days} dias` : "ainda"}.</p>
@@ -106,6 +111,9 @@ export default async function DetalheAutomacao({ params, searchParams }: { param
               : !rule.posts.length ? <Link href={`/painel/automacoes/${rule.id}/editar`}>Escolher o post</Link>
               : rule.posts.map((p) => <div key={p} className="pn-mono" style={{ fontSize: 11.5 }}>{/^https?:/.test(p) ? <a href={p} target="_blank" rel="noreferrer">{postKey(p)}</a> : postKey(p)}</div>)}{rule.boundAt && <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 3 }}>Preso automaticamente em {dateTime(rule.boundAt)}</div>}</div></div>
             <div className="pn-field-row"><div>Link</div><div>{rule.link ? <a href={rule.link} target="_blank" rel="noreferrer" className="pn-ellipsis" style={{ display: "block" }}>{rule.link}</a> : "-"}</div></div>
+            {hasWaitingStep(steps) && (
+              <div className="pn-field-row"><div>Lembrete</div><div>{rule.reminder?.enabled ? `Ligado, ${rule.reminder.delayHours === 1 ? "1 hora" : `${rule.reminder.delayHours} horas`} sem clique` : "Desligado"}</div></div>
+            )}
             <div className="pn-field-row"><div>Alterada</div><div>{rule.updatedAt ? relTime(rule.updatedAt) : "-"}</div></div>
           </div>
           <div className="pn-section-label" style={{ marginTop: 18 }}>Fluxo</div>
