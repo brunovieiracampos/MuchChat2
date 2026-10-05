@@ -9,7 +9,7 @@ import { getStore } from "@/lib/store";
  * o processador marca a etapa no estado do comentário (c:{id}) antes de incrementar.
  */
 
-export const STAGES = ["comment", "reply", "dm", "click", "follower", "gained", "done", "failed"] as const;
+export const STAGES = ["comment", "reply", "dm", "click", "follower", "gained", "done", "failed", "reminded", "recovered"] as const;
 export type Stage = (typeof STAGES)[number];
 
 export type Counts = Record<Stage, number>;
@@ -69,6 +69,8 @@ const LABEL: Record<Stage, { label: string; hint: string }> = {
   gained: { label: "Novos seguidores", hint: "Não seguiam e passaram a seguir no fluxo" },
   done: { label: "Concluíram o fluxo", hint: "Chegaram ao último bloco" },
   failed: { label: "Falharam", hint: "O Instagram recusou a mensagem" },
+  reminded: { label: "Receberam lembrete", hint: "Ficaram parados num botão e receberam o lembrete" },
+  recovered: { label: "Voltaram depois do lembrete", hint: "Clicaram depois de receber o lembrete" },
 };
 
 export function buildFunnel(rule: Rule, c: Counts): FunnelRow[] {

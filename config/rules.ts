@@ -11,7 +11,7 @@
  * dm: texto da DM. Use {link} onde o link deve entrar. Máx. 1000 caracteres.
  * publicReplies: opcional; se omitido, usa DEFAULT_PUBLIC_REPLIES.
  */
-import type { Step } from "@/lib/flow";
+import type { Reminder, Step } from "@/lib/flow";
 
 export type Rule = {
   id: string;
@@ -24,6 +24,8 @@ export type Rule = {
   publicReplies?: string[];
   /** Fluxo montado no painel. Sem ele, vale dm → resposta pública (formato antigo). */
   steps?: Step[];
+  /** Lembrete para quem parou num botão. Ausente = desligado (automações antigas). */
+  reminder?: Reminder;
   active?: boolean;
   /**
    * "Próxima publicação" (posts = ["@next"]): quando foi ativada. A automação se prende ao primeiro

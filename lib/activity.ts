@@ -42,9 +42,12 @@ const STEP_LABEL: Record<string, string> = {
   "follow-no": "Ainda não segue",
   "follow-unknown": "Não deu para conferir se segue; liberado",
   "flow-done": "Fluxo concluído",
+  "reminder-public": "Lembrete público enviado",
+  "reminder-dm": "Lembrete enviado no direct",
+  "reminder-failed": "Lembrete não enviado",
 };
 
-const FAIL = new Set(["dm-error", "dm-failed", "reply-error", "reply-failed", "expired"]);
+const FAIL = new Set(["dm-error", "dm-failed", "reply-error", "reply-failed", "expired", "reminder-failed"]);
 
 export function dayKey(ms: number): string {
   return new Date(ms).toLocaleDateString("en-CA", { timeZone: TZ });
@@ -61,6 +64,9 @@ function statusOf(chrono: LogEntry[]): { status: ExecStatus; step: string } {
     case "dry-run": return { status: "simulacao", step: "Modo de teste: nada foi enviado" };
     case "dm-error":
     case "reply-error": return { status: "andamento", step: "Nova tentativa na próxima varredura" };
+    case "reminder-public":
+    case "reminder-dm":
+    case "reminder-failed": return { status: "aguardando", step: STEP_LABEL[last.action] };
     default: return { status: "andamento", step: STEP_LABEL[last.action] ?? "Processando" };
   }
 }

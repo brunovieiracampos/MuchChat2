@@ -68,6 +68,36 @@ export const isMessageStep = (s: Step) => s.type === "dm" || s.type === "follow"
 /** Bloco que para o fluxo até a pessoa clicar. */
 export const waitsForClick = (s: Step) => s.type === "follow" || (s.type === "dm" && s.button?.kind === "continue");
 
+/* ---------- lembrete para quem parou num botão ---------- */
+
+export const REMINDER_DELAYS = [1, 3, 6, 12] as const;
+export type ReminderDelay = (typeof REMINDER_DELAYS)[number];
+/**
+ * Lembrete da automação: depois de `delayHours` sem clique, sai uma resposta pública (quem nunca clicou)
+ * ou uma DM com o mesmo botão (quem clicou e parou). No máximo um de cada por comentário.
+ */
+export type Reminder = { enabled: boolean; delayHours: ReminderDelay; publicText: string; dmText: string };
+
+export const REMINDER_PUBLIC_DEFAULT = "{usuario}, seu material está te esperando no direct 👀 Se não aparecer, olha na pasta Solicitações.";
+export const REMINDER_DM_DEFAULT = "Ainda dá tempo! É só tocar no botão aqui embaixo para continuar 👇";
+
+export function defaultReminder(enabled = true): Reminder {
+  return { enabled, delayHours: 3, publicText: REMINDER_PUBLIC_DEFAULT, dmText: REMINDER_DM_DEFAULT };
+}
+
+export const hasWaitingStep = (steps: Step[]) => steps.some(waitsForClick);
+
+/** Problemas do lembrete. Só vale quando está ligado e o fluxo tem algum botão de continuar. */
+export function validateReminder(r: Reminder | undefined, steps: Step[], link: string): string[] {
+  if (!r?.enabled || !hasWaitingStep(steps)) return [];
+  const out: string[] = [];
+  if (!(REMINDER_DELAYS as readonly number[]).includes(r.delayHours)) out.push("Escolha o tempo do lembrete: 1, 3, 6 ou 12 horas.");
+  if (!r.publicText.trim() || !r.dmText.trim()) out.push("Preencha os dois textos do lembrete, ou desligue o lembrete.");
+  if (renderText(r.publicText, link, "usuario_exemplo").length > REPLY_MAX) out.push(`O lembrete público pode ter até ${REPLY_MAX} caracteres.`);
+  if (renderText(r.dmText, link, "usuario_exemplo").length > TEMPLATE_TEXT_MAX) out.push(`O lembrete no direct pode ter até ${TEMPLATE_TEXT_MAX} caracteres.`);
+  return out;
+}
+
 export type StepIssue = { stepId: string | null; message: string };
 
 export function validateSteps(steps: Step[], link: string): StepIssue[] {

@@ -3,6 +3,7 @@ import type { Rule } from "@/config/rules";
 import { currentAccount } from "@/lib/account-context";
 import { normalizeInput, toInput, validateAutomation, type AutomationInput, type Issue } from "@/lib/automation-input";
 import { waitsNextPost } from "@/lib/match";
+import { defaultReminder } from "@/lib/flow";
 import { deleteStats } from "@/lib/stats";
 import { getStore } from "@/lib/store";
 
@@ -39,6 +40,8 @@ export async function saveAutomation(raw: AutomationInput): Promise<{ ok: true; 
     link: input.link,
     dm: "",
     steps: input.steps,
+    // Automação nova nasce com o lembrete ligado; ao editar, vale o que veio do formulário (ou o que já havia).
+    reminder: input.reminder ?? (prev ? prev.reminder : defaultReminder()),
     active: input.active,
     // "Próxima publicação": arma ao ativar; se já estava armada e ativa, mantém o momento original.
     armedAt: input.active && waitsNextPost(input) ? (prev?.active !== false && prev?.armedAt ? prev.armedAt : now) : undefined,

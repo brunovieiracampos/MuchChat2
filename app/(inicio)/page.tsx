@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 /** Números fictícios para mostrar o relatório real do painel na página inicial. */
-const EXAMPLE: Counts = { comment: 412, reply: 405, dm: 398, click: 271, follower: 236, gained: 87, done: 229, failed: 0 };
+const EXAMPLE: Counts = { comment: 412, reply: 405, dm: 398, click: 271, follower: 236, gained: 87, done: 229, failed: 0, reminded: 0, recovered: 0 };
 const EXAMPLE_ROWS: FunnelRow[] = (["comment", "dm", "click", "follower", "done"] as Stage[]).map((stage, i, all) => ({
   stage, label: stageLabel(stage), hint: "", value: EXAMPLE[stage],
   ofFirst: EXAMPLE[stage] / EXAMPLE.comment,

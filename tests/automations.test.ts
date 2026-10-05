@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryStore, setStoreForTests } from "@/lib/store";
 import { normalizeInput, validateAutomation, type AutomationInput } from "@/lib/automation-input";
-import { renderText, type Step } from "@/lib/flow";
+import { REMINDER_PUBLIC_DEFAULT, defaultReminder, renderText, validateReminder, type Step } from "@/lib/flow";
 import { listAutomations, saveAutomation, setAutomationActive, setPaused, duplicateAutomation, deleteAutomation } from "@/lib/automations";
 import { buildContacts, buildExecutions, summarize } from "@/lib/activity";
 import { processComment, type LogEntry } from "@/lib/processor";
@@ -149,5 +149,59 @@ describe("execuções a partir do log", () => {
     expect(s.perDay).toHaveLength(7);
     expect(s.perDay[6].value).toBe(3);
     expect(s.perKeyword).toEqual([{ keyword: "CONTADOR", count: 3 }]);
+  });
+});
+
+describe("lembrete: regras", () => {
+  const withButton: Step[] = [
+    { id: "d1", type: "dm", text: "Clica 👇", button: { kind: "continue", title: "Me envie" } },
+    { id: "d2", type: "dm", text: "Aqui está {link}" },
+  ];
+  const noButton: Step[] = [{ id: "d1", type: "dm", text: "Aqui está {link}" }];
+  const input = (over: object = {}) => ({ name: "Guia", posts: ["*"], keywords: ["GUIA"], link: "https://x.com", steps: withButton, active: true, ...over });
+
+  it("padrão: ligado, 3h, com os dois textos", () => {
+    expect(defaultReminder()).toEqual({ enabled: true, delayHours: 3, publicText: REMINDER_PUBLIC_DEFAULT, dmText: "Ainda dá tempo! É só tocar no botão aqui embaixo para continuar 👇" });
+    expect(defaultReminder(false).enabled).toBe(false);
+  });
+
+  it("valida textos e tempo só quando ligado e o fluxo tem botão", () => {
+    expect(validateReminder(defaultReminder(), withButton, "https://x.com")).toEqual([]);
+    expect(validateReminder({ ...defaultReminder(), publicText: " " }, withButton, "")).toHaveLength(1);
+    expect(validateReminder({ ...defaultReminder(), publicText: "a".repeat(301) }, withButton, "")[0]).toMatch(/300/);
+    expect(validateReminder({ ...defaultReminder(), dmText: "a".repeat(641) }, withButton, "")[0]).toMatch(/640/);
+    expect(validateReminder({ ...defaultReminder(), dmText: "" }, noButton, "")).toEqual([]);
+    expect(validateReminder({ ...defaultReminder(false), dmText: "" }, withButton, "")).toEqual([]);
+    expect(validateReminder(undefined, withButton, "")).toEqual([]);
+  });
+
+  it("normaliza: tira espaços e corrige tempo inválido para 3h", () => {
+    const n = normalizeInput(input({ reminder: { enabled: true, delayHours: 5, publicText: "  oi  ", dmText: " tchau " } }) as never);
+    expect(n.reminder).toEqual({ enabled: true, delayHours: 3, publicText: "oi", dmText: "tchau" });
+  });
+
+  it("publicar com lembrete inválido aponta o campo reminder", () => {
+    const issues = validateAutomation(normalizeInput(input({ reminder: { ...defaultReminder(), publicText: "" } }) as never));
+    expect(issues.map((i) => i.field)).toContain("reminder");
+  });
+
+  it("automação nova nasce com o lembrete ligado; ao editar, mantém o que foi enviado", async () => {
+    const created = await saveAutomation(input() as never);
+    if (!created.ok) throw new Error("não salvou");
+    expect(created.automation.reminder).toEqual(defaultReminder());
+    const edited = await saveAutomation({ ...input(), id: created.automation.id, reminder: defaultReminder(false) } as never);
+    if (!edited.ok) throw new Error("não salvou");
+    expect(edited.automation.reminder?.enabled).toBe(false);
+  });
+
+  it("execução com lembrete enviado continua 'aguardando'", () => {
+    const base = { source: "webhook", commentId: "c9", mediaId: "m1", username: "ana", rule: "guia" };
+    const execs = buildExecutions([
+      { ...base, at: 3, action: "reminder-public", detail: "ana, seu material…" },
+      { ...base, at: 2, action: "waiting-click" },
+      { ...base, at: 1, action: "dm-sent" },
+    ], []);
+    expect(execs[0].status).toBe("aguardando");
+    expect(execs[0].steps.at(-1)?.label).toBe("Lembrete público enviado");
   });
 });

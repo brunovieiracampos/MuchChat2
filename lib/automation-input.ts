@@ -1,5 +1,5 @@
 import type { Rule } from "@/config/rules";
-import { stepsOf, validateSteps, type Step } from "@/lib/flow";
+import { REMINDER_DELAYS, stepsOf, validateReminder, validateSteps, type Reminder, type Step } from "@/lib/flow";
 import { isPlaceholderPost, postKey } from "@/lib/match";
 
 /** Regras do formulário de automação. Sem dependências de servidor: roda também no navegador. */
@@ -11,10 +11,11 @@ export type AutomationInput = {
   keywords: string[];
   link: string;
   steps: Step[];
+  reminder?: Reminder;
   active: boolean;
 };
 
-export type Issue = { field: "name" | "posts" | "keywords" | "link" | "steps"; stepId?: string | null; message: string };
+export type Issue = { field: "name" | "posts" | "keywords" | "link" | "steps" | "reminder"; stepId?: string | null; message: string };
 
 /** Limpa a entrada do formulário (espaços, duplicados, vazios). */
 export function normalizeInput(i: AutomationInput): AutomationInput {
@@ -37,11 +38,19 @@ export function normalizeInput(i: AutomationInput): AutomationInput {
       }
       return { ...s, text: s.text.trim(), retryText: s.retryText.trim(), button: s.button.trim(), retryButton: s.retryButton.trim() };
     }),
+    ...(i.reminder ? {
+      reminder: {
+        enabled: !!i.reminder.enabled,
+        delayHours: (REMINDER_DELAYS as readonly number[]).includes(i.reminder.delayHours) ? i.reminder.delayHours : 3,
+        publicText: String(i.reminder.publicText ?? "").replace(/\r\n/g, "\n").trim(),
+        dmText: String(i.reminder.dmText ?? "").replace(/\r\n/g, "\n").trim(),
+      },
+    } : {}),
   };
 }
 
 export function toInput(a: Rule): AutomationInput {
-  return { id: a.id, name: a.name ?? a.id, posts: a.posts, keywords: a.keywords, link: a.link, steps: stepsOf(a), active: a.active !== false };
+  return { id: a.id, name: a.name ?? a.id, posts: a.posts, keywords: a.keywords, link: a.link, steps: stepsOf(a), ...(a.reminder ? { reminder: a.reminder } : {}), active: a.active !== false };
 }
 
 /**
@@ -67,6 +76,7 @@ export function validateAutomation(i: AutomationInput, others: Pick<Rule, "id" |
 
   if (i.link && !/^https?:\/\/\S+$/.test(i.link)) out.push({ field: "link", message: "O link precisa começar com http:// ou https://." });
   if (publish) for (const s of validateSteps(i.steps, i.link)) out.push({ field: "steps", stepId: s.stepId, message: s.message });
+  if (publish) for (const message of validateReminder(i.reminder, i.steps, i.link)) out.push({ field: "reminder", message });
 
   // Mesma palavra-chave em outra automação ativa para o mesmo post: só a primeira dispararia.
   if (publish) {

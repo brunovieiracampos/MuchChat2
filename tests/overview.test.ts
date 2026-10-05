@@ -84,7 +84,7 @@ describe("visão geral", () => {
 
   it("funil só com as etapas das automações informadas", () => {
     const semBotao = rule({ id: "g", steps: [{ id: "d", type: "dm", text: "Oi" }, { id: "r", type: "reply", replies: ["ok"] }] });
-    const c = { comment: 4, reply: 4, dm: 4, click: 0, follower: 0, gained: 0, done: 4, failed: 0 };
+    const c = { comment: 4, reply: 4, dm: 4, click: 0, follower: 0, gained: 0, done: 4, failed: 0, reminded: 0, recovered: 0 };
     expect(overallFunnel([semBotao], c).map((r) => r.stage)).toEqual(["comment", "dm", "done"]);
   });
 
