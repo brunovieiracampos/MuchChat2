@@ -73,7 +73,7 @@ const RETENTION_S = 90 * 86400; // bate com a política de privacidade
 
 type Status = "running" | "waiting" | "done" | "failed" | "expired";
 
-type State = {
+export type State = {
   status?: Status;
   rule?: string;
   username?: string;
@@ -90,6 +90,13 @@ type State = {
   followTries?: number;
   /** 1 se a verificação já disse que não segue (para contar novos seguidores) */
   fno?: number | string;
+  /** número da espera atual: muda a cada vez que o fluxo para num botão (invalida lembretes antigos) */
+  wseq?: number | string;
+  /** momento do último clique (ms): a DM de lembrete só sai dentro de 24h dele */
+  clickAt?: number | string;
+  /** 1 depois do lembrete público / do lembrete por DM (um de cada por comentário) */
+  rp?: number | string;
+  rd?: number | string;
   error?: string;
   /** etapas do funil já contadas: s_comment, s_dm, … */
   [mark: `s_${string}`]: number | string | undefined;
@@ -112,7 +119,7 @@ export type Result =
   | "own" | "paused" | "no-match" | "expired" | "locked" | "done" | "dry-run" | "waiting" | "completed"
   | "dm-error" | "dm-failed" | "reply-error" | "ignored";
 
-async function log(e: Omit<LogEntry, "at">, now: number) {
+export async function log(e: Omit<LogEntry, "at">, now: number) {
   const entry = { at: now, ...e };
   console.log("[flow]", JSON.stringify(entry));
   await getStore().lpush(LOG_KEY, entry, 2000);
@@ -187,7 +194,7 @@ async function pickReply(step: ReplyStep, deps: Deps): Promise<string> {
 }
 
 /** Conta a etapa no funil da automação, uma vez por comentário. Falha nos contadores não trava o fluxo. */
-async function mark(commentId: string, state: State, ruleId: string, stage: Stage, now: number) {
+export async function mark(commentId: string, state: State, ruleId: string, stage: Stage, now: number) {
   const f = `s_${stage}` as const;
   if (state[f]) return;
   state[f] = 1;
@@ -208,7 +215,7 @@ async function markFollower(ctx: Pick<Ctx, "commentId" | "state" | "rule" | "now
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const isPermanent = (e: unknown) => (e instanceof ig.GraphError ? e.permanent : false);
 /** O Instagram recusou o formato (ex.: botão na Private Reply): vale tentar só com texto. */
-const isFormatError = (e: unknown) => e instanceof ig.GraphError && e.status === 400 && e.code === 100;
+export const isFormatError = (e: unknown) => e instanceof ig.GraphError && e.status === 400 && e.code === 100;
 
 /* ---------- mensagens ---------- */
 
@@ -239,7 +246,7 @@ function followMessage(step: FollowStep, ctx: Ctx, retry: boolean): ig.OutMessag
 }
 
 /** Versão só texto, para quando o Instagram não aceita o botão. */
-function textOnly(m: ig.OutMessage): ig.OutMessage {
+export function textOnly(m: ig.OutMessage): ig.OutMessage {
   const b = m.buttons?.[0];
   if (!b) return m;
   return { text: b.type === "postback" ? `${m.text}\n\nResponda “${b.title}” aqui para continuar.` : `${m.text}\n\n${b.title}: ${b.url}` };
