@@ -3,6 +3,7 @@ import { MemoryStore, getStore, setStoreForTests } from "@/lib/store";
 import { setAccountForTests, testAccountCtx, withAccount, type AccountCtx } from "@/lib/account-context";
 import { listAutomations, isPaused, setPaused } from "@/lib/automations";
 import { processComment, readLog, type Deps } from "@/lib/processor";
+import { listMaterials, removeMaterial, saveMaterial, type MaterialDeps, type MaterialInput } from "@/lib/materials";
 import { readStats } from "@/lib/stats";
 import { extractComments } from "@/lib/webhook";
 import type { Rule } from "@/config/rules";
@@ -83,5 +84,39 @@ describe("isolamento entre contas", () => {
       { id: "222", time: 1, changes: [{ field: "comments", value: { id: "c2", text: "GUIA", media: { id: "m2" }, from: { id: "u2" } } }] },
     ] };
     expect(extractComments(p).map((c) => [c.accountId, c.id])).toEqual([["111", "c1"], ["222", "c2"]]);
+  });
+
+  it("cada conta só vê, edita e exclui os próprios materiais; o mesmo endereço pode existir nas duas", async () => {
+    setAccountForTests(null);
+    setStoreForTests(new MemoryStore());
+    const a = account("111", []);
+    const b = account("222", []);
+    const mdeps: MaterialDeps = { deleteFiles: vi.fn(async () => {}), now: () => NOW };
+    const input = (title: string, over: Partial<MaterialInput> = {}): MaterialInput => ({
+      title, slug: "guia", description: "", coverPath: null, blocks: [{ id: "t1", type: "text", markdown: title }],
+      visibility: "public", ctaPost: "", ctaKeyword: "", ...over,
+    });
+
+    const inA = await withAccount(a, () => saveMaterial(input("Guia da conta A"), "published", mdeps));
+    const inB = await withAccount(b, () => saveMaterial(input("Guia da conta B"), "published", mdeps));
+    expect(inA.ok && inB.ok).toBe(true);
+    if (!inA.ok || !inB.ok) return;
+
+    expect((await withAccount(a, listMaterials)).map((m) => m.title)).toEqual(["Guia da conta A"]);
+    expect((await withAccount(b, listMaterials)).map((m) => m.title)).toEqual(["Guia da conta B"]);
+
+    // A conta B tenta editar e excluir o material da A pelo id: não encontra.
+    const edit = await withAccount(b, () => saveMaterial({ ...input("Invadido", { slug: "outro" }), id: inA.material.id }, "published", mdeps));
+    expect(edit.ok).toBe(false);
+    expect((await withAccount(b, () => removeMaterial(inA.material.id, mdeps))).ok).toBe(false);
+
+    // A conta B tenta usar um arquivo da pasta da A.
+    const steal = await withAccount(b, () => saveMaterial(input("Com arquivo alheio", {
+      slug: "roubo", blocks: [{ id: "f1", type: "file", path: "materials/acc-111/guia.pdf", name: "guia.pdf", size: 10, description: "" }],
+    }), "draft", mdeps));
+    expect(steal.ok).toBe(false);
+
+    expect((await withAccount(a, listMaterials)).map((m) => m.title)).toEqual(["Guia da conta A"]);
+    expect(mdeps.deleteFiles).not.toHaveBeenCalled();
   });
 });

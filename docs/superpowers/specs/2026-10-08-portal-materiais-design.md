@@ -49,7 +49,7 @@ criador, busca e categorias na biblioteca.
 - **Desbloqueio**: quem abriu um exclusivo pelo link pessoal continua vendo esse material aberto
   na biblioteca, no mesmo aparelho.
 
-O portal usa a identidade atual do Much Chat, com o nome de usuário e a foto da conta.
+O portal usa a identidade atual do Much Chat, com o nome de usuário da conta (as iniciais no lugar da foto; a foto do Instagram fica como pendência).
 
 ### Criador (painel)
 
@@ -87,7 +87,7 @@ Três tabelas no Supabase, por conta. Seguem o padrão de `scheduled_posts`: o u
 
 | Coluna | Observação |
 |---|---|
-| `account_id`, `id` | Chave primária composta, como em `automations` |
+| `id`, `account_id` | `id` uuid gerado pelo banco, como em `scheduled_posts` |
 | `slug` | Único por conta; letras minúsculas, números e hífen |
 | `title`, `description`, `cover_path` | Capa é um caminho no Blob |
 | `blocks` | jsonb, validado no servidor |
@@ -186,8 +186,8 @@ arquivo é apagado quando o material é salvo.
   código (para material público) ou registra a falha na execução (para exclusivo, em que o
   endereço sem código não abriria).
 - Arquivo ausente no Blob: a página mostra o bloco com o aviso "arquivo indisponível".
-- Endereço de conta ou material inexistente: página 404 do portal, com link para a biblioteca
-  quando a conta existir.
+- Conta inexistente: página 404 do portal. Material inexistente, excluído ou em rascunho numa
+  conta que existe: redireciona para a biblioteca com um aviso.
 
 ## MCP
 
@@ -219,3 +219,14 @@ Cada etapa é utilizável sozinha e tem o próprio plano de implementação.
    cookie de desbloqueio, `materialId` na automação, etapa `opened` no funil, materiais abertos
    por contato, link externo rastreável.
 3. **MCP e migração.** Ferramentas do MCP e passagem dos materiais do Notion para o portal.
+
+## Pendências da etapa 1
+
+- Foto do perfil no topo do portal (hoje aparecem as iniciais).
+- A migração `20261008000000_materials.sql` ainda não foi executada em nenhum banco: o Docker local estava desligado durante a implementação. Rodar no ambiente local antes de aplicar em produção.
+- Envio de capa, imagem e arquivo, e o download pelo portal, só podem ser conferidos em produção (o ambiente local não tem Blob).
+- Arquivos enviados e trocados antes de salvar ficam órfãos no Blob (mesma pendência da limpeza periódica das publicações).
+- Dois salvamentos simultâneos com o mesmo endereço: o segundo recebe uma mensagem genérica de erro em vez de "Já existe um material com esse endereço".
+- Um link com crase no endereço, no bloco de Texto, gera um link malformado (sem risco de segurança).
+- O nome de usuário não é único no banco: se duas contas tiverem o mesmo nome, vale a atualizada mais recentemente.
+- Os achados das revisões de segurança e de texto entram aqui depois que elas terminarem.

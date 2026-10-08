@@ -54,7 +54,7 @@ npm run dev:db:stop
 | `app/api/webhooks/instagram` | Webhook (verificação GET + POST com assinatura `X-Hub-Signature-256`) |
 | `app/api/cron/sweep` | Varredura diária de todas as contas |
 | `app/api/auth/instagram` | Conectar o Instagram (OAuth) na conta do usuário logado; já inscreve no webhook |
-| `app/painel` | Painel: visão geral, automações (construtor em blocos), execuções, contatos, métricas e funil, configurações |
+| `app/painel` | Painel: visão geral, automações (construtor em blocos), materiais, execuções, contatos, métricas e funil, configurações |
 | `app/(publico)` | Página inicial, privacidade e exclusão de dados |
 
 **Fluxo em blocos.** Cada automação é uma lista de blocos executados em ordem:
