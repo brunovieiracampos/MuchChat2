@@ -26,7 +26,7 @@ export type Material = {
   blocks: Block[];
   visibility: MaterialVisibility;
   status: MaterialStatus;
-  /** Chamada do material trancado: post e palavra que a pessoa comenta para receber. Vazios = sem chamada. */
+  /** Convite do material exclusivo: post e palavra que a pessoa comenta para receber. Vazios = sem convite. */
   ctaPost: string;
   ctaKeyword: string;
   publishedAt: number | null;
@@ -60,11 +60,20 @@ export const FILE_TYPES: Record<string, string> = {
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
+/** "PDF, ZIP, CSV, ..., DOCX ou PPTX": os tipos de FILE_TYPES, para as mensagens e a ajuda. */
+export const fileTypesText = () => {
+  const names = Object.keys(FILE_TYPES).map((e) => e.toUpperCase());
+  return `${names.slice(0, -1).join(", ")} ou ${names[names.length - 1]}`;
+};
+
+/** Mensagem de tipo de arquivo não aceito, com a lista do que vale. */
+export const fileTypeMessage = () => `Esse tipo de arquivo não é aceito. Envie ${fileTypesText()}.`;
+
 export const BLOCK_META: Record<BlockType, { label: string; help: string }> = {
   text: { label: "Texto", help: "Parágrafos, títulos e listas, com Markdown simples" },
   prompt: { label: "Prompt", help: "Texto para copiar, com botão de copiar" },
   file: { label: "Arquivo", help: "PDF, planilha ou outro arquivo para baixar" },
-  links: { label: "Lista de links", help: "Ferramentas e referências, cada uma com título e endereço" },
+  links: { label: "Lista de links", help: "Ferramentas e referências, cada um com título e URL" },
   image: { label: "Imagem", help: "Imagem com legenda opcional" },
 };
 
@@ -145,8 +154,9 @@ export function validateMaterial(m: MaterialDraft, opts: { publish: boolean }): 
     out.push({ field: "slug", message: `O endereço aceita letras minúsculas sem acento, números e hífen (até ${SLUG_MAX} caracteres).` });
   }
   if (m.description.length > DESCRIPTION_MAX) out.push({ field: "description", message: `A descrição pode ter até ${DESCRIPTION_MAX} caracteres.` });
+  if (m.coverPath && fileExt(m.coverPath) !== "jpg") out.push({ field: "cover", message: "A capa precisa ser uma imagem." });
   if (m.ctaPost && !isHttpUrl(m.ctaPost)) out.push({ field: "cta", message: "O link do post precisa começar com http:// ou https://." });
-  if (m.ctaKeyword.length > CTA_KEYWORD_MAX) out.push({ field: "cta", message: `A palavra-chave pode ter até ${CTA_KEYWORD_MAX} caracteres.` });
+  if (m.ctaKeyword.length > CTA_KEYWORD_MAX) out.push({ field: "cta", message: `A palavra que a pessoa comenta pode ter até ${CTA_KEYWORD_MAX} caracteres.` });
 
   if (m.blocks.length > MAX_BLOCKS) out.push({ field: "blocks", message: `Um material pode ter até ${MAX_BLOCKS} blocos.` });
   if (new Set(m.blocks.map((b) => b.id)).size !== m.blocks.length) out.push({ field: "blocks", message: "Há blocos repetidos. Recarregue a página e tente de novo." });
@@ -164,17 +174,18 @@ export function validateMaterial(m: MaterialDraft, opts: { publish: boolean }): 
     }
     if (b.type === "file") {
       if (b.size > FILE_MAX_BYTES) add("O arquivo passa de 25 MB.");
-      else if (b.path && !FILE_TYPES[fileExt(b.path)]) add("Esse tipo de arquivo não é aceito.");
+      else if (b.path && !FILE_TYPES[fileExt(b.path)]) add(fileTypeMessage());
       else if (opts.publish && (!b.path || !b.name.trim())) add("Envie o arquivo ou remova o bloco.");
     }
     if (b.type === "links") {
       const filled = b.items.filter((i) => i.title.trim() || i.url.trim());
       if (b.items.length > LINKS_MAX) add(`A lista pode ter até ${LINKS_MAX} links.`);
       else if (filled.some((i) => i.url.trim() && !isHttpUrl(i.url.trim()))) add("Os links precisam começar com http:// ou https://.");
-      else if (opts.publish && (!filled.length || filled.some((i) => !i.title.trim() || !i.url.trim()))) add("Cada link precisa de título e endereço.");
+      else if (opts.publish && (!filled.length || filled.some((i) => !i.title.trim() || !i.url.trim()))) add("Cada link precisa de título e URL.");
     }
     if (b.type === "image") {
-      if (opts.publish && !b.path) add("Envie a imagem ou remova o bloco.");
+      if (b.path && fileExt(b.path) !== "jpg") add("Envie uma imagem neste bloco.");
+      else if (opts.publish && !b.path) add("Envie a imagem ou remova o bloco.");
     }
   }
   return out;

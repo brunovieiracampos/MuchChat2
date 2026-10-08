@@ -30,8 +30,10 @@ export function MaterialList({ rows, username }: { rows: MaterialRow[]; username
     const publish = r.status !== "published";
     setBusy(r.id);
     start(async () => {
-      const res = await setMaterialStatusAction(r.id, publish ? "published" : "draft");
-      setBusy(null);
+      let res;
+      try { res = await setMaterialStatusAction(r.id, publish ? "published" : "draft"); } catch {
+        return toast("Não foi possível alterar", "red");
+      } finally { setBusy(null); }
       if (!res.ok) return toast(res.issues?.[0]?.message ?? res.error ?? "Não foi possível alterar", "red");
       toast(publish ? `“${r.title}” publicado` : `“${r.title}” voltou para rascunho`, publish ? "green" : "amber");
       router.refresh();

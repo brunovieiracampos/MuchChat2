@@ -27,6 +27,8 @@ alter table public.materials enable row level security;
 -- renderizadas no servidor (lib/portal.ts).
 revoke all on public.materials from anon, authenticated;
 grant select on public.materials to authenticated;
+-- O servidor (chave de serviço) grava e lê tudo; o revoke acima não deixa esse acesso por padrão.
+grant select, insert, update, delete on public.materials to service_role;
 
 drop policy if exists "material: ver os da própria conta" on public.materials;
 create policy "material: ver os da própria conta" on public.materials

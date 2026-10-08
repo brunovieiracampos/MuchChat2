@@ -228,5 +228,9 @@ Cada etapa é utilizável sozinha e tem o próprio plano de implementação.
 - Arquivos enviados e trocados antes de salvar ficam órfãos no Blob (mesma pendência da limpeza periódica das publicações).
 - Dois salvamentos simultâneos com o mesmo endereço: o segundo recebe uma mensagem genérica de erro em vez de "Já existe um material com esse endereço".
 - Um link com crase no endereço, no bloco de Texto, gera um link malformado (sem risco de segurança).
-- O nome de usuário não é único no banco: se duas contas tiverem o mesmo nome, vale a atualizada mais recentemente.
-- Os achados das revisões de segurança e de texto entram aqui depois que elas terminarem.
+- Antes de abrir o portal a outros criadores: o endereço `/m/{conta}` é resolvido pelo nome de usuário, que não é único no banco. Criar um identificador de portal único e estável.
+- Cache dos links assinados das imagens (hoje cada visita assina cada imagem de novo).
+- Um link assinado continua válido por até 1 hora (imagem) ou 5 minutos (arquivo) depois de o material ser despublicado.
+- Cabeçalhos de segurança (CSP) nas páginas do portal.
+- O tipo real do arquivo enviado não é conferido, só a extensão e o tipo declarado.
+- O nome do arquivo baixado e se ele abre no navegador ou baixa direto dependem do Blob; conferir em produção.

@@ -56,6 +56,13 @@ describe("validação do material", () => {
     expect(issues.every((i) => i.field === "blocks" && !!i.blockId)).toBe(true);
   });
 
+  it("capa e bloco de imagem precisam ser .jpg", () => {
+    expect(messages(draft({ coverPath: "materials/acc-test/guia.pdf" }), false)).toEqual(["A capa precisa ser uma imagem."]);
+    expect(messages(draft({ coverPath: "materials/acc-test/capa.jpg" }), false)).toEqual([]);
+    expect(messages(draft({ blocks: [image("materials/acc-test/guia.pdf")] }), false)).toEqual(["Envie uma imagem neste bloco."]);
+    expect(messages(draft({ blocks: [image()] }))).toEqual([]);
+  });
+
   it("rascunho aceita bloco vazio", () => {
     expect(messages(draft({ blocks: [blankBlock("prompt"), blankBlock("file")] }), false)).toEqual([]);
   });
@@ -91,6 +98,8 @@ describe("arquivos do material", () => {
     expect(ownsMaterialFile("acc-1", "materials/acc-2/a.pdf")).toBe(false);
     expect(ownsMaterialFile("acc-1", "materials/acc-1/../acc-2/a.pdf")).toBe(false);
     expect(ownsMaterialFile("acc-1", "posts/acc-1/a.jpg")).toBe(false);
+    expect(ownsMaterialFile("acc-1", "materials/acc-1/uuid/guia-de-prompts.pdf")).toBe(true);
+    expect(uploadRule("materials/acc-1/uuid/guia-de-prompts.pdf")).toEqual({ contentType: "application/pdf", maxBytes: FILE_MAX_BYTES });
   });
 
   it("define tipo e limite de envio pela extensão", () => {

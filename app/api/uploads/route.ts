@@ -1,6 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { accountForUser } from "@/lib/accounts";
-import { ownsMaterialFile, uploadRule } from "@/lib/material";
+import { fileExt, fileTypeMessage, ownsMaterialFile, uploadRule } from "@/lib/material";
 import { mediaPrefix } from "@/lib/media-store";
 import { IMAGE_MAX_BYTES, VIDEO_MAX_BYTES } from "@/lib/posts";
 import { allowKey } from "@/lib/ratelimit";
@@ -30,8 +30,9 @@ export async function POST(req: Request) {
         if (!(await allowKey(`upload:${account.accountId}`, { limit: 60, windowSec: 3600 }))) throw new Error("Muitos envios seguidos. Espere alguns minutos.");
         if (forMaterial) {
           const rule = uploadRule(pathname);
-          if (!rule) throw new Error("Tipo de arquivo não aceito. Envie imagem, PDF, ZIP, CSV, TXT, MD, JSON, XLSX, DOCX ou PPTX.");
-          return { allowedContentTypes: [rule.contentType], maximumSizeInBytes: rule.maxBytes, addRandomSuffix: true, validUntil: Date.now() + 10 * 60e3 };
+          if (!rule) throw new Error(fileTypeMessage());
+          // Arquivo vai numa pasta com UUID (editor) e mantém o nome; só a imagem ganha sufixo aleatório.
+          return { allowedContentTypes: [rule.contentType], maximumSizeInBytes: rule.maxBytes, addRandomSuffix: fileExt(pathname) === "jpg", validUntil: Date.now() + 10 * 60e3 };
         }
         const ext = pathname.toLowerCase().split(".").pop();
         const video = ext === "mp4" || ext === "mov";

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BlocksView } from "@/app/_portal/blocks";
-import { materialFiles, portalView } from "@/lib/material";
-import { portalAccount, portalMaterial, portalUrls } from "@/lib/portal";
+import { isHttpUrl, materialFiles, portalView } from "@/lib/material";
+import { portalAccount, portalAllowed, portalMaterial, portalUrls } from "@/lib/portal";
 import { PRODUCT } from "@/config/site";
 import { PortalHead } from "../../../_components/portal-head";
 
@@ -26,6 +26,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PaginaDoMaterial({ params, searchParams }: Props) {
+  if (!(await portalAllowed())) {
+    return (
+      <main className="pt-wrap">
+        <h1 className="pt-title">Muitas visitas agora</h1>
+        <p className="pt-desc">Espere um instante e recarregue a página.</p>
+      </main>
+    );
+  }
   const [{ conta, slug }, sp] = await Promise.all([params, searchParams]);
   const account = await portalAccount(conta);
   if (!account) notFound();
@@ -46,12 +54,12 @@ export default async function PaginaDoMaterial({ params, searchParams }: Props) 
           <div className="pt-lock-title">Este material é exclusivo</div>
           {view.ctaKeyword ? (
             <p>
-              Comente <strong>{view.ctaKeyword}</strong> {view.ctaPost ? "neste post" : `em um post de @${account.username}`} para receber o link no direct.
+              Comente <strong>{view.ctaKeyword}</strong> {isHttpUrl(view.ctaPost) ? "neste post" : `em um post de @${account.username}`} para receber o link no direct.
             </p>
           ) : (
             <p>Ele é enviado no direct para quem participa das publicações de @{account.username}.</p>
           )}
-          {view.ctaPost && <a className="pn-btn is-primary" href={view.ctaPost} target="_blank" rel="noopener noreferrer">Abrir o post</a>}
+          {isHttpUrl(view.ctaPost) && <a className="pn-btn is-primary" href={view.ctaPost} target="_blank" rel="noopener noreferrer">Abrir o post</a>}
           <p><Link href={`/m/${account.username}`}>Ver os outros materiais</Link></p>
         </div>
       </main>

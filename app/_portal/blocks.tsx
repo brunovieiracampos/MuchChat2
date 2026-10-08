@@ -10,12 +10,14 @@ function host(url: string): string {
  * Blocos de um material, na ordem. Usado na página pública e na pré-visualização do editor.
  * Bloco ainda vazio (rascunho) não aparece, exceto arquivo e imagem sem endereço, que mostram um aviso.
  */
-export function BlocksView({ blocks, urls, fileHref }: {
+export function BlocksView({ blocks, urls, fileHref, preview }: {
   blocks: Block[];
   /** Caminho da imagem no armazenamento → endereço para mostrar. */
   urls: Record<string, string>;
   /** Endereço de download de um bloco de arquivo; null mostra o bloco sem link. */
   fileHref: (blockId: string) => string | null;
+  /** Pré-visualização do editor: o arquivo aparece como disponível, mesmo sem link. */
+  preview?: boolean;
 }) {
   return (
     <div className="pt-blocks">
@@ -41,12 +43,12 @@ export function BlocksView({ blocks, urls, fileHref }: {
                 <span className="pt-file-name" style={{ display: "block" }}>{b.name}</span>
                 <span className="pt-file-sub">{b.description.trim() ? `${b.description.trim()} · ` : ""}{formatBytes(b.size)}</span>
               </span>
-              <span className="pt-file-go">{href ? "Baixar" : "Indisponível"}</span>
+              <span className="pt-file-go">{href || preview ? "Baixar" : "Indisponível"}</span>
             </>
           );
           return href
             ? <a key={b.id} className="pt-file" href={href}>{inner}</a>
-            : <div key={b.id} className="pt-file is-off">{inner}</div>;
+            : <div key={b.id} className={preview ? "pt-file" : "pt-file is-off"}>{inner}</div>;
         }
         if (b.type === "links") {
           const items = b.items.filter((i) => i.title.trim() && isHttpUrl(i.url.trim()));

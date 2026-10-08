@@ -7,7 +7,7 @@ import { BlocksView } from "@/app/_portal/blocks";
 import "@/app/_portal/portal.css";
 import {
   BLOCK_META, CTA_KEYWORD_MAX, DESCRIPTION_MAX, FILE_MAX_BYTES, FILE_TYPES, LINKS_MAX, MAX_BLOCKS, TITLE_MAX,
-  blankBlock, fileExt, formatBytes, slugify, validateMaterial,
+  blankBlock, fileExt, fileTypeMessage, fileTypesText, formatBytes, slugify, validateMaterial,
   type Block, type BlockType, type LinkItem, type Material, type MaterialDraft, type MaterialIssue, type MaterialStatus, type MaterialVisibility,
 } from "@/lib/material";
 import { deleteMaterialAction, saveMaterialAction } from "./actions";
@@ -81,9 +81,11 @@ export function MaterialEditor({ material, previews, prefix, username }: {
     void send(id, async () => {
       const ext = fileExt(file.name);
       const contentType = FILE_TYPES[ext];
-      if (!contentType) throw new Error(`“${file.name}” não é um tipo aceito. Envie PDF, ZIP, CSV, TXT, MD, JSON, XLSX, DOCX ou PPTX.`);
+      if (!contentType) throw new Error(`“${file.name}”: ${fileTypeMessage().replace(/^Esse/, "esse")}`);
       if (file.size > FILE_MAX_BYTES) throw new Error("O arquivo passa de 25 MB.");
-      const res = await upload(`${prefix}${crypto.randomUUID()}.${ext}`, file, {
+      // Pasta com UUID evita colisão e deixa o nome legível no download.
+      const base = slugify(file.name.replace(/\.[^.]*$/, "")) || "arquivo";
+      const res = await upload(`${prefix}${crypto.randomUUID()}/${base}.${ext}`, file, {
         access: "private", handleUploadUrl: "/api/uploads", contentType, multipart: file.size > 8 * 1024 * 1024,
       });
       patch(id, { path: res.pathname, name: file.name, size: file.size });
@@ -95,7 +97,11 @@ export function MaterialEditor({ material, previews, prefix, username }: {
     const local = validateMaterial({ ...draft, title: title.trim(), slug: slug.trim() }, { publish: status === "published" });
     if (local.length) { setIssues(local); return; }
     start(async () => {
-      const r = await saveMaterialAction({ ...draft, id: material?.id }, status);
+      let r;
+      try { r = await saveMaterialAction({ ...draft, id: material?.id }, status); } catch {
+        toast("Não foi possível salvar. Confira a conexão e tente de novo.", "red");
+        return;
+      }
       if (!r.ok) { setIssues(r.issues ?? [{ field: "title", message: r.error ?? "Não foi possível salvar." }]); return; }
       setIssues([]);
       toast(status === "published" ? "Material publicado" : published ? "Material voltou para rascunho" : "Rascunho salvo", status === "published" ? "green" : undefined);
@@ -106,7 +112,11 @@ export function MaterialEditor({ material, previews, prefix, username }: {
 
   const destroy = () => start(async () => {
     if (!material) return;
-    const r = await deleteMaterialAction(material.id);
+    let r;
+    try { r = await deleteMaterialAction(material.id); } catch {
+      setAskDelete(false);
+      return toast("Não foi possível excluir. Confira a conexão e tente de novo.", "red");
+    }
     setAskDelete(false);
     if (!r.ok) return toast(r.issues?.[0]?.message ?? r.error ?? "Não foi possível excluir.", "red");
     toast("Material excluído");
@@ -179,7 +189,7 @@ export function MaterialEditor({ material, previews, prefix, username }: {
           <div className="pn-help">
             {visibility === "public"
               ? "Qualquer pessoa com o endereço abre, e o material aparece na biblioteca."
-              : "Aparece trancado na biblioteca, com a chamada para comentar no post. Por enquanto ninguém consegue abrir um material exclusivo: a liberação por link pessoal chega na próxima etapa."}
+              : "Aparece na biblioteca como exclusivo, com o convite para comentar no post, mas por enquanto ninguém consegue abrir: a liberação por link pessoal ainda não existe."}
           </div>
           {visibility === "exclusive" && (
             <>
@@ -190,7 +200,7 @@ export function MaterialEditor({ material, previews, prefix, username }: {
               <label>
                 <span className="pn-field-label">Link do post</span>
                 <input className={`pn-input${fieldIssue("cta") ? " is-error" : ""}`} value={ctaPost} onChange={(e) => setCtaPost(e.target.value)} placeholder="https://www.instagram.com/p/…" inputMode="url" />
-                <span className="pn-help" style={{ display: "block" }}>Os dois são opcionais. Preenchidos, a página trancada mostra “Comente {ctaKeyword.trim() || "PALAVRA"} neste post para receber”.</span>
+                <span className="pn-help" style={{ display: "block" }}>Os dois campos são opcionais. Com a palavra e o link preenchidos, o material exclusivo mostra “Comente {ctaKeyword.trim() || "PALAVRA"} neste post para receber”.</span>
               </label>
             </>
           )}
@@ -235,7 +245,7 @@ export function MaterialEditor({ material, previews, prefix, username }: {
                     <input type="file" accept={ACCEPT_FILES} hidden disabled={sending[b.id]} onChange={(e) => { pickFile(b.id, e.target.files?.[0]); e.target.value = ""; }} />
                   </label>
                 </div>
-                <span className="pn-help">PDF, ZIP, CSV, TXT, MD, JSON, XLSX, DOCX ou PPTX, até 25 MB.</span>
+                <span className="pn-help">{fileTypesText()}, até 25 MB.</span>
                 {b.path && (
                   <>
                     <label>
@@ -316,7 +326,7 @@ export function MaterialEditor({ material, previews, prefix, username }: {
             <h1 className="pt-title">{title.trim() || "Título do material"}</h1>
             {description.trim() && <p className="pt-desc">{description}</p>}
             {coverPath && urls[coverPath] && <img className="pt-cover" src={urls[coverPath]} alt="" />}
-            <BlocksView blocks={blocks} urls={urls} fileHref={() => null} />
+            <BlocksView blocks={blocks} urls={urls} fileHref={() => null} preview />
             {!blocks.length && <div className="pt-empty" style={{ marginTop: 20 }}>Adicione um bloco para ver aqui.</div>}
           </div>
         </div>
@@ -340,7 +350,7 @@ function LinksEditor({ items, onChange }: { items: LinkItem[]; onChange: (items:
             <input className="pn-input" value={it.title} maxLength={120} onChange={(e) => set(i, { title: e.target.value })} placeholder="Título" aria-label={`Título do link ${i + 1}`} />
             <button type="button" className="pn-btn is-sm" onClick={() => onChange(items.filter((_, k) => k !== i))} aria-label={`Remover link ${i + 1}`}>Remover</button>
           </div>
-          <input className="pn-input" value={it.url} onChange={(e) => set(i, { url: e.target.value })} placeholder="https://…" inputMode="url" aria-label={`Endereço do link ${i + 1}`} />
+          <input className="pn-input" value={it.url} onChange={(e) => set(i, { url: e.target.value })} placeholder="https://…" inputMode="url" aria-label={`URL do link ${i + 1}`} />
           <input className="pn-input" value={it.description} maxLength={200} onChange={(e) => set(i, { description: e.target.value })} placeholder="Descrição (opcional)" aria-label={`Descrição do link ${i + 1}`} />
         </div>
       ))}

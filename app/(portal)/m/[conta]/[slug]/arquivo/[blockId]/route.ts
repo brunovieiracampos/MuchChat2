@@ -15,7 +15,12 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request, { params }: { params: Promise<{ conta: string; slug: string; blockId: string }> }) {
   const { conta, slug, blockId } = await params;
-  if (!(await allowKey(`portal-dl:${await clientIp()}`, { limit: 60, windowSec: 600 }))) return new Response(RATE_MESSAGE, { status: 429 });
+  // Se o limitador falhar (Redis fora), o download segue.
+  const allowed = await allowKey(`portal-dl:${await clientIp()}`, { limit: 60, windowSec: 600 }).catch((e) => {
+    console.error("[portal] limitador indisponível; liberando", e);
+    return true;
+  });
+  if (!allowed) return new Response(RATE_MESSAGE, { status: 429 });
 
   const account = await portalAccount(conta);
   const material = account ? await portalMaterial(account.accountId, slug) : null;

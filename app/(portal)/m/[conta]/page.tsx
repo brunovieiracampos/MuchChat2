@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { portalAccount, portalLibrary, portalUrls } from "@/lib/portal";
+import { portalAccount, portalAllowed, portalLibrary, portalUrls } from "@/lib/portal";
 import { PRODUCT } from "@/config/site";
 import { PortalHead } from "../../_components/portal-head";
 
@@ -16,7 +16,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `Materiais de @${account.username}`, description: `Guias, prompts e arquivos de @${account.username}.` };
 }
 
+function Muitas() {
+  return (
+    <main className="pt-wrap">
+      <h1 className="pt-title">Muitas visitas agora</h1>
+      <p className="pt-desc">Espere um instante e recarregue a página.</p>
+    </main>
+  );
+}
+
 export default async function Biblioteca({ params, searchParams }: Props) {
+  if (!(await portalAllowed())) return <Muitas />;
   const [{ conta }, sp] = await Promise.all([params, searchParams]);
   const account = await portalAccount(conta);
   if (!account) notFound();

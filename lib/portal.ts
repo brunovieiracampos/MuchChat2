@@ -3,6 +3,7 @@ import { cache } from "react";
 import { toMaterial } from "@/lib/accounts";
 import { SLUG_RE, isPortalUsername, ownsMaterialFile, type Material } from "@/lib/material";
 import { signedUrl } from "@/lib/media-store";
+import { allowKey, clientIp } from "@/lib/ratelimit";
 import { createAdminClient } from "@/lib/supabase/server";
 
 /**
@@ -11,6 +12,16 @@ import { createAdminClient } from "@/lib/supabase/server";
  */
 
 export type PortalAccount = { accountId: string; username: string };
+
+/** Limite das páginas públicas: 600 visitas a cada 5 minutos por IP. Se o limitador cair, a página abre. */
+export async function portalAllowed(): Promise<boolean> {
+  try {
+    return await allowKey(`portal:${await clientIp()}`, { limit: 600, windowSec: 300 });
+  } catch (e) {
+    console.error("[portal] limitador indisponível; liberando", e);
+    return true;
+  }
+}
 
 /** Conta dona do portal, pelo nome de usuário do endereço. */
 export const portalAccount = cache(async (raw: string): Promise<PortalAccount | null> => {
@@ -30,7 +41,7 @@ const CARD_COLUMNS = "id, slug, title, description, cover_path, visibility, stat
 /** Materiais publicados da conta, do mais recente para o mais antigo, sem os blocos. */
 export async function portalLibrary(accountId: string): Promise<Material[]> {
   const { data, error } = await createAdminClient().from("materials").select(CARD_COLUMNS)
-    .eq("account_id", accountId).eq("status", "published").order("published_at", { ascending: false });
+    .eq("account_id", accountId).eq("status", "published").order("published_at", { ascending: false }).limit(200);
   if (error) throw new Error(`Falha ao ler a biblioteca: ${error.message}`);
   return (data ?? []).map(toMaterial);
 }
