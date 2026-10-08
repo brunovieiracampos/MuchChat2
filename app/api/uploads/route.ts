@@ -1,5 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { accountForUser } from "@/lib/accounts";
+import { ownsMaterialFile, uploadRule } from "@/lib/material";
 import { mediaPrefix } from "@/lib/media-store";
 import { IMAGE_MAX_BYTES, VIDEO_MAX_BYTES } from "@/lib/posts";
 import { allowKey } from "@/lib/ratelimit";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
  * Autoriza o navegador a enviar uma mídia direto para o Blob privado (sem passar pelo limite de 4,5 MB das funções).
  * Só usuário logado, com Instagram conectado, gravando dentro de posts/{accountId}/.
  * Pela extensão: .jpg (imagem ou capa de vídeo) até 8 MB; .mp4 ou .mov (Reels e Story de vídeo) até 300 MB.
+ * Materiais do portal gravam em materials/{accountId}/: .jpg até 8 MB e os tipos de FILE_TYPES até 25 MB.
  */
 export async function POST(req: Request) {
   const body = (await req.json()) as HandleUploadBody;
@@ -23,8 +25,14 @@ export async function POST(req: Request) {
         const user = await getUser();
         const account = user ? await accountForUser(user.id) : null;
         if (!account) throw new Error("Entre e conecte o Instagram para enviar mídia.");
-        if (!pathname.startsWith(mediaPrefix(account.accountId)) || pathname.includes("..")) throw new Error("Caminho de envio inválido.");
+        const forMaterial = ownsMaterialFile(account.accountId, pathname);
+        if ((!forMaterial && !pathname.startsWith(mediaPrefix(account.accountId))) || pathname.includes("..")) throw new Error("Caminho de envio inválido.");
         if (!(await allowKey(`upload:${account.accountId}`, { limit: 60, windowSec: 3600 }))) throw new Error("Muitos envios seguidos. Espere alguns minutos.");
+        if (forMaterial) {
+          const rule = uploadRule(pathname);
+          if (!rule) throw new Error("Tipo de arquivo não aceito. Envie imagem, PDF, ZIP, CSV, TXT, MD, JSON, XLSX, DOCX ou PPTX.");
+          return { allowedContentTypes: [rule.contentType], maximumSizeInBytes: rule.maxBytes, addRandomSuffix: true, validUntil: Date.now() + 10 * 60e3 };
+        }
         const ext = pathname.toLowerCase().split(".").pop();
         const video = ext === "mp4" || ext === "mov";
         if (!video && ext !== "jpg") throw new Error("Envie imagem (JPEG) ou vídeo MP4 ou MOV.");
