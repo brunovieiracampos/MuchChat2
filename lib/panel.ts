@@ -5,6 +5,8 @@ import { accountForUser } from "@/lib/accounts";
 import { buildExecutions } from "@/lib/activity";
 import { isPaused, listAutomations } from "@/lib/automations";
 import { getMe, getProfile as fetchProfile, isDryRun, listMediaPage, type IgMedia, type IgProfile } from "@/lib/instagram";
+import type { Material } from "@/lib/material";
+import { listMaterials } from "@/lib/materials";
 import { readLog } from "@/lib/processor";
 import { requireSession } from "@/lib/session";
 import { readStats, type RawStats } from "@/lib/stats";
@@ -70,6 +72,9 @@ export const getStats = cache(async (): Promise<Map<string, RawStats>> => scoped
 
 /** Publicações da conta (agendadas, rascunhos, publicadas). */
 export const getPosts = cache(async (): Promise<ScheduledPost[]> => scoped(() => currentAccount().repo.listPosts(), []));
+
+/** Materiais do portal da conta, do mais novo para o mais antigo. */
+export const getMaterials = cache(async (): Promise<Material[]> => scoped(() => listMaterials(), []));
 
 export const PERIODS = [
   { days: 7, label: "7 dias" },

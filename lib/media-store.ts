@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import { jpegSize } from "@/lib/jpeg";
 import { isPrivateIp } from "@/lib/net";
+import { ownsMaterialFile } from "@/lib/material";
 import { IMAGE_MAX_BYTES, type PostMedia } from "@/lib/posts";
 
 /**
@@ -33,6 +34,21 @@ export async function signedUrls(accountId: string, paths: string[], ttlMs?: num
 /** Apaga só arquivos da conta. */
 export async function deleteMedia(accountId: string, paths: string[]): Promise<void> {
   const mine = paths.filter((p) => ownsMedia(accountId, p));
+  if (mine.length) await del(mine);
+}
+
+/* ---------- materiais do portal (materials/{accountId}/) ---------- */
+
+/** Links temporários só para arquivos de material da conta (padrão: 1 hora). Arquivo que falhar fica de fora. */
+export async function materialSignedUrls(accountId: string, paths: string[], ttlMs = 3600e3): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  await Promise.all(paths.filter((p) => ownsMaterialFile(accountId, p)).map(async (p) => { try { out[p] = await signedUrl(p, ttlMs); } catch { /* arquivo já apagado */ } }));
+  return out;
+}
+
+/** Apaga só arquivos de material da conta. */
+export async function deleteMaterialFiles(accountId: string, paths: string[]): Promise<void> {
+  const mine = paths.filter((p) => ownsMaterialFile(accountId, p));
   if (mine.length) await del(mine);
 }
 
