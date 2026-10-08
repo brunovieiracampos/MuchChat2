@@ -1,7 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Rule } from "@/config/rules";
-import type { AccountCtx, AccountRepo, PostCond } from "@/lib/account-context";
+import type { AccountCtx, AccountRepo, NewMaterial, PostCond } from "@/lib/account-context";
+import type { Material } from "@/lib/material";
 import type { ScheduledPost } from "@/lib/posts";
 import { open, seal } from "@/lib/secret-box";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
@@ -81,6 +82,37 @@ class SupabaseRepo implements AccountRepo {
     if (error) throw new Error(`Falha ao excluir a publicação: ${error.message}`);
   }
 
+  async listMaterials(): Promise<Material[]> {
+    const { data, error } = await this.db.from("materials").select("*").eq("account_id", this.accountId).order("created_at", { ascending: false });
+    if (error) throw new Error(`Falha ao ler materiais: ${error.message}`);
+    return (data ?? []).map(toMaterial);
+  }
+
+  async getMaterial(id: string): Promise<Material | null> {
+    const { data, error } = await this.db.from("materials").select("*").eq("account_id", this.accountId).eq("id", id).maybeSingle();
+    if (error) throw new Error(`Falha ao ler o material: ${error.message}`);
+    return data ? toMaterial(data) : null;
+  }
+
+  // Escritas de materiais só pelo servidor (o navegador tem acesso só de leitura), sempre filtrando pela conta.
+  async createMaterial(m: NewMaterial): Promise<Material> {
+    const { data, error } = await createAdminClient().from("materials").insert({ ...fromMaterial(m), account_id: this.accountId }).select("*").single();
+    if (error) throw new Error(`Falha ao criar o material: ${error.message}`);
+    return toMaterial(data);
+  }
+
+  async updateMaterial(id: string, patch: Partial<NewMaterial>): Promise<Material | null> {
+    const { data, error } = await createAdminClient().from("materials").update({ ...fromMaterial(patch), updated_at: new Date().toISOString() })
+      .eq("account_id", this.accountId).eq("id", id).select("*").maybeSingle();
+    if (error) throw new Error(`Falha ao salvar o material: ${error.message}`);
+    return data ? toMaterial(data) : null;
+  }
+
+  async deleteMaterial(id: string): Promise<void> {
+    const { error } = await createAdminClient().from("materials").delete().eq("account_id", this.accountId).eq("id", id);
+    if (error) throw new Error(`Falha ao excluir o material: ${error.message}`);
+  }
+
   async saveToken(token: string, refreshedAt: number): Promise<void> {
     const { error } = await createAdminClient().from("instagram_accounts")
       .update({ token_ciphertext: seal(token), token_refreshed_at: new Date(refreshedAt).toISOString(), updated_at: new Date().toISOString() })
@@ -119,6 +151,32 @@ function fromPost(p: Partial<ScheduledPost>): PostRow {
   ];
   const row: PostRow = {};
   for (const [k, col, f] of map) if (k in p) row[col] = f(p[k] as never);
+  return row;
+}
+
+/* ---------- materiais: linha do banco ↔ objeto ---------- */
+
+/** Uma consulta que não seleciona `blocks` (a biblioteca do portal) devolve o material com a lista vazia. */
+export function toMaterial(r: Record<string, unknown>): Material {
+  return {
+    id: String(r.id), slug: String(r.slug), title: String(r.title ?? ""), description: String(r.description ?? ""),
+    coverPath: (r.cover_path as string) ?? null, blocks: (r.blocks as Material["blocks"]) ?? [],
+    visibility: r.visibility as Material["visibility"], status: r.status as Material["status"],
+    ctaPost: String(r.cta_post ?? ""), ctaKeyword: String(r.cta_keyword ?? ""),
+    publishedAt: ms(r.published_at), createdAt: ms(r.created_at) ?? Date.now(), updatedAt: ms(r.updated_at) ?? Date.now(),
+  };
+}
+
+/** Só os campos presentes em `m` vão para o banco. */
+function fromMaterial(m: Partial<NewMaterial>): Record<string, unknown> {
+  const map: [keyof NewMaterial, string, (v: never) => unknown][] = [
+    ["slug", "slug", (v) => v], ["title", "title", (v) => v], ["description", "description", (v) => v],
+    ["coverPath", "cover_path", (v) => v], ["blocks", "blocks", (v) => v], ["visibility", "visibility", (v) => v],
+    ["status", "status", (v) => v], ["ctaPost", "cta_post", (v) => v], ["ctaKeyword", "cta_keyword", (v) => v],
+    ["publishedAt", "published_at", iso],
+  ];
+  const row: Record<string, unknown> = {};
+  for (const [k, col, f] of map) if (k in m) row[col] = f(m[k] as never);
   return row;
 }
 

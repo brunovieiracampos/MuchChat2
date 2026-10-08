@@ -61,6 +61,7 @@ const profiles = rows("select * from public.profiles");
 const accounts = rows("select * from public.instagram_accounts");
 const automations = rows("select * from public.automations");
 const posts = rows("select * from public.scheduled_posts");
+const materials = rows("select * from public.materials");
 
 // Token falso, no mesmo formato de lib/secret-box.ts, com a chave do ambiente local.
 function seal(plain) {
@@ -86,9 +87,9 @@ for (const u of users) {
 }
 // O gatilho on_auth_user_created já criou os perfis; trocamos pelos de produção.
 sql += "\ndelete from public.profiles;\n" + insert("public.profiles", profiles);
-sql += insert("public.instagram_accounts", accounts) + insert("public.automations", automations) + insert("public.scheduled_posts", posts);
+sql += insert("public.instagram_accounts", accounts) + insert("public.automations", automations) + insert("public.scheduled_posts", posts) + insert("public.materials", materials);
 writeFileSync("supabase/seed.sql", sql);
-console.log(`  ${users.length} usuário(s), ${accounts.length} conta(s), ${automations.length} automação(ões), ${posts.length} publicação(ões) → supabase/seed.sql`);
+console.log(`  ${users.length} usuário(s), ${accounts.length} conta(s), ${automations.length} automação(ões), ${posts.length} publicação(ões), ${materials.length} material(is) → supabase/seed.sql`);
 
 console.log("Recriando o banco local (migrações + seed)…");
 const reset = spawnSync("npx", ["supabase", "db", "reset"], { stdio: "inherit", env: dockerEnv });

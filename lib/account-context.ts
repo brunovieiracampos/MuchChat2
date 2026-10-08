@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Rule } from "@/config/rules";
+import type { Material } from "@/lib/material";
 import type { PostStatus, ScheduledPost } from "@/lib/posts";
 
 /**
@@ -10,6 +11,9 @@ import type { PostStatus, ScheduledPost } from "@/lib/posts";
  * - Painel: lib/panel.ts entra na conta do usuário logado (automações lidas com RLS).
  * - Webhook e varredura: entram na conta de destino de cada evento (chave de serviço).
  */
+
+/** Material ainda sem id e datas (o banco preenche). */
+export type NewMaterial = Omit<Material, "id" | "createdAt" | "updatedAt">;
 
 export interface AccountRepo {
   listAutomations(): Promise<Rule[]>;
@@ -26,6 +30,13 @@ export interface AccountRepo {
    */
   updatePost(id: string, patch: Partial<ScheduledPost>, cond?: PostCond): Promise<ScheduledPost | null>;
   deletePost(id: string): Promise<void>;
+  /** Materiais do portal, do mais novo para o mais antigo. */
+  listMaterials(): Promise<Material[]>;
+  getMaterial(id: string): Promise<Material | null>;
+  createMaterial(m: NewMaterial): Promise<Material>;
+  /** Devolve null se o material não existe mais. */
+  updateMaterial(id: string, patch: Partial<NewMaterial>): Promise<Material | null>;
+  deleteMaterial(id: string): Promise<void>;
 }
 
 export type PostCond = { token?: string | null; statuses?: PostStatus[] };
@@ -104,6 +115,25 @@ export class MemoryRepo implements AccountRepo {
     return { ...created };
   }
   async deletePost(id: string) { this.posts = this.posts.filter((p) => p.id !== id); }
+
+  materials: Material[] = [];
+  private materialSeq = 0;
+  async listMaterials() { return [...this.materials].sort((a, b) => b.createdAt - a.createdAt).map((m) => structuredClone(m)); }
+  async getMaterial(id: string) { const m = this.materials.find((x) => x.id === id); return m ? structuredClone(m) : null; }
+  async createMaterial(m: NewMaterial) {
+    // O contador só desempata a ordem de materiais criados no mesmo milissegundo.
+    const now = Date.now() + this.materialSeq++;
+    const created: Material = { ...structuredClone(m), id: crypto.randomUUID(), createdAt: now, updatedAt: now };
+    this.materials.push(created);
+    return structuredClone(created);
+  }
+  async updateMaterial(id: string, patch: Partial<NewMaterial>) {
+    const i = this.materials.findIndex((x) => x.id === id);
+    if (i < 0) return null;
+    this.materials[i] = { ...this.materials[i], ...structuredClone(patch), id, updatedAt: Date.now() };
+    return structuredClone(this.materials[i]);
+  }
+  async deleteMaterial(id: string) { this.materials = this.materials.filter((m) => m.id !== id); }
 }
 
 export function testAccountCtx(over: Partial<AccountCtx> = {}): AccountCtx {
