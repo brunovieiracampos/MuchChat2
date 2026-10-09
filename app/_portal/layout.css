@@ -6,8 +6,16 @@
  */
 
 .dia-screen { container: dia / inline-size; overflow: clip; min-height: 100dvh; }
-/* Fora do portal (o elástico da rolagem no iPhone) a página não pode aparecer branca. */
+/*
+ * O fundo do portal é a grade de caracteres (glyph-canvas.tsx), fixa atrás de tudo: a cor de base fica no
+ * <body> e a raiz é transparente, para a grade aparecer na página inteira e não só numa faixa.
+ * Na pré-visualização do editor não há grade: a raiz volta a ter a cor de fundo.
+ */
 body:has(> .dia-screen) { background: #0c0c0b; }
+.dia-field { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; pointer-events: none; z-index: 0; }
+.dia-screen.dia-screen { background: transparent; }
+.dia-screen.dia-screen.is-preview { background: var(--bg-0); }
+.dia-screen .dia-outro { background: transparent; }
 .dia-screen.is-preview { min-height: 0; border: 1px solid var(--line); border-radius: 16px; }
 .dia-screen a { color: inherit; }
 .dia-screen img { max-width: 100%; }
@@ -19,7 +27,7 @@ body:has(> .dia-screen) { background: #0c0c0b; }
 .dia-screen .dia-l-chipcol { display: flex; flex-direction: column; gap: 8px; }
 
 /* ---------- biblioteca ---------- */
-.dia-screen .dia-l-hero { padding: 32px 16px 28px; border-bottom: 1px solid var(--line); background: var(--bg-1); }
+.dia-screen .dia-l-hero { padding: 32px 16px 28px; border-bottom: 1px solid var(--line); }
 .dia-screen .dia-l-hero__kicker { display: flex; align-items: center; gap: 8px; margin: 0; }
 .dia-screen .dia-l-hero__kicker .dia-dot { background: var(--accent); }
 .dia-screen .dia-l-hero__title { font-family: var(--font-display); font-weight: 400; font-size: 38px; line-height: 41px; letter-spacing: -.005em; margin: 14px 0 0; text-wrap: balance; }
@@ -121,28 +129,13 @@ body:has(> .dia-screen) { background: #0c0c0b; }
 /* No celular entram só 40% dos grupos: a área é menor e o título ocupa quase tudo. */
 .dia-screen .dia-glyphs__g.is-extra { display: none; }
 
-/* hero: os caracteres somem atrás do título e aparecem nas bordas livres */
-.dia-screen .dia-l-hero { overflow: hidden; }
-.dia-screen .dia-l-hero > .dia-l-max { position: relative; z-index: 1; }
-/* No celular o título ocupa a largura toda: os caracteres ficam mais fortes só na faixa acima dele. */
-.dia-screen .dia-l-hero .dia-glyphs { -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,.75) 0%, rgba(0,0,0,.2) 30%, rgba(0,0,0,.2) 100%); mask-image: linear-gradient(180deg, rgba(0,0,0,.75) 0%, rgba(0,0,0,.2) 30%, rgba(0,0,0,.2) 100%); }
-
 /* cartões sem capa: escala menor, acima da grade de pontos e abaixo do rótulo e das letras */
 .dia-screen .dia-glyphs.is-card { inset: -8px; font-size: 9.5px; -webkit-mask-image: linear-gradient(115deg, #000 0%, rgba(0,0,0,.5) 60%, rgba(0,0,0,.15) 100%); mask-image: linear-gradient(115deg, #000 0%, rgba(0,0,0,.5) 60%, rgba(0,0,0,.15) 100%); }
 .dia-screen .dia-glyphs.is-card .dia-glyphs__g.is-extra { display: block; }
 .dia-screen .dia-plaincover__big { will-change: transform; }
 
-/* sem cursor: nada de parallax, só uma deriva muito lenta no hero */
-@keyframes dia-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(7px, -5px, 0); } }
-@media (hover: none) and (prefers-reduced-motion: no-preference) {
-  .dia-screen .dia-l-hero .dia-glyphs__g { animation: dia-drift 52s ease-in-out infinite alternate; }
-  .dia-screen .dia-l-hero .dia-glyphs__g:nth-child(3n) { animation-duration: 71s; animation-direction: alternate-reverse; }
-  .dia-screen .dia-l-hero .dia-glyphs__g:nth-child(4n) { animation-duration: 88s; }
-}
-
 @container dia (min-width: 900px) {
   .dia-screen .dia-glyphs { font-size: 13px; }
   .dia-screen .dia-glyphs.is-card { font-size: 10px; }
   .dia-screen .dia-glyphs__g.is-extra { display: block; }
-  .dia-screen .dia-l-hero .dia-glyphs { -webkit-mask-image: linear-gradient(100deg, rgba(0,0,0,.22) 0%, rgba(0,0,0,.3) 48%, #000 82%); mask-image: linear-gradient(100deg, rgba(0,0,0,.22) 0%, rgba(0,0,0,.3) 48%, #000 82%); }
 }
