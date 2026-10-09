@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { GlyphField } from "@/app/_portal/glyphs";
+import { GlyphMotion } from "@/app/_portal/glyph-motion";
 import { Avatar, Footer, Handle, Icon, MaterialCard, MaterialRow, Topbar, instagramUrl } from "@/app/_portal/parts";
 import { dateLabel } from "@/lib/material";
 import { portalAccount, portalAllowed, portalLibrary, portalUrls } from "@/lib/portal";
@@ -37,7 +39,9 @@ export default async function Biblioteca({ params, searchParams }: Props) {
   return (
     <>
       <Topbar username={username} />
+      <GlyphMotion />
       <section className="dia-l-hero dia-grain">
+        <GlyphField seed={7} groups={54} />
         <div className="dia-l-max dia-l-hero__grid">
           <div>
             <p className="dia-label dia-l-hero__kicker"><span className="dia-dot" aria-hidden="true" />Portal de materiais</p>

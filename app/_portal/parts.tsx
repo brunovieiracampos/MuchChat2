@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GlyphField } from "./glyphs";
 import { coverLetters, dateLabel, numberLabel, type MaterialCard as Card, type SummaryItem } from "@/lib/material";
 
 /** Peças do portal usadas em mais de uma tela. Sem "use client": servem ao servidor e ao editor. */
@@ -62,8 +63,9 @@ function Cover({ card, url, username }: { card: Card; url?: string; username: st
   const [a, b] = coverLetters(card.title);
   return (
     <div className="dia-plaincover">
+      <GlyphField seed={card.number} groups={7} variant="card" />
       {badge ?? <span className="dia-label">@{username}</span>}
-      <span className="dia-plaincover__big">{a}<i>{b}</i></span>
+      <span className="dia-plaincover__big" data-dia-depth="5">{a}<i>{b}</i></span>
     </div>
   );
 }
