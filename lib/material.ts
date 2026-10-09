@@ -17,6 +17,8 @@ export type MaterialStatus = "draft" | "published";
 
 export type Material = {
   id: string;
+  /** Número do material na conta ("Material Nº 14"). O banco escolhe na criação e ele não muda mais. */
+  number: number;
   /** Endereço do material dentro do portal da conta: /m/{conta}/{slug}. */
   slug: string;
   title: string;
@@ -200,16 +202,19 @@ export function canOpen(m: Pick<Material, "id" | "status" | "visibility">, unloc
 
 export type PortalView =
   | { locked: false; material: Material }
-  | { locked: true; title: string; description: string; coverPath: string | null; ctaPost: string; ctaKeyword: string };
+  | { locked: true; number: number; slug: string; title: string; description: string; coverPath: string | null; ctaPost: string; ctaKeyword: string; summary: SummaryItem[] };
 
 /**
  * O que a página pública pode mostrar. Material não publicado não tem visão (null).
- * A visão trancada não leva os blocos: nada do conteúdo chega à página.
+ * A visão trancada não leva os blocos, só a contagem deles: nada do conteúdo chega à página.
  */
 export function portalView(m: Material, unlocked: readonly string[] = []): PortalView | null {
   if (m.status !== "published") return null;
   if (canOpen(m, unlocked)) return { locked: false, material: m };
-  return { locked: true, title: m.title, description: m.description, coverPath: m.coverPath, ctaPost: m.ctaPost, ctaKeyword: m.ctaKeyword };
+  return {
+    locked: true, number: m.number, slug: m.slug, title: m.title, description: m.description, coverPath: m.coverPath,
+    ctaPost: m.ctaPost, ctaKeyword: m.ctaKeyword, summary: blockSummary(m.blocks),
+  };
 }
 
 /** Arquivo de um bloco, só se a pessoa pode abrir o material. */
@@ -217,4 +222,82 @@ export function downloadTarget(m: Material, blockId: string, unlocked: readonly 
   if (!canOpen(m, unlocked)) return null;
   const b = m.blocks.find((x) => x.id === blockId);
   return b?.type === "file" && b.path ? { path: b.path, name: b.name } : null;
+}
+
+/* ---------- o que o portal mostra de um material ---------- */
+
+const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+
+/** "08 out 2026", no horário de Brasília. */
+export function dateLabel(ms: number): string {
+  const [y, m, d] = new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }).split("-");
+  return `${d} ${MONTHS[Number(m) - 1]} ${y}`;
+}
+
+/** "Nº 07". */
+export const numberLabel = (n: number) => `Nº ${String(n).padStart(2, "0")}`;
+
+export type SummaryItem = { n: number; label: string };
+
+const SHEET = new Set(["xlsx", "csv"]);
+
+/**
+ * Resumo do conteúdo para os cartões: "2 prompts · 1 PDF · 3 links". Conta prompts preenchidos, arquivos
+ * enviados (planilhas juntas; os demais pelo tipo) e links válidos. Texto e imagem não entram.
+ */
+export function blockSummary(blocks: Block[]): SummaryItem[] {
+  const out: SummaryItem[] = [];
+  const prompts = blocks.filter((b) => b.type === "prompt" && b.text.trim()).length;
+  if (prompts) out.push({ n: prompts, label: prompts === 1 ? "prompt" : "prompts" });
+
+  const files = new Map<string, number>();
+  for (const b of blocks) {
+    if (b.type !== "file" || !b.path) continue;
+    const ext = fileExt(b.path);
+    const kind = SHEET.has(ext) ? "planilha" : ext.toUpperCase() || "arquivo";
+    files.set(kind, (files.get(kind) ?? 0) + 1);
+  }
+  for (const [kind, n] of files) out.push({ n, label: kind === "planilha" && n > 1 ? "planilhas" : kind === "arquivo" && n > 1 ? "arquivos" : kind });
+
+  const links = blocks.reduce((sum, b) => sum + (b.type === "links" ? b.items.filter((i) => i.title.trim() && isHttpUrl(i.url.trim())).length : 0), 0);
+  if (links) out.push({ n: links, label: links === 1 ? "link" : "links" });
+  return out;
+}
+
+/** Duas letras para a capa sem imagem e a miniatura: as iniciais da primeira palavra do título. */
+export function coverLetters(title: string): [string, string] {
+  const word = title.trim().split(/\s+/)[0]?.replace(/[^\p{L}\p{N}]/gu, "") ?? "";
+  const a = word.slice(0, 1).toUpperCase(), b = word.slice(1, 2).toLowerCase();
+  return [a || "·", b];
+}
+
+export type PromptPiece = { text: string; variable: boolean };
+
+/**
+ * Uma linha de prompt separada em texto e variáveis: trechos [ENTRE COLCHETES], que a pessoa troca pelo
+ * próprio conteúdo. Colchetes vazios ou com quebra de linha não contam.
+ */
+export function promptPieces(line: string): PromptPiece[] {
+  const out: PromptPiece[] = [];
+  let last = 0;
+  for (const m of line.matchAll(/\[[^\[\]]{2,80}\]/g)) {
+    if (m.index > last) out.push({ text: line.slice(last, m.index), variable: false });
+    out.push({ text: m[0], variable: true });
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) out.push({ text: line.slice(last), variable: false });
+  return out;
+}
+
+/** Acima disso o prompt aparece recolhido, com "Ver prompt inteiro". */
+export const PROMPT_FOLD_LINES = 16;
+
+/** O que a biblioteca mostra de um material: sem os blocos, só o resumo deles. */
+export type MaterialCard = Pick<Material, "id" | "number" | "slug" | "title" | "description" | "coverPath" | "visibility" | "ctaPost" | "ctaKeyword" | "publishedAt"> & { summary: SummaryItem[] };
+
+export function materialCard(m: Material): MaterialCard {
+  return {
+    id: m.id, number: m.number, slug: m.slug, title: m.title, description: m.description, coverPath: m.coverPath,
+    visibility: m.visibility, ctaPost: m.ctaPost, ctaKeyword: m.ctaKeyword, publishedAt: m.publishedAt, summary: blockSummary(m.blocks),
+  };
 }

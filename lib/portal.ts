@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { toMaterial } from "@/lib/accounts";
-import { SLUG_RE, isPortalUsername, ownsMaterialFile, type Material } from "@/lib/material";
+import { SLUG_RE, isPortalUsername, materialCard, ownsMaterialFile, type Material, type MaterialCard } from "@/lib/material";
 import { signedUrl } from "@/lib/media-store";
 import { allowKey, clientIp } from "@/lib/ratelimit";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -35,15 +35,15 @@ export const portalAccount = cache(async (raw: string): Promise<PortalAccount | 
   return row ? { accountId: row.id as string, username: row.username as string } : null;
 });
 
-// A biblioteca não carrega os blocos: o conteúdo dos exclusivos não sai do banco só para montar a lista.
-const CARD_COLUMNS = "id, slug, title, description, cover_path, visibility, status, cta_post, cta_keyword, published_at, created_at, updated_at";
-
-/** Materiais publicados da conta, do mais recente para o mais antigo, sem os blocos. */
-export async function portalLibrary(accountId: string): Promise<Material[]> {
-  const { data, error } = await createAdminClient().from("materials").select(CARD_COLUMNS)
-    .eq("account_id", accountId).eq("status", "published").order("published_at", { ascending: false }).limit(200);
+/**
+ * Materiais publicados da conta, do mais recente para o mais antigo. Os blocos são lidos só para contar
+ * ("2 prompts · 1 PDF") e ficam aqui: o que sai é o cartão, sem conteúdo, inclusive o dos exclusivos.
+ */
+export async function portalLibrary(accountId: string, limit = 200): Promise<MaterialCard[]> {
+  const { data, error } = await createAdminClient().from("materials").select("*")
+    .eq("account_id", accountId).eq("status", "published").order("published_at", { ascending: false }).limit(limit);
   if (error) throw new Error(`Falha ao ler a biblioteca: ${error.message}`);
-  return (data ?? []).map(toMaterial);
+  return (data ?? []).map((row) => materialCard(toMaterial(row)));
 }
 
 /** Um material publicado, pelo endereço. */

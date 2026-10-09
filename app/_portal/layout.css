@@ -1,0 +1,112 @@
+/*
+ * Portal de materiais: composição das telas. Escrito à mão; os componentes ficam em portal.css (gerado).
+ * No design system as margens e grades das telas estavam em estilos inline de pranchetas de largura fixa
+ * (375 e 1280). Aqui viram classes, e o "desktop" vale pela largura do próprio portal: a pré-visualização
+ * do editor é estreita mesmo numa janela larga.
+ */
+
+.dia-screen { container: dia / inline-size; overflow: clip; min-height: 100dvh; }
+.dia-screen.is-preview { min-height: 0; border: 1px solid var(--line); border-radius: 16px; }
+.dia-screen a { color: inherit; }
+.dia-screen img { max-width: 100%; }
+.dia-screen .dia-l-max { max-width: 1200px; margin-inline: auto; }
+.dia-screen .dia-l-narrow { max-width: 1100px; margin-inline: auto; }
+.dia-screen .dia-l-lead { font: 400 18px/28px var(--font-sans); color: var(--ink-2); margin: 14px 0 0; }
+.dia-screen .dia-l-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.dia-screen .dia-l-kicker { color: var(--accent); margin: 0; }
+.dia-screen .dia-l-chipcol { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---------- biblioteca ---------- */
+.dia-screen .dia-l-hero { padding: 32px 16px 28px; border-bottom: 1px solid var(--line); background: var(--bg-1); }
+.dia-screen .dia-l-hero__kicker { display: flex; align-items: center; gap: 8px; margin: 0; }
+.dia-screen .dia-l-hero__kicker .dia-dot { background: var(--accent); }
+.dia-screen .dia-l-hero__title { font-family: var(--font-display); font-weight: 400; font-size: 38px; line-height: 41px; letter-spacing: -.005em; margin: 14px 0 0; text-wrap: balance; }
+.dia-screen .dia-l-hero__title em { font-style: italic; color: var(--accent); }
+.dia-screen .dia-l-hero__side { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; }
+.dia-screen .dia-l-hero__who { display: none; }
+.dia-screen .dia-l-follow { font: 600 15px/44px var(--font-sans); display: inline-flex; align-items: center; gap: 4px; }
+.dia-screen .dia-l-sec { padding: 16px 16px 0; }
+.dia-screen .dia-l-sec.is-first { padding-top: 24px; }
+.dia-screen .dia-l-sec.is-rows { padding-top: 32px; }
+.dia-screen .dia-l-sec.is-archive { padding-top: 40px; }
+.dia-screen .dia-l-cards { display: grid; gap: 16px; }
+.dia-screen .dia-l-rowhead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.dia-screen .dia-l-rowhead .dia-h2 { font-size: 26px; }
+.dia-screen .dia-l-first { margin: 20px 0 0; text-align: center; }
+.dia-screen .dia-l-empty { max-width: 560px; margin: 0 auto; padding: 56px 16px; text-align: center; }
+.dia-screen .dia-l-empty__art { aspect-ratio: auto; height: 140px; border: 1px dashed var(--line-strong); border-radius: 14px; justify-content: center; align-items: center; }
+.dia-screen .dia-l-empty__art .dia-plaincover__big { align-self: center; font-size: 64px; color: var(--ink-3); }
+.dia-screen .dia-l-empty p { color: var(--ink-2); margin: 10px 0 0; }
+.dia-screen .dia-l-empty .dia-btn { margin-top: 24px; }
+.dia-screen .dia-l-end { height: 56px; }
+.dia-screen .dia-l-foot { padding: 28px 16px 40px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.dia-screen .dia-l-foot .dia-textlink { color: var(--ink-2); }
+
+/* ---------- página do material ---------- */
+.dia-screen .dia-l-mhead { padding: 28px 16px 0; }
+.dia-screen .dia-l-mhead__cover { border-radius: 14px; border: 1px solid var(--line); margin-bottom: 24px; }
+.dia-screen .dia-l-mhead .dia-title { margin-top: 12px; }
+.dia-screen .dia-l-mhead .dia-chips { margin-top: 16px; }
+.dia-screen .dia-l-main { padding: 36px 16px 56px; border-top: 1px solid var(--line); margin-top: 28px; }
+.dia-screen .dia-l-main > .dia-enter { max-width: 840px; margin-left: auto; margin-right: auto; }
+.dia-screen .dia-l-main > .dia-enter.is-text { max-width: 680px; }
+.dia-screen .dia-l-pair { display: grid; grid-template-columns: 1fr; gap: 16px; margin-top: 20px; }
+.dia-screen .dia-l-outro .dia-h2 { margin-top: 8px; }
+.dia-screen .dia-l-outro .dia-btn--block { margin-top: 16px; }
+.dia-screen .dia-l-outro .dia-follow { margin-top: 24px; }
+.dia-screen .dia-l-pending { border: 1px dashed var(--line-strong); border-radius: 10px; padding: 14px; font: 400 14px/21px var(--font-sans); color: var(--ink-2); text-align: center; }
+
+/* ---------- material exclusivo ---------- */
+.dia-screen .dia-l-locked { padding: 24px 16px 0; }
+.dia-screen .dia-l-locked__how { padding: 28px 0 48px; margin-top: 28px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 16px; }
+.dia-screen .dia-l-locked__how p { color: var(--ink-2); margin: 10px 0 0; }
+.dia-screen .dia-l-locked__how .dia-btn--ghost { align-self: center; }
+.dia-screen .dia-l-step__k { display: block; }
+.dia-screen .dia-l-step__txt { font: 400 15px/22px var(--font-sans); color: var(--prompt-ink-2); }
+.dia-screen .dia-bubble--link small { overflow-wrap: anywhere; }
+
+/* ---------- avisos ---------- */
+.dia-screen .dia-l-notice { padding: 28px 16px; max-width: 760px; margin: 0 auto; }
+.dia-screen .dia-l-notice.is-top { padding-bottom: 0; max-width: 1200px; }
+.dia-screen .dia-l-404 { height: 180px; border-radius: 14px; border: 1px solid var(--line); display: grid; place-items: center; background-color: var(--bg-1); margin-bottom: 20px; font: 400 96px/1 var(--font-display); color: var(--ink); }
+.dia-screen .dia-l-404 i { color: var(--accent); font-style: normal; }
+
+/* ---------- o que só aparece num dos tamanhos ---------- */
+.dia-screen .dia-only-d { display: none !important; }
+
+@container dia (min-width: 900px) {
+  .dia-screen .dia-only-d { display: revert !important; }
+  .dia-screen a.dia-only-d.dia-card { display: flex !important; }
+  .dia-screen .dia-l-cards.dia-only-d { display: grid !important; }
+  .dia-screen .dia-only-m { display: none !important; }
+
+  .dia-screen .dia-l-hero { padding: 72px 48px 56px; }
+  .dia-screen .dia-l-hero__grid { display: grid; grid-template-columns: 1fr 300px; gap: 48px; align-items: end; }
+  .dia-screen .dia-l-hero__title { font-size: 64px; line-height: 64px; letter-spacing: -.01em; margin-top: 20px; max-width: 880px; }
+  .dia-screen .dia-l-hero__side { flex-direction: column; align-items: flex-start; gap: 14px; margin-top: 0; padding-bottom: 8px; }
+  .dia-screen .dia-l-hero__who { display: flex; gap: 12px; align-items: center; }
+  .dia-screen .dia-l-sec { padding: 24px 48px 0; }
+  .dia-screen .dia-l-sec.is-first { padding-top: 56px; }
+  .dia-screen .dia-l-sec.is-archive { padding-top: 56px; }
+  .dia-screen .dia-l-cards { grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .dia-screen .dia-l-cards.is-four { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .dia-screen .dia-l-rows { display: grid; grid-template-columns: 1fr 1fr; column-gap: 48px; }
+  .dia-screen .dia-l-foot { padding: 28px 48px 40px; }
+
+  .dia-screen .dia-l-mhead { padding: 72px 48px 40px; }
+  .dia-screen .dia-l-mhead__grid { display: grid; grid-template-columns: 1fr 440px; gap: 56px; align-items: end; }
+  .dia-screen .dia-l-mhead__grid.is-plain { grid-template-columns: 1fr; max-width: 840px; }
+  .dia-screen .dia-l-mhead__cover { order: 2; margin-bottom: 0; }
+  .dia-screen .dia-l-main { padding: 56px 48px 72px; margin-top: 0; }
+  .dia-screen .dia-l-main .dia-file { grid-template-columns: auto 1fr auto; align-items: center; padding: 18px; }
+  .dia-screen .dia-l-main .dia-file__action { grid-column: auto; width: auto; }
+  .dia-screen .dia-l-outro { padding: 56px 48px 64px; }
+  .dia-screen .dia-l-pair { grid-template-columns: 1fr 1fr; }
+  .dia-screen .dia-l-outro .dia-btn--block { width: auto; }
+
+  .dia-screen .dia-l-locked { padding: 72px 48px 96px; }
+  .dia-screen .dia-l-locked__grid { display: grid; grid-template-columns: 1fr 460px; gap: 64px; align-items: start; }
+  .dia-screen .dia-l-locked__how { border-top: 0; margin-top: 0; padding: 8px 0 0; }
+  .dia-screen .dia-l-notice { padding: 72px 48px; }
+  .dia-screen .dia-l-notice.is-top { padding: 56px 48px 0; }
+}

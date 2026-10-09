@@ -29,7 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ conta: s
 
   // Nunca em cache: o link assinado expira e o aviso depende do estado do arquivo.
   const redirectTo = (location: string) => new Response(null, { status: 302, headers: { Location: location, "Cache-Control": "no-store" } });
-  const unavailable = () => redirectTo(new URL(`/m/${account.username}/${slug}?aviso=arquivo`, req.url).toString());
+  const unavailable = () => redirectTo(new URL(`/m/${account.username}/${slug}?aviso=arquivo&b=${encodeURIComponent(blockId)}`, req.url).toString());
 
   try {
     await head(target.path);

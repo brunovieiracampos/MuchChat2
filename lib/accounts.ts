@@ -159,7 +159,7 @@ function fromPost(p: Partial<ScheduledPost>): PostRow {
 /** Uma consulta que não seleciona `blocks` (a biblioteca do portal) devolve o material com a lista vazia. */
 export function toMaterial(r: Record<string, unknown>): Material {
   return {
-    id: String(r.id), slug: String(r.slug), title: String(r.title ?? ""), description: String(r.description ?? ""),
+    id: String(r.id), number: Number(r.number ?? 0), slug: String(r.slug), title: String(r.title ?? ""), description: String(r.description ?? ""),
     coverPath: (r.cover_path as string) ?? null, blocks: (r.blocks as Material["blocks"]) ?? [],
     visibility: r.visibility as Material["visibility"], status: r.status as Material["status"],
     ctaPost: String(r.cta_post ?? ""), ctaKeyword: String(r.cta_keyword ?? ""),

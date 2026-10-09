@@ -12,8 +12,8 @@ import type { PostStatus, ScheduledPost } from "@/lib/posts";
  * - Webhook e varredura: entram na conta de destino de cada evento (chave de serviço).
  */
 
-/** Material ainda sem id e datas (o banco preenche). */
-export type NewMaterial = Omit<Material, "id" | "createdAt" | "updatedAt">;
+/** Material ainda sem id, número e datas (o banco preenche). */
+export type NewMaterial = Omit<Material, "id" | "number" | "createdAt" | "updatedAt">;
 
 export interface AccountRepo {
   listAutomations(): Promise<Rule[]>;
@@ -123,7 +123,8 @@ export class MemoryRepo implements AccountRepo {
   async createMaterial(m: NewMaterial) {
     // O contador só desempata a ordem de materiais criados no mesmo milissegundo.
     const now = Date.now() + this.materialSeq++;
-    const created: Material = { ...structuredClone(m), id: crypto.randomUUID(), createdAt: now, updatedAt: now };
+    const number = Math.max(0, ...this.materials.map((x) => x.number)) + 1;
+    const created: Material = { ...structuredClone(m), id: crypto.randomUUID(), number, createdAt: now, updatedAt: now };
     this.materials.push(created);
     return structuredClone(created);
   }

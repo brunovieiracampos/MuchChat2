@@ -4,10 +4,13 @@ import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { BlocksView } from "@/app/_portal/blocks";
+import { portalRoot } from "@/app/_portal/fonts";
+import { Chips } from "@/app/_portal/parts";
 import "@/app/_portal/portal.css";
+import "@/app/_portal/layout.css";
 import {
   BLOCK_META, CTA_KEYWORD_MAX, DESCRIPTION_MAX, FILE_MAX_BYTES, FILE_TYPES, LINKS_MAX, MAX_BLOCKS, TITLE_MAX,
-  blankBlock, fileExt, fileTypeMessage, fileTypesText, formatBytes, slugify, validateMaterial,
+  blankBlock, blockSummary, fileExt, fileTypeMessage, fileTypesText, formatBytes, numberLabel, slugify, validateMaterial,
   type Block, type BlockType, type LinkItem, type Material, type MaterialDraft, type MaterialIssue, type MaterialStatus, type MaterialVisibility,
 } from "@/lib/material";
 import { deleteMaterialAction, saveMaterialAction } from "./actions";
@@ -321,13 +324,18 @@ export function MaterialEditor({ material, previews, prefix, username }: {
 
       <aside className="pn-post-preview">
         <div className="pn-field-label" style={{ margin: 0 }}>Como fica no celular</div>
-        <div className="pn pt is-preview">
-          <div className="pt-wrap">
-            <h1 className="pt-title">{title.trim() || "Título do material"}</h1>
-            {description.trim() && <p className="pt-desc">{description}</p>}
-            {coverPath && urls[coverPath] && <img className="pt-cover" src={urls[coverPath]} alt="" />}
+        {/* O mesmo visual do portal (design/portal), na largura de um celular. */}
+        <div className={`${portalRoot} is-preview`}>
+          <header className="dia-l-mhead">
+            {coverPath && urls[coverPath] && <div className="dia-cover dia-l-mhead__cover"><img src={urls[coverPath]} alt="" /></div>}
+            <p className="dia-label dia-l-kicker">Material{material ? ` ${numberLabel(material.number)}` : ""}</p>
+            <h1 className="dia-title">{title.trim() || "Título do material"}</h1>
+            {description.trim() && <p className="dia-l-lead">{description}</p>}
+            <Chips items={blockSummary(blocks)} />
+          </header>
+          <div className="dia-stack dia-l-main">
             <BlocksView blocks={blocks} urls={urls} fileHref={() => null} preview />
-            {!blocks.length && <div className="pt-empty" style={{ marginTop: 20 }}>Adicione um bloco para ver aqui.</div>}
+            {!blocks.length && <div className="dia-l-pending">Adicione um bloco para ver aqui.</div>}
           </div>
         </div>
       </aside>

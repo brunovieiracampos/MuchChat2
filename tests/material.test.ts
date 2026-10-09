@@ -3,6 +3,7 @@ import {
   BLOCK_TEXT_MAX, FILE_MAX_BYTES, MATERIAL_IMAGE_MAX_BYTES, MAX_BLOCKS,
   blankBlock, blockFiles, canOpen, downloadTarget, formatBytes, isPortalUsername, materialFiles, ownsMaterialFile,
   portalView, slugify, uploadRule, validateMaterial,
+  blockSummary, coverLetters, dateLabel, materialCard, numberLabel, promptPieces,
   type Block, type Material, type MaterialDraft,
 } from "@/lib/material";
 
@@ -15,7 +16,7 @@ const draft = (over: Partial<MaterialDraft> = {}): MaterialDraft => ({
   blocks: [text()], visibility: "public", ctaPost: "", ctaKeyword: "", ...over,
 });
 const material = (over: Partial<Material> = {}): Material => ({
-  ...draft(), id: "m1", status: "published", publishedAt: 1, createdAt: 1, updatedAt: 1, ...over,
+  ...draft(), id: "m1", number: 1, status: "published", publishedAt: 1, createdAt: 1, updatedAt: 1, ...over,
 });
 const messages = (d: MaterialDraft, publish = true) => validateMaterial(d, { publish }).map((i) => i.message);
 
@@ -128,7 +129,10 @@ describe("acesso no portal", () => {
 
   it("a visão trancada não carrega os blocos", () => {
     const v = portalView(material({ visibility: "exclusive", ctaKeyword: "CONTADOR", blocks: [text("segredo"), file()] }));
-    expect(v).toEqual({ locked: true, title: "Prompts do contador", description: "", coverPath: null, ctaPost: "", ctaKeyword: "CONTADOR" });
+    expect(v).toEqual({
+      locked: true, number: 1, slug: "prompts-do-contador", title: "Prompts do contador", description: "", coverPath: null, ctaPost: "", ctaKeyword: "CONTADOR",
+      summary: [{ n: 1, label: "PDF" }],
+    });
     expect(JSON.stringify(v)).not.toContain("segredo");
     expect(JSON.stringify(v)).not.toContain("guia.pdf");
   });
@@ -153,5 +157,62 @@ describe("acesso no portal", () => {
     expect(isPortalUsername("d.ia.riamente")).toBe(true);
     expect(isPortalUsername("nome_123")).toBe(true);
     for (const bad of ["", "Nome", "a b", "a%b", "a/b", "x".repeat(31)]) expect(isPortalUsername(bad)).toBe(false);
+  });
+});
+
+describe("o que o portal mostra de um material", () => {
+  it("resume o conteúdo contando prompts, arquivos por tipo e links", () => {
+    const blocks: Block[] = [
+      text(),
+      { id: "p1", type: "prompt", label: "", text: "um" },
+      { id: "p2", type: "prompt", label: "", text: "dois" },
+      { id: "p3", type: "prompt", label: "", text: "   " },
+      file("materials/acc-test/x/guia.pdf"),
+      { id: "f2", type: "file", path: "materials/acc-test/y/custos.xlsx", name: "custos.xlsx", size: 1, description: "" },
+      { id: "f3", type: "file", path: "materials/acc-test/z/dados.csv", name: "dados.csv", size: 1, description: "" },
+      blankBlock("file"),
+      { id: "l1", type: "links", items: [{ title: "A", description: "", url: "https://a.com" }, { title: "", description: "", url: "https://b.com" }, { title: "C", description: "", url: "javascript:x" }] },
+      { id: "l2", type: "links", items: [{ title: "D", description: "", url: "https://d.com" }] },
+      image(),
+    ];
+    expect(blockSummary(blocks)).toEqual([{ n: 2, label: "prompts" }, { n: 1, label: "PDF" }, { n: 2, label: "planilhas" }, { n: 2, label: "links" }]);
+  });
+
+  it("singular quando há um só, e nada quando o material é só texto", () => {
+    expect(blockSummary([{ id: "p1", type: "prompt", label: "", text: "um" }, { id: "l1", type: "links", items: [{ title: "A", description: "", url: "https://a.com" }] }]))
+      .toEqual([{ n: 1, label: "prompt" }, { n: 1, label: "link" }]);
+    expect(blockSummary([text(), image()])).toEqual([]);
+  });
+
+  it("data e número no formato do portal", () => {
+    expect(dateLabel(Date.parse("2026-10-08T15:00:00Z"))).toBe("08 out 2026");
+    // 01:30 UTC ainda é o dia anterior em Brasília.
+    expect(dateLabel(Date.parse("2026-01-01T01:30:00Z"))).toBe("31 dez 2025");
+    expect(numberLabel(7)).toBe("Nº 07");
+    expect(numberLabel(140)).toBe("Nº 140");
+  });
+
+  it("letras da capa sem imagem vêm da primeira palavra do título", () => {
+    expect(coverLetters("Guia: revisar contrato")).toEqual(["G", "u"]);
+    expect(coverLetters("  3 prompts para e-mail")).toEqual(["3", ""]);
+    expect(coverLetters("É simples")).toEqual(["É", ""]);
+    expect(coverLetters("")).toEqual(["·", ""]);
+  });
+
+  it("separa as variáveis [ENTRE COLCHETES] de uma linha de prompt", () => {
+    expect(promptPieces("em: [LISTA DE CATEGORIAS].")).toEqual([
+      { text: "em: ", variable: false }, { text: "[LISTA DE CATEGORIAS]", variable: true }, { text: ".", variable: false },
+    ]);
+    expect(promptPieces("[A1] e [B2]")).toEqual([{ text: "[A1]", variable: true }, { text: " e ", variable: false }, { text: "[B2]", variable: true }]);
+    expect(promptPieces("sem variável, [] vazio e [x] curto")).toEqual([{ text: "sem variável, [] vazio e [x] curto", variable: false }]);
+    expect(promptPieces("")).toEqual([]);
+  });
+
+  it("o cartão da biblioteca leva o resumo, nunca os blocos", () => {
+    const card = materialCard(material({ visibility: "exclusive", ctaKeyword: "ATA", blocks: [{ id: "p1", type: "prompt", label: "", text: "SEGREDO do prompt" }, file()] }));
+    expect(card.summary).toEqual([{ n: 1, label: "prompt" }, { n: 1, label: "PDF" }]);
+    expect(card).not.toHaveProperty("blocks");
+    expect(JSON.stringify(card)).not.toContain("SEGREDO");
+    expect(JSON.stringify(card)).not.toContain("guia.pdf");
   });
 });
