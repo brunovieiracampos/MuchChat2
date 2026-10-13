@@ -3,6 +3,7 @@ import { resolveArmed } from "@/lib/next-post";
 import { ruleAppliesToMedia } from "@/lib/match";
 import { listComments, listRecentMedia } from "@/lib/instagram";
 import { processComment, type Result } from "@/lib/processor";
+import { activeAds } from "@/lib/ad-posts";
 
 /** Varre posts dos últimos 7 dias e processa comentários que o webhook não pegou. */
 export async function sweep(): Promise<{ media: number; comments: number; results: Partial<Record<Result, number>>; errors: string[] }> {
@@ -16,17 +17,16 @@ export async function sweep(): Promise<{ media: number; comments: number; result
   const results: Partial<Record<Result, number>> = {};
   const errors: string[] = [];
   let count = 0;
-  for (const m of media) {
-    if (!active.some((r) => ruleAppliesToMedia(r, { id: m.id, shortcode: m.shortcode }))) continue;
+  const sweepMedia = async (mediaId: string) => {
     let comments;
-    try { comments = await listComments(m.id); } catch (e) { errors.push(`${m.id}: ${String(e)}`); continue; }
+    try { comments = await listComments(mediaId); } catch (e) { errors.push(`${mediaId}: ${String(e)}`); return; }
     for (const c of comments) {
       count++;
       try {
         const r = await processComment({
           id: c.id,
           text: c.text ?? "",
-          mediaId: m.id,
+          mediaId,
           fromId: c.from?.id,
           username: c.username ?? c.from?.username,
           timestamp: c.timestamp ? Date.parse(c.timestamp) : undefined,
@@ -34,6 +34,14 @@ export async function sweep(): Promise<{ media: number; comments: number; result
         results[r] = (results[r] ?? 0) + 1;
       } catch (e) { errors.push(`${c.id}: ${String(e)}`); }
     }
+  };
+  for (const m of media) {
+    if (!active.some((r) => ruleAppliesToMedia(r, { id: m.id, shortcode: m.shortcode }))) continue;
+    await sweepMedia(m.id);
   }
+  // Anúncios (posts impulsionados) não aparecem na lista de posts: lê os que já receberam comentário.
+  let ads: string[] = [];
+  try { ads = await activeAds(Date.now()); } catch (e) { errors.push(`anúncios: ${String(e)}`); }
+  for (const adId of ads) await sweepMedia(adId);
   return { media: media.length, comments: count, results, errors };
 }

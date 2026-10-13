@@ -48,12 +48,12 @@ async function call<T>(method: "GET" | "POST", path: string, params: Record<stri
 
 export type IgMedia = {
   id: string; shortcode?: string; permalink?: string; timestamp?: string; caption?: string;
-  media_type?: string; media_url?: string; thumbnail_url?: string; comments_count?: number; like_count?: number;
+  media_type?: string; media_product_type?: string; media_url?: string; thumbnail_url?: string; comments_count?: number; like_count?: number;
 };
 export type IgComment = { id: string; text?: string; timestamp?: string; username?: string; from?: { id: string; username?: string }; parent_id?: string };
 
 export async function getMedia(mediaId: string): Promise<IgMedia> {
-  return call<IgMedia>("GET", mediaId, { fields: "id,shortcode,permalink,timestamp" });
+  return call<IgMedia>("GET", mediaId, { fields: "id,shortcode,permalink,timestamp,media_product_type,caption" });
 }
 
 const MEDIA_FIELDS = "id,shortcode,permalink,timestamp,caption,media_type,media_url,thumbnail_url,comments_count,like_count";

@@ -5,7 +5,8 @@ import {
   clickPayload, parseClickPayload, renderText, stepsOf, waitsForClick,
   type DmStep, type FollowStep, type ReplyStep, type Step,
 } from "@/lib/flow";
-import { findRule, normalize, rulesNeedShortcode } from "@/lib/match";
+import { findRule, hasKeyword, normalize, rulesNeedShortcode, type MediaRef } from "@/lib/match";
+import { knownAd, pickOriginal, rememberAd, type AdCandidate } from "@/lib/ad-posts";
 import { bump, type Stage } from "@/lib/stats";
 import { getStore } from "@/lib/store";
 import * as ig from "@/lib/instagram";
@@ -28,6 +29,10 @@ export type IncomingComment = {
   /** epoch ms; se ausente, considera "agora" */
   timestamp?: number;
   parentId?: string;
+  /** Comentário em anúncio: post original, quando o webhook informa (media.original_media_id). */
+  originalMediaId?: string;
+  /** Tipo da publicação segundo o webhook (media.media_product_type); só para o registro. */
+  mediaProductType?: string;
 };
 
 export type Deps = {
@@ -35,7 +40,9 @@ export type Deps = {
   sendMessage: (igsid: string, m: ig.OutMessage) => Promise<ig.SendResult>;
   replyToComment: (commentId: string, message: string) => Promise<unknown>;
   isFollower: (igsid: string) => Promise<boolean>;
-  getMedia: (mediaId: string) => Promise<{ id: string; shortcode?: string; timestamp?: string }>;
+  getMedia: (mediaId: string) => Promise<{ id: string; shortcode?: string; timestamp?: string; media_product_type?: string; caption?: string }>;
+  /** Posts do perfil, para achar o original de um anúncio pela legenda. Sem ela, só vale o que o webhook informar. */
+  adCandidates?: () => Promise<AdCandidate[]>;
   /** Posts recentes, para prender automações à "próxima publicação". */
   recentMedia?: () => Promise<PostInfo[]>;
   /** Grava a automação presa ao post. */
@@ -56,6 +63,7 @@ export const defaultDeps: Deps = {
   replyToComment: ig.replyToComment,
   isFollower: ig.isFollower,
   getMedia: ig.getMedia,
+  adCandidates: () => ig.listRecentMedia(50),
   recentMedia: () => ig.listRecentMedia(10),
   saveRule: storeAutomation,
   // Importado só na hora: o motor também é carregado em testes e scripts, que não têm o Workflow.
@@ -145,6 +153,48 @@ async function resolveShortcode(mediaId: string, deps: Deps): Promise<string | u
   } catch (e) {
     console.error("[flow] falha ao buscar shortcode", mediaId, e);
     return undefined;
+  }
+}
+
+/**
+ * Comentário num anúncio (post impulsionado): devolve o post original, para valer a automação dele.
+ * Usa o que o webhook informar; sem isso, confere se a publicação é anúncio e procura o post de mesma legenda.
+ */
+async function resolveAdOriginal(c: IncomingComment, deps: Deps, now: number): Promise<MediaRef | null> {
+  const store = getStore();
+  const known = await knownAd(c.mediaId);
+  if (known) {
+    await rememberAd(c.mediaId, known, now);
+    return known;
+  }
+  if (c.originalMediaId && c.originalMediaId !== c.mediaId) {
+    const original = { id: c.originalMediaId, shortcode: await resolveShortcode(c.originalMediaId, deps) };
+    await rememberAd(c.mediaId, original, now);
+    console.log("[flow] anúncio ligado ao post original pelo webhook", c.mediaId, original.id);
+    return original;
+  }
+  const skipKey = `notad:${c.mediaId}`;
+  if (await store.get(skipKey)) return null;
+  try {
+    const m = await deps.getMedia(c.mediaId);
+    if (m.media_product_type !== "AD") {
+      await store.set(skipKey, 1, { ex: 30 * 86400 });
+      return null;
+    }
+    const post = deps.adCandidates ? pickOriginal(m, await deps.adCandidates()) : null;
+    if (!post) {
+      // Legenda diferente do post (anúncio do Gerenciador) ou post antigo demais: tenta de novo em 1h.
+      await store.set(skipKey, 1, { ex: 3600 });
+      console.warn("[flow] anúncio sem post original reconhecido", c.mediaId);
+      return null;
+    }
+    const original = { id: post.id, shortcode: post.shortcode };
+    await rememberAd(c.mediaId, original, now);
+    console.log("[flow] anúncio ligado ao post original pela legenda", c.mediaId, original.id);
+    return original;
+  } catch (e) {
+    console.error("[flow] falha ao conferir se a publicação é anúncio", c.mediaId, e);
+    return null;
   }
 }
 
@@ -419,8 +469,22 @@ export async function processComment(c: IncomingComment, source: string, deps: D
 
   const rules = await bindArmedRules(await deps.rules(), c.mediaId, deps, now);
   const shortcode = rulesNeedShortcode(rules) ? await resolveShortcode(c.mediaId, deps) : undefined;
-  const rule = findRule(c.text, { id: c.mediaId, shortcode }, rules);
-  if (!rule) return "no-match";
+  let rule = findRule(c.text, { id: c.mediaId, shortcode }, rules);
+  // Só consulta o Instagram se o texto tem palavra-chave de alguma automação ativa (a maioria dos comentários não tem).
+  if (!rule && rules.some((r) => r.active !== false && r.keywords.some((k) => hasKeyword(c.text, k)))) {
+    const original = await resolveAdOriginal(c, deps, now);
+    if (original) rule = findRule(c.text, original, rules);
+  }
+  if (!rule) {
+    // Só no webhook: a varredura relê todos os comentários e encheria o registro.
+    if (source === "webhook") {
+      console.log("[flow] sem automação", JSON.stringify({
+        commentId: c.id, mediaId: c.mediaId, shortcode: shortcode ?? null, tipo: c.mediaProductType ?? null,
+        original: c.originalMediaId ?? null, username: c.username ?? null, text: c.text.slice(0, 140),
+      }));
+    }
+    return "no-match";
+  }
 
   const key = `c:${c.id}`;
   const base = { source, commentId: c.id, mediaId: c.mediaId, username: c.username, text: c.text.slice(0, 140), rule: rule.id };

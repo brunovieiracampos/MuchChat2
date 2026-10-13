@@ -26,6 +26,8 @@ export function extractComments(payload: any): IncomingComment[] {
           fromId: v.from?.id ? String(v.from.id) : undefined,
           username: v.from?.username,
           parentId: v.parent_id,
+          originalMediaId: v.media.original_media_id ? String(v.media.original_media_id) : undefined,
+          mediaProductType: typeof v.media.media_product_type === "string" ? v.media.media_product_type : undefined,
           timestamp: t,
         });
       }
