@@ -293,7 +293,7 @@ export function registerTools(server: McpServer) {
 
   server.registerTool("list_scheduled_posts", {
     title: "Listar publicações",
-    description: "Publicações do Much Chat: agendadas (com horário de Brasília), rascunhos, publicadas e com falha.",
+    description: `Publicações do ${PRODUCT.name}: agendadas (com horário de Brasília), rascunhos, publicadas e com falha.`,
     inputSchema: z.object({ status: z.enum(["draft", "scheduled", "published", "failed", "canceled"]).optional() }),
   }, async ({ status }) => {
     const posts = (await currentAccount().repo.listPosts()).filter((p) => !status || p.status === status || (status === "scheduled" && (p.status === "preparing" || p.status === "publishing")));
@@ -357,7 +357,7 @@ export function registerTools(server: McpServer) {
 
   server.registerTool("delete_scheduled_post", {
     title: "Excluir publicação",
-    description: "Exclui a publicação do Much Chat e a mídia dela. Não apaga posts já publicados no Instagram. Confirme com a pessoa antes.",
+    description: `Exclui a publicação do ${PRODUCT.name} e a mídia dela. Não apaga posts já publicados no Instagram. Confirme com a pessoa antes.`,
     inputSchema: z.object({ id: z.string() }),
     annotations: { destructiveHint: true },
   }, async ({ id }) => postResult(await removePost(id), "excluida"));

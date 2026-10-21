@@ -1,6 +1,6 @@
 // Nome do produto: troque aqui e ele muda em todas as telas, e-mails de sistema e títulos.
 export const PRODUCT = {
-  name: "Much Chat",
+  name: "Portal Diariamente",
   tagline: "Comentário vira conversa no direct, sozinho.",
   description: "Quem comenta a palavra-chave no seu post do Instagram recebe o material no direct. Monte o fluxo uma vez e acompanhe os resultados.",
 };

@@ -10,6 +10,7 @@ import { ICONS } from "../../_components/icons";
 import { editorProps } from "../data";
 import { PostEditor } from "../editor";
 import { PostActions } from "./post-actions";
+import { PRODUCT } from "@/config/site";
 
 export default async function Publicacao({ params }: { params: Promise<{ id: string }> }) {
   await requireSession();
@@ -74,7 +75,7 @@ export default async function Publicacao({ params }: { params: Promise<{ id: str
             </div>
           ))}
         </div>
-        {post.mediaDeletedAt && <div className="pn-help">A mídia foi apagada do Much Chat 1 dia depois da publicação; o post continua no Instagram.</div>}
+        {post.mediaDeletedAt && <div className="pn-help">A mídia foi apagada do {PRODUCT.name} 1 dia depois da publicação; o post continua no Instagram.</div>}
         {post.caption && <div style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--text-2)", marginTop: 14, lineHeight: 1.55 }}>{post.caption}</div>}
         <div className="pn-fields">
           <div className="pn-field-row"><div>Automação</div><div>{automation ? <Link href={`/painel/automacoes/${automation.id}`}>{automation.name ?? automation.id}</Link> : "Nenhuma"}</div></div>

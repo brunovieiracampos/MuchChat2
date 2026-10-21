@@ -11,7 +11,7 @@ const ERRORS: Record<string, string> = {
   cancelado: "O login no Instagram foi cancelado. Tente de novo quando quiser.",
   sessao: "A conexão demorou demais ou foi aberta em outra aba. Tente de novo.",
   meta: "O Instagram não confirmou a conexão. Tente de novo em instantes.",
-  "em-uso": "Esta conta do Instagram já está conectada a outro usuário do Much Chat. Entre com esse usuário ou fale com o suporte.",
+  "em-uso": `Esta conta do Instagram já está conectada a outro usuário do ${PRODUCT.name}. Entre com esse usuário ou fale com o suporte.`,
 };
 
 export default async function Conexao({ searchParams }: { searchParams: Promise<{ conectado?: string; webhook?: string; erro?: string; conta?: string }> }) {

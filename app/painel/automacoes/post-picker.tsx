@@ -7,6 +7,7 @@ import { listMediaAction } from "../actions";
 import { ICONS } from "../_components/icons";
 import { Icon, Toggle, useToast } from "../_components/ui";
 import type { MediaOption } from "./builder-data";
+import { PRODUCT } from "@/config/site";
 
 const matches = (p: string, m: MediaOption) => { const k = postKey(p); return k === m.id || (!!m.shortcode && k === m.shortcode); };
 
@@ -37,7 +38,7 @@ export function PostPicker({ posts, onChange, media, mediaNext, connected, inval
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12.5 }}>Publicação agendada</div>
           <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.45 }}>
-            Ligada a um post agendado no Much Chat. É ativada sozinha quando ele sair. <a href={`/painel/publicacoes/${scheduled.trim().slice(6)}`}>Ver publicação</a>
+            Ligada a um post agendado no {PRODUCT.name}. É ativada sozinha quando ele sair. <a href={`/painel/publicacoes/${scheduled.trim().slice(6)}`}>Ver publicação</a>
           </div>
         </div>
         <button type="button" className="pn-btn is-sm" onClick={() => onChange([])}>Desligar</button>

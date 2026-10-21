@@ -8,6 +8,7 @@ import { PauseToggle, RetryFailedButton, SubscribeButton, SweepButton } from "..
 import { logoutAction } from "../actions";
 import { Badge, Icon } from "../_components/ui";
 import { ICONS } from "../_components/icons";
+import { PRODUCT } from "@/config/site";
 
 type Row = { label: string; value: ReactNode; right?: ReactNode };
 
@@ -67,7 +68,7 @@ export default async function Configuracoes({ searchParams }: { searchParams: Pr
       ]} />
 
       {ok && (
-        <Group title="Comentários e mensagens" desc="Como o Much Chat fica sabendo do que acontece no seu perfil." rows={[
+        <Group title="Comentários e mensagens" desc={`Como o ${PRODUCT.name} fica sabendo do que acontece no seu perfil.`} rows={[
           { label: "Receber em tempo real", value: "Comentários, mensagens e cliques em botões chegam na hora. Se algo parou de chegar, autorize de novo.", right: <SubscribeButton /> },
           { label: "Buscar comentários agora", value: "Lê os posts dos últimos 7 dias e responde o que ainda não foi atendido. Também roda sozinho uma vez por dia.", right: <SweepButton className="pn-btn is-sm">Buscar</SweepButton> },
         ]} />

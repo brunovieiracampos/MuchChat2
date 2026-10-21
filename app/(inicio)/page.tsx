@@ -36,13 +36,13 @@ const EXAMPLE_ROWS: FunnelRow[] = (["comment", "dm", "click", "follower", "done"
 const FLOW = [
   { title: "Comentou a palavra-chave", body: "Você escolhe o post e as palavras. Cada comentário com a palavra dispara o fluxo.", icon: ICONS.chat },
   { title: "Recebe no direct", body: "A mensagem chega com um botão para a pessoa pegar o material.", icon: ICONS.inbox },
-  { title: "Confirma que segue", body: "Antes de entregar, o Much Chat confere se a pessoa segue o perfil.", icon: ICONS.contacts },
+  { title: "Confirma que segue", body: `Antes de entregar, o ${PRODUCT.name} confere se a pessoa segue o perfil.`, icon: ICONS.contacts },
   { title: "Resposta pública", body: "O comentário também ganha uma resposta, escrita por você.", icon: ICONS.refresh },
 ];
 
 const MORE = [
   { title: "Agende o post com a automação", body: "Programe a publicação no painel. Quando o post sai, a automação já começa ativa.", icon: ICONS.calendar },
-  { title: "Peça pelo Claude", body: "Conecte o Much Chat ao Claude e crie automações, agende posts ou veja resultados conversando.", icon: ICONS.link },
+  { title: "Peça pelo Claude", body: `Conecte o ${PRODUCT.name} ao Claude e crie automações, agende posts ou veja resultados conversando.`, icon: ICONS.link },
   { title: "Veja onde o fluxo perde gente", body: "O relatório aponta a etapa com mais desistência e sugere o que ajustar.", icon: ICONS.metrics },
 ];
 

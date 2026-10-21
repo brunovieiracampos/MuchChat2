@@ -1,11 +1,13 @@
 /** Regras das contas de usuário: mensagens de erro e redirecionamento seguro. */
 
+import { PRODUCT } from "@/config/site";
+
 /** Mensagens do Supabase Auth traduzidas para o que a pessoa precisa fazer. */
 export function authError(e: { message?: string; code?: string } | null | undefined): string {
   const code = e?.code ?? "";
   const msg = (e?.message ?? "").toLowerCase();
   if (code === "invalid_credentials" || msg.includes("invalid login credentials")) return "E-mail ou senha incorretos.";
-  if (code === "email_not_confirmed" || msg.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar. Procure a mensagem do Much Chat na sua caixa de entrada.";
+  if (code === "email_not_confirmed" || msg.includes("email not confirmed")) return `Confirme seu e-mail antes de entrar. Procure a mensagem do ${PRODUCT.name} na sua caixa de entrada.`;
   if (code === "user_already_exists" || msg.includes("already registered")) return "Já existe uma conta com este e-mail. Entre ou redefina a senha.";
   if (code === "weak_password" || msg.includes("password should")) return "Senha fraca. Use pelo menos 8 caracteres, misturando letras e números.";
   if (code === "same_password") return "A nova senha precisa ser diferente da atual.";

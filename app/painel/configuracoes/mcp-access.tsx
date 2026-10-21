@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { relTime } from "@/lib/format";
 import { createTokenAction, revokeTokenAction } from "../actions";
 import { ConfirmModal, useToast } from "../_components/ui";
+import { PRODUCT } from "@/config/site";
 
 export type TokenRow = { id: string; name: string; hint: string; createdAt: string; lastUsedAt: string | null };
 
@@ -56,8 +57,8 @@ export function McpAccess({ tokens, url, connected }: { tokens: TokenRow[]; url:
           <ol className="pn-alert-body" style={{ margin: "4px 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
             <li>No Claude, abra <b>Configurações → Conectores</b>.</li>
             <li>Clique em <b>Adicionar conector personalizado</b>.</li>
-            <li>Dê o nome <b>Much Chat</b>, cole o link e clique em <b>Adicionar</b>.</li>
-            <li>Numa conversa, ative o Much Chat no menu de ferramentas e peça, por exemplo: “lista minhas automações”.</li>
+            <li>Dê o nome <b>{PRODUCT.name}</b>, cole o link e clique em <b>Adicionar</b>.</li>
+            <li>Numa conversa, ative o {PRODUCT.name} no menu de ferramentas e peça, por exemplo: “lista minhas automações”.</li>
           </ol>
         </div>
       )}
