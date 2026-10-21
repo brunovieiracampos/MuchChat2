@@ -28,6 +28,3 @@ export function safeNext(next: string | null | undefined, fallback = "/admin"): 
     return fallback;
   }
 }
-
-export const PASSWORD_MIN = 8;
-

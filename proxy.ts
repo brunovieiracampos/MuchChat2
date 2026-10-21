@@ -30,8 +30,8 @@ export async function proxy(req: NextRequest) {
   return res;
 }
 
-// Telas de conta (login, cadastro, senha) ficam dentro de /admin, mas abrem sem sessão.
-const PUBLIC_ADMIN = ["/admin/entrar", "/admin/cadastro", "/admin/esqueci-senha", "/admin/redefinir-senha", "/admin/aguardando"];
+// Tela de login fica dentro de /admin, mas abre sem sessão.
+const PUBLIC_ADMIN = ["/admin/entrar", "/admin/aguardando"];
 const isPrivate = (path: string) =>
   (path === "/admin" || path.startsWith("/admin/")) && !PUBLIC_ADMIN.some((p) => path === p || path.startsWith(`${p}/`));
 

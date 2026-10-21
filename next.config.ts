@@ -7,7 +7,9 @@ const home = `/m/${PORTAL_HOME.username}`;
 const homeSource = home.replace(/\./g, "\\.");
 
 // Painel e telas de conta foram para /admin; os endereços antigos (favoritos, links de e-mail) continuam valendo.
-const OLD_ADMIN = ["/entrar", "/cadastro", "/esqueci-senha", "/redefinir-senha", "/aguardando"];
+const OLD_ADMIN = ["/entrar", "/aguardando"];
+// Cadastro e recuperação de senha foram desligados (só o dono usa o painel): quem chegar por link antigo vai para o login.
+const REMOVED = ["/cadastro", "/esqueci-senha", "/redefinir-senha"];
 
 const nextConfig: NextConfig = {
   async redirects() {
@@ -17,6 +19,7 @@ const nextConfig: NextConfig = {
       { source: "/painel", destination: "/admin", permanent: true },
       { source: "/painel/:path*", destination: "/admin/:path*", permanent: true },
       ...OLD_ADMIN.map((p) => ({ source: p, destination: `/admin${p}`, permanent: true })),
+      ...REMOVED.flatMap((p) => [p, `/admin${p}`]).map((source) => ({ source, destination: "/admin/entrar", permanent: false })),
     ];
   },
   async rewrites() {

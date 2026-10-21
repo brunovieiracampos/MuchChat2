@@ -14,7 +14,6 @@ export function SiteNav() {
         <nav className="lp-nav-actions" aria-label="Conta">
           <ThemeToggle />
           <Link href="/admin/entrar" className="pn-btn lp-btn-quiet">Entrar</Link>
-          <Link href="/admin/cadastro" className="pn-btn is-primary">Criar conta</Link>
         </nav>
       </div>
     </header>
