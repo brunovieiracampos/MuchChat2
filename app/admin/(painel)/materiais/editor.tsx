@@ -224,7 +224,7 @@ export function MaterialEditor({ material, previews, prefix, username }: {
               <>
                 <textarea className="pn-textarea" rows={8} value={b.markdown} onChange={(e) => patch(b.id, { markdown: e.target.value })}
                   placeholder={"Escreva aqui. Dá para colar direto do Notion.\n\n# Título\n**negrito**, *itálico*, - lista, [link](https://…)"} aria-label="Texto do bloco" />
-                <span className="pn-help">Markdown simples: # título, **negrito**, *itálico*, - lista, 1. lista numerada, &gt; citação, [texto](https://link).</span>
+                <span className="pn-help">Markdown simples: # título, **negrito**, *itálico*, - lista, 1. lista numerada, &gt; citação, [texto](https://link). Para pular uma linha, escreva /n.</span>
               </>
             )}
 

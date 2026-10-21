@@ -43,13 +43,11 @@ export default async function Biblioteca({ params, searchParams }: Props) {
         <div className="dia-l-max dia-l-hero__grid">
           <div>
             <p className="dia-label dia-l-hero__kicker"><span className="dia-dot" aria-hidden="true" />Portal de materiais</p>
-            <h1 className="dia-l-hero__title">Guias, prompts e ferramentas para usar IA no trabalho, <em>sem se perder</em> no excesso de informação.</h1>
+            <h1 className="dia-l-hero__title">Guias, prompts e ferramentas para usar IA no dia a dia, <em>sem se perder</em> no excesso de informações.</h1>
           </div>
           <div className="dia-l-hero__side">
             <div className="dia-l-hero__who"><Avatar username={username} large /><Handle username={username} /></div>
             <span className="dia-meta">{items.length ? `${count}${latest ? ` · atualizado em ${dateLabel(latest)}` : ""}` : "Nenhum material ainda"}</span>
-            <a className="dia-textlink dia-l-follow dia-only-m" href={instagramUrl(username)} target="_blank" rel="noopener noreferrer">Seguir<Icon name="out" small /></a>
-            <a className="dia-btn dia-btn--secondary dia-only-d" href={instagramUrl(username)} target="_blank" rel="noopener noreferrer">Seguir no Instagram<Icon name="out" small /></a>
           </div>
         </div>
       </section>

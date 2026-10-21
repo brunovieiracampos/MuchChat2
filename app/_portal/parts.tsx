@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PORTAL_HOME } from "@/config/site";
 import { GlyphField } from "./glyphs";
 import { coverLetters, dateLabel, numberLabel, portalPath, type MaterialCard as Card, type SummaryItem } from "@/lib/material";
 
@@ -41,9 +42,15 @@ export function Handle({ username }: { username: string }) {
   return <span className="dia-handle"><HandleText username={username} /></span>;
 }
 
-/** Avatar tipográfico: a primeira letra do nome e um ponto. */
+/** Avatar: a foto do portal principal ou, sem foto, a primeira letra do nome e um ponto. */
 export function Avatar({ username, large }: { username: string; large?: boolean }) {
-  return <span className={`dia-avatar${large ? " dia-avatar--lg" : ""}`} aria-hidden="true">{username.slice(0, 1)}.</span>;
+  const photo = username.toLowerCase() === PORTAL_HOME.username ? PORTAL_HOME.avatar : undefined;
+  return (
+    <span className={`dia-avatar${large ? " dia-avatar--lg" : ""}`} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element -- foto pequena e fixa em public/ */}
+      {photo ? <img src={photo} alt="" width={large ? 56 : 32} height={large ? 56 : 32} /> : `${username.slice(0, 1)}.`}
+    </span>
+  );
 }
 
 export function Chips({ items }: { items: SummaryItem[] }) {

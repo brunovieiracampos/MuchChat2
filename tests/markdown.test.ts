@@ -61,3 +61,20 @@ describe("markdown do bloco de texto", () => {
     expect(escapeHtml(`<a href="x">'&'</a>`)).toBe("&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;");
   });
 });
+
+describe("/n para pular linha", () => {
+  it("sozinho entre duas linhas deixa uma linha em branco", () => {
+    expect(renderMarkdown("um\n/n\ndois")).toBe("<p>um<br><br>dois</p>");
+  });
+  it("no meio da linha quebra a linha", () => {
+    expect(renderMarkdown("um /n dois")).toBe("<p>um <br> dois</p>");
+  });
+  it("sozinho entre parágrafos vira um espaço a mais", () => {
+    expect(renderMarkdown("um\n\n/n\n\ndois")).toBe("<p>um</p>\n<p><br></p>\n<p>dois</p>");
+  });
+  it("não mexe em /n dentro de palavra, link ou código", () => {
+    expect(renderMarkdown("veja a/n e /news")).toBe("<p>veja a/n e /news</p>");
+    expect(renderMarkdown("[site](https://x.com/n)")).toContain('href="https://x.com/n"');
+    expect(renderMarkdown("`/n`")).toBe("<p><code>/n</code></p>");
+  });
+});

@@ -1,6 +1,7 @@
 /**
  * Markdown simples do bloco de Texto → HTML seguro. Sem dependências: roda no servidor e no navegador.
- * Aceita títulos (#, ##, ###), listas (- e 1.), citação (>), **negrito**, *itálico*, `código` e [links](https://…).
+ * Aceita títulos (#, ##, ###), listas (- e 1.), citação (>), **negrito**, *itálico*, `código`, [links](https://…)
+ * e /n para pular linha (sozinho numa linha, deixa uma linha em branco).
  * Todo o texto é escapado antes: HTML cru nunca passa. Links só http e https.
  */
 
@@ -20,6 +21,8 @@ function inline(raw: string): string {
   s = s.replace(/`([^`]+)`/g, (_, code: string) => hold(`<code>${code}</code>`));
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label: string, url: string) =>
     /^https?:\/\//i.test(url) ? hold(`<a href="${url}" target="_blank" rel="noopener noreferrer nofollow">${label}</a>`) : label);
+  // "/n" solto (entre espaços ou na ponta da linha) quebra a linha; dentro de palavra ou link ("/news") não.
+  s = s.replace(/(^|\s)\/n(?=\s|$)/g, "$1<br>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
   // Um link pode ter código no rótulo (um marcador dentro de outro): por isso mais de uma passada.
   for (let pass = 0; pass < 3 && s.includes("\u0000"); pass++) s = s.replace(HELD, (_, i: string) => held[Number(i)]);
@@ -32,7 +35,8 @@ export function renderMarkdown(src: string): string {
   const out: string[] = [];
   const st = { para: [] as string[], quote: [] as string[], list: null as List | null };
   const flush = () => {
-    if (st.para.length) out.push(`<p>${st.para.map(inline).join("<br>")}</p>`);
+    // Linha vazia no fim (um "/n" sozinho) precisa de um <br> a mais: o navegador ignora o último.
+    if (st.para.length) out.push(`<p>${st.para.map(inline).join("<br>")}${st.para.at(-1) === "" ? "<br>" : ""}</p>`);
     if (st.quote.length) out.push(`<blockquote>${st.quote.map(inline).join("<br>")}</blockquote>`);
     if (st.list) out.push(`<${st.list.tag}>${st.list.items.map((i) => `<li>${inline(i)}</li>`).join("")}</${st.list.tag}>`);
     st.para = []; st.quote = []; st.list = null;
@@ -41,6 +45,13 @@ export function renderMarkdown(src: string): string {
   for (const rawLine of src.replace(/\r\n?/g, "\n").replace(/\u0000/g, "").split("\n")) {
     const line = rawLine.trimEnd();
     if (!line.trim()) { flush(); continue; }
+
+    // "/n" sozinho na linha: uma linha em branco dentro do parágrafo.
+    if (line.trim() === "/n") {
+      if (st.list || st.quote.length) flush();
+      st.para.push("");
+      continue;
+    }
 
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
     if (heading) {
