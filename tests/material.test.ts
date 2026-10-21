@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BLOCK_TEXT_MAX, FILE_MAX_BYTES, MATERIAL_IMAGE_MAX_BYTES, MAX_BLOCKS,
   blankBlock, blockFiles, canOpen, downloadTarget, formatBytes, isPortalUsername, materialFiles, ownsMaterialFile,
-  portalView, slugify, uploadRule, validateMaterial,
+  portalPath, portalView, slugify, uploadRule, validateMaterial,
   blockSummary, coverLetters, dateLabel, materialCard, numberLabel, promptPieces,
   type Block, type Material, type MaterialDraft,
 } from "@/lib/material";
@@ -214,5 +214,15 @@ describe("o que o portal mostra de um material", () => {
     expect(card).not.toHaveProperty("blocks");
     expect(JSON.stringify(card)).not.toContain("SEGREDO");
     expect(JSON.stringify(card)).not.toContain("guia.pdf");
+  });
+});
+
+describe("portalPath", () => {
+  it("o portal principal fica em /portal; as outras contas em /m/{conta}", () => {
+    expect(portalPath("d.ia.riamente")).toBe("/portal");
+    expect(portalPath("d.ia.riamente", "guia")).toBe("/portal/guia");
+    expect(portalPath("D.IA.RIAMENTE", "guia")).toBe("/portal/guia");
+    expect(portalPath("outra.conta")).toBe("/m/outra.conta");
+    expect(portalPath("outra.conta", "guia")).toBe("/m/outra.conta/guia");
   });
 });

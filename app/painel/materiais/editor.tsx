@@ -10,7 +10,7 @@ import "@/app/_portal/portal.css";
 import "@/app/_portal/layout.css";
 import {
   BLOCK_META, CTA_KEYWORD_MAX, DESCRIPTION_MAX, FILE_MAX_BYTES, FILE_TYPES, LINKS_MAX, MAX_BLOCKS, TITLE_MAX,
-  blankBlock, blockSummary, fileExt, fileTypeMessage, fileTypesText, formatBytes, numberLabel, slugify, validateMaterial,
+  blankBlock, blockSummary, fileExt, fileTypeMessage, fileTypesText, formatBytes, numberLabel, portalPath, slugify, validateMaterial,
   type Block, type BlockType, type LinkItem, type Material, type MaterialDraft, type MaterialIssue, type MaterialStatus, type MaterialVisibility,
 } from "@/lib/material";
 import { deleteMaterialAction, saveMaterialAction } from "./actions";
@@ -156,7 +156,7 @@ export function MaterialEditor({ material, previews, prefix, username }: {
             <input className={`pn-input${fieldIssue("slug") ? " is-error" : ""}`} value={slug} spellCheck={false} autoCapitalize="none"
               onChange={(e) => { setSlugEdited(true); setSlug(e.target.value); }} onBlur={() => setSlug((s) => slugify(s))} />
             <span className="pn-help" style={{ display: "block" }}>
-              /m/{username}/{slug || "endereco-do-material"}
+              {portalPath(username, slug || "endereco-do-material")}
               {published && " · Mudar o endereço quebra os links já enviados."}
             </span>
           </label>
@@ -316,7 +316,7 @@ export function MaterialEditor({ material, previews, prefix, username }: {
             {published ? "Voltar para rascunho" : "Salvar rascunho"}
           </button>
           {published && (
-            <a className="pn-btn" href={`/m/${username}/${material!.slug}`} target="_blank" rel="noopener noreferrer">Abrir no portal</a>
+            <a className="pn-btn" href={portalPath(username, material!.slug)} target="_blank" rel="noopener noreferrer">Abrir no portal</a>
           )}
           {material && <button type="button" className="pn-btn is-danger pn-spacer" disabled={pending} onClick={() => setAskDelete(true)}>Excluir</button>}
         </div>

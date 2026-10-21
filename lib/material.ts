@@ -1,3 +1,5 @@
+import { PORTAL_HOME } from "@/config/site";
+
 /**
  * Materiais do portal: tipos e regras. Sem dependências de servidor: roda também no navegador (editor).
  * Um material é uma página montada em blocos, pública ou exclusiva de quem recebeu o link.
@@ -19,7 +21,7 @@ export type Material = {
   id: string;
   /** Número do material na conta ("Material Nº 14"). O banco escolhe na criação e ele não muda mais. */
   number: number;
-  /** Endereço do material dentro do portal da conta: /m/{conta}/{slug}. */
+  /** Endereço do material dentro do portal da conta: /m/{conta}/{slug} (ou /portal/{slug}, ver portalPath). */
   slug: string;
   title: string;
   description: string;
@@ -104,6 +106,12 @@ export function slugify(s: string): string {
 
 /** Nome de usuário do Instagram, como aparece no endereço do portal. */
 export const isPortalUsername = (s: string) => /^[a-z0-9._]{1,30}$/.test(s);
+
+/** Endereço do portal da conta (ou de um material dele): o portal principal fica em /portal, os outros em /m/{conta}. */
+export function portalPath(username: string, slug?: string): string {
+  const base = username.toLowerCase() === PORTAL_HOME.username ? PORTAL_HOME.path : `/m/${username}`;
+  return slug ? `${base}/${slug}` : base;
+}
 
 export const isHttpUrl = (u: string) => /^https?:\/\/\S+$/i.test(u);
 

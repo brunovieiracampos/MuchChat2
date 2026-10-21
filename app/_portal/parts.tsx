@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { GlyphField } from "./glyphs";
-import { coverLetters, dateLabel, numberLabel, type MaterialCard as Card, type SummaryItem } from "@/lib/material";
+import { coverLetters, dateLabel, numberLabel, portalPath, type MaterialCard as Card, type SummaryItem } from "@/lib/material";
 
 /** Peças do portal usadas em mais de uma tela. Sem "use client": servem ao servidor e ao editor. */
 
@@ -29,7 +29,7 @@ export function CopyIcon() {
 }
 
 export const instagramUrl = (username: string) => `https://www.instagram.com/${username}/`;
-export const materialUrl = (username: string, slug: string) => `/m/${username}/${slug}`;
+export const materialUrl = (username: string, slug: string) => portalPath(username, slug);
 
 /** "@d.ia.riamente", com o "ia" entre pontos em destaque quando o nome tiver. */
 export function HandleText({ username }: { username: string }) {
@@ -134,14 +134,14 @@ export function Topbar({ username, back }: { username: string; back?: boolean })
   if (!back) {
     return (
       <header className="dia-topbar">
-        <Link className="dia-brand" href={`/m/${username}`}><Avatar username={username} /><Handle username={username} /></Link>
+        <Link className="dia-brand" href={portalPath(username)}><Avatar username={username} /><Handle username={username} /></Link>
         <a className="dia-btn dia-btn--ghost" href={instagramUrl(username)} target="_blank" rel="noopener noreferrer">Instagram <Icon name="out" small /></a>
       </header>
     );
   }
   return (
     <header className="dia-topbar">
-      <Link className="dia-back" href={`/m/${username}`}><Icon name="back" /><span>Todos os materiais</span></Link>
+      <Link className="dia-back" href={portalPath(username)}><Icon name="back" /><span>Todos os materiais</span></Link>
       <a className="dia-brand" href={instagramUrl(username)} target="_blank" rel="noopener noreferrer" aria-label={`Perfil @${username} no Instagram`}>
         <Handle username={username} /><Avatar username={username} />
       </a>

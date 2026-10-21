@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BlocksView } from "@/app/_portal/blocks";
 import { Avatar, Chips, Footer, Handle, Icon, LockIcon, MaterialCard, Topbar, instagramUrl, materialUrl } from "@/app/_portal/parts";
-import { blockSummary, dateLabel, isHttpUrl, materialFiles, numberLabel, portalView } from "@/lib/material";
+import { blockSummary, dateLabel, isHttpUrl, materialFiles, numberLabel, portalPath, portalView } from "@/lib/material";
 import { portalAccount, portalAllowed, portalLibrary, portalMaterial, portalUrls } from "@/lib/portal";
 import { PRODUCT, SITE_URL } from "@/config/site";
 import { Busy } from "../../../_components/notices";
@@ -35,7 +35,7 @@ export default async function PaginaDoMaterial({ params, searchParams }: Props) 
   const material = await portalMaterial(account.accountId, slug);
   const view = material ? portalView(material) : null;
   // Endereço de material que não existe, foi excluído ou voltou para rascunho: leva à biblioteca com um aviso.
-  if (!view) redirect(`/m/${username}?aviso=material`);
+  if (!view) redirect(`${portalPath(username)}?aviso=material`);
 
   if (view.locked) {
     const urls = await portalUrls(account.accountId, view.coverPath ? [view.coverPath] : []);
@@ -89,7 +89,7 @@ export default async function PaginaDoMaterial({ params, searchParams }: Props) 
                 </div>
               )}
               {post && <a className="dia-btn dia-btn--primary dia-btn--block" href={post} target="_blank" rel="noopener noreferrer"><Icon name="comment" />Abrir o post e comentar</a>}
-              <Link className="dia-btn dia-btn--ghost" href={`/m/${username}`}>Ver outros materiais <Icon name="next" small /></Link>
+              <Link className="dia-btn dia-btn--ghost" href={portalPath(username)}>Ver outros materiais <Icon name="next" small /></Link>
             </div>
           </div>
         </main>
@@ -142,7 +142,7 @@ export default async function PaginaDoMaterial({ params, searchParams }: Props) 
               <div className="dia-l-pair">
                 {more.map((c) => <MaterialCard key={c.id} card={c} username={username} url={c.coverPath ? moreUrls[c.coverPath] : undefined} />)}
               </div>
-              <Link className="dia-btn dia-btn--secondary dia-btn--block" href={`/m/${username}`}>Ver todos os materiais <Icon name="next" small /></Link>
+              <Link className="dia-btn dia-btn--secondary dia-btn--block" href={portalPath(username)}>Ver todos os materiais <Icon name="next" small /></Link>
             </>
           )}
           <div className="dia-follow" style={more.length ? undefined : { marginTop: 0 }}>

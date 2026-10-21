@@ -10,6 +10,9 @@ export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ??
   (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "https://muchchat2.vercel.app");
 
+// Portal principal: a conta que abre em /portal. As outras contas continuam em /m/{conta}.
+export const PORTAL_HOME = { path: "/portal", username: "d.ia.riamente" };
+
 // Dados exibidos nas páginas públicas (política de privacidade / exclusão de dados). Ajuste se quiser.
 export const SITE = {
   name: "d.ia.riamente: mensagens automáticas",

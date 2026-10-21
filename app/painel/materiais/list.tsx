@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { relTime } from "@/lib/format";
-import type { MaterialStatus, MaterialVisibility } from "@/lib/material";
+import { portalPath, type MaterialStatus, type MaterialVisibility } from "@/lib/material";
 import { setMaterialStatusAction } from "./actions";
 import { Badge, Icon, Toggle, useToast } from "../_components/ui";
 import { ICONS } from "../_components/icons";
@@ -49,7 +49,7 @@ export function MaterialList({ rows, username }: { rows: MaterialRow[]; username
           ))}
         </div>
         <div className="pn-row pn-spacer" style={{ gap: 8 }}>
-          {username && <a href={`/m/${username}`} target="_blank" rel="noopener noreferrer" className="pn-btn">Ver o portal</a>}
+          {username && <a href={portalPath(username)} target="_blank" rel="noopener noreferrer" className="pn-btn">Ver o portal</a>}
           <Link href="/painel/materiais/novo" className="pn-btn is-primary"><Icon d={ICONS.plus} size={14} width={2} />Criar material</Link>
         </div>
       </div>
@@ -73,7 +73,7 @@ export function MaterialList({ rows, username }: { rows: MaterialRow[]; username
             <div className="pn-wide-only" style={{ fontSize: 12.5, color: "var(--muted)" }}>{relTime(r.updatedAt)}</div>
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
               {username && r.status === "published" && (
-                <a href={`/m/${username}/${r.slug}`} target="_blank" rel="noopener noreferrer" className="pn-btn is-sm pn-wide-only">Abrir</a>
+                <a href={portalPath(username, r.slug)} target="_blank" rel="noopener noreferrer" className="pn-btn is-sm pn-wide-only">Abrir</a>
               )}
               <Link href={`/painel/materiais/${r.id}`} className="pn-btn is-sm">Editar</Link>
               <Toggle on={r.status === "published"} disabled={busy === r.id}

@@ -1,5 +1,5 @@
 import { BlobNotFoundError, head } from "@vercel/blob";
-import { downloadTarget, ownsMaterialFile } from "@/lib/material";
+import { downloadTarget, ownsMaterialFile, portalPath } from "@/lib/material";
 import { signedUrl } from "@/lib/media-store";
 import { portalAccount, portalMaterial } from "@/lib/portal";
 import { RATE_MESSAGE, allowKey, clientIp } from "@/lib/ratelimit";
@@ -29,7 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ conta: s
 
   // Nunca em cache: o link assinado expira e o aviso depende do estado do arquivo.
   const redirectTo = (location: string) => new Response(null, { status: 302, headers: { Location: location, "Cache-Control": "no-store" } });
-  const unavailable = () => redirectTo(new URL(`/m/${account.username}/${slug}?aviso=arquivo&b=${encodeURIComponent(blockId)}`, req.url).toString());
+  const unavailable = () => redirectTo(new URL(`${portalPath(account.username, slug)}?aviso=arquivo&b=${encodeURIComponent(blockId)}`, req.url).toString());
 
   try {
     await head(target.path);
