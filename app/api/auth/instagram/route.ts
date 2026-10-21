@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // GET /api/auth/instagram → abre o login do Instagram (Business Login) para o usuário logado conectar a conta
 export async function GET(req: Request) {
-  if (!(await getUser())) return Response.redirect(new URL("/entrar?next=/painel/conexao", req.url), 302);
+  if (!(await getUser())) return Response.redirect(new URL("/admin/entrar?next=/admin/conexao", req.url), 302);
   const appId = process.env.IG_APP_ID;
   if (!appId) return new Response("IG_APP_ID não configurado", { status: 500 });
   const state = crypto.randomBytes(16).toString("hex");

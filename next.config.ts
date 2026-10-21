@@ -6,15 +6,23 @@ import { PORTAL_HOME } from "./config/site";
 const home = `/m/${PORTAL_HOME.username}`;
 const homeSource = home.replace(/\./g, "\\.");
 
+// Painel e telas de conta foram para /admin; os endereços antigos (favoritos, links de e-mail) continuam valendo.
+const OLD_ADMIN = ["/entrar", "/cadastro", "/esqueci-senha", "/redefinir-senha", "/aguardando"];
+
 const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: homeSource, destination: PORTAL_HOME.path, permanent: true },
       { source: `${homeSource}/:path*`, destination: `${PORTAL_HOME.path}/:path*`, permanent: true },
+      { source: "/painel", destination: "/admin", permanent: true },
+      { source: "/painel/:path*", destination: "/admin/:path*", permanent: true },
+      ...OLD_ADMIN.map((p) => ({ source: p, destination: `/admin${p}`, permanent: true })),
     ];
   },
   async rewrites() {
     return [
+      // A raiz também abre o portal principal.
+      { source: "/", destination: home },
       { source: PORTAL_HOME.path, destination: home },
       { source: `${PORTAL_HOME.path}/:path*`, destination: `${home}/:path*` },
     ];

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PRODUCT } from "@/config/site";
-import { ThemeToggle } from "../painel/_components/theme-toggle";
+import { ThemeToggle } from "../admin/(painel)/_components/theme-toggle";
 
 /** Topo das páginas abertas (inicial, privacidade, exclusão de dados). */
 export function SiteNav() {
@@ -13,8 +13,8 @@ export function SiteNav() {
         </Link>
         <nav className="lp-nav-actions" aria-label="Conta">
           <ThemeToggle />
-          <Link href="/entrar" className="pn-btn lp-btn-quiet">Entrar</Link>
-          <Link href="/cadastro" className="pn-btn is-primary">Criar conta</Link>
+          <Link href="/admin/entrar" className="pn-btn lp-btn-quiet">Entrar</Link>
+          <Link href="/admin/cadastro" className="pn-btn is-primary">Criar conta</Link>
         </nav>
       </div>
     </header>

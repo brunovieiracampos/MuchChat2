@@ -38,7 +38,7 @@ describe("markdown do bloco de texto", () => {
   });
 
   it("link que não é http ou https não vira link", () => {
-    for (const src of ["[clique](javascript:alert(1))", "[clique](data:text/html,x)", "[clique](//exemplo.com)", "[clique](/painel)"]) {
+    for (const src of ["[clique](javascript:alert(1))", "[clique](data:text/html,x)", "[clique](//exemplo.com)", "[clique](/admin)"]) {
       const html = renderMarkdown(src);
       expect(html).not.toContain("<a ");
       expect(html).not.toContain("javascript:");

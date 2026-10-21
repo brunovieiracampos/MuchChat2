@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * Renova a sessão do Supabase a cada navegação (os tokens expiram) e faz a checagem otimista:
- * quem não está logado e abre o painel vai para /entrar. A checagem de verdade fica em lib/session.ts.
+ * quem não está logado e abre o painel vai para /admin/entrar. A checagem de verdade fica em lib/session.ts.
  */
 export async function proxy(req: NextRequest) {
   let res = NextResponse.next({ request: req });
@@ -21,14 +21,19 @@ export async function proxy(req: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const path = req.nextUrl.pathname;
-  if (!data?.claims && path.startsWith("/painel")) {
+  if (!data?.claims && isPrivate(path)) {
     const url = req.nextUrl.clone();
-    url.pathname = "/entrar";
-    url.search = path === "/painel" ? "" : `?next=${encodeURIComponent(path + req.nextUrl.search)}`;
+    url.pathname = "/admin/entrar";
+    url.search = path === "/admin" ? "" : `?next=${encodeURIComponent(path + req.nextUrl.search)}`;
     return NextResponse.redirect(url);
   }
   return res;
 }
+
+// Telas de conta (login, cadastro, senha) ficam dentro de /admin, mas abrem sem sessão.
+const PUBLIC_ADMIN = ["/admin/entrar", "/admin/cadastro", "/admin/esqueci-senha", "/admin/redefinir-senha", "/admin/aguardando"];
+const isPrivate = (path: string) =>
+  (path === "/admin" || path.startsWith("/admin/")) && !PUBLIC_ADMIN.some((p) => path === p || path.startsWith(`${p}/`));
 
 export const config = {
   // Páginas e ações; fica de fora o que não usa sessão (webhook, cron, arquivos estáticos).

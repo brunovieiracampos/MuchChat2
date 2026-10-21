@@ -24,6 +24,6 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
 /** Para páginas e server actions do painel. */
 export async function requireSession(): Promise<SessionUser> {
   const user = await getUser();
-  if (!user) redirect("/entrar");
+  if (!user) redirect("/admin/entrar");
   return user;
 }

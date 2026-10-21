@@ -10,12 +10,12 @@ export const dynamic = "force-dynamic";
 // Recebe o code do Instagram, troca por token curto e depois por token de longa duração (60 dias).
 const back = (req: Request, query: string) => new Response(null, {
   status: 302,
-  headers: { Location: new URL(`/painel/conexao?${query}`, req.url).toString(), "Set-Cookie": "ig_oauth_state=; Path=/; Max-Age=0" },
+  headers: { Location: new URL(`/admin/conexao?${query}`, req.url).toString(), "Set-Cookie": "ig_oauth_state=; Path=/; Max-Age=0" },
 });
 
 export async function GET(req: Request) {
   const user = await getUser();
-  if (!user) return Response.redirect(new URL("/entrar?next=/painel/conexao", req.url), 302);
+  if (!user) return Response.redirect(new URL("/admin/entrar?next=/admin/conexao", req.url), 302);
   const u = new URL(req.url);
   const code = u.searchParams.get("code");
   const state = u.searchParams.get("state");

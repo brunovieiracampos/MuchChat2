@@ -18,7 +18,7 @@ export function authError(e: { message?: string; code?: string } | null | undefi
 }
 
 /** Só aceita caminhos internos em ?next= (evita redirecionar para outro site). */
-export function safeNext(next: string | null | undefined, fallback = "/painel"): string {
+export function safeNext(next: string | null | undefined, fallback = "/admin"): string {
   // Valida o endereço como o navegador vai interpretar (ele ignora tab e quebra de linha, e trata "\\" como "/").
   if (!next || !next.startsWith("/") || /[\x00-\x1f\\]/.test(next)) return fallback;
   try {

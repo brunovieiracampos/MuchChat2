@@ -3,15 +3,15 @@ import { authError, safeNext } from "@/lib/account";
 
 describe("contas", () => {
   it("só redireciona para caminhos internos", () => {
-    expect(safeNext("/painel/metricas?periodo=30")).toBe("/painel/metricas?periodo=30");
-    expect(safeNext("https://malicioso.com")).toBe("/painel");
-    expect(safeNext("//malicioso.com")).toBe("/painel");
-    expect(safeNext("/\\malicioso.com")).toBe("/painel");
-    expect(safeNext(null)).toBe("/painel");
-    expect(safeNext("/\t/malicioso.com")).toBe("/painel");
+    expect(safeNext("/admin/metricas?periodo=30")).toBe("/admin/metricas?periodo=30");
+    expect(safeNext("https://malicioso.com")).toBe("/admin");
+    expect(safeNext("//malicioso.com")).toBe("/admin");
+    expect(safeNext("/\\malicioso.com")).toBe("/admin");
+    expect(safeNext(null)).toBe("/admin");
+    expect(safeNext("/\t/malicioso.com")).toBe("/admin");
     expect(safeNext("/%09/malicioso.com")).toBe("/%09/malicioso.com");
-    expect(safeNext("/\n/malicioso.com")).toBe("/painel");
-    expect(safeNext("/painel\\..\\x")).toBe("/painel");
+    expect(safeNext("/\n/malicioso.com")).toBe("/admin");
+    expect(safeNext("/painel\\..\\x")).toBe("/admin");
   });
 
   it("traduz os erros do Supabase Auth", () => {

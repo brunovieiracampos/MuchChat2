@@ -21,6 +21,6 @@ export async function GET(req: NextRequest) {
   if (code) ok = !(await supabase.auth.exchangeCodeForSession(code)).error;
   else if (tokenHash && type) ok = !(await supabase.auth.verifyOtp({ token_hash: tokenHash, type })).error;
 
-  const to = new URL(ok ? next : "/entrar?erro=link", u.origin);
+  const to = new URL(ok ? next : "/admin/entrar?erro=link", u.origin);
   return NextResponse.redirect(to);
 }

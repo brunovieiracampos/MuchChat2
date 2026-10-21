@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { SiteFooter, SiteNav } from "../_site/chrome";
-import "../painel/painel.css";
+import "../admin/(painel)/painel.css";
 import "../_site/site.css";
 
 /** Documentos públicos (privacidade, exclusão de dados): mesmo topo e rodapé da página inicial. */
