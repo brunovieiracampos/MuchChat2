@@ -12,6 +12,8 @@ const OLD_ADMIN = ["/entrar", "/aguardando"];
 const REMOVED = ["/cadastro", "/esqueci-senha", "/redefinir-senha"];
 
 const nextConfig: NextConfig = {
+  // A API do PostHog usa caminhos com barra no fim; sem isso o Next redirecionaria e os eventos se perderiam.
+  skipTrailingSlashRedirect: true,
   async redirects() {
     return [
       { source: homeSource, destination: PORTAL_HOME.path, permanent: true },
@@ -24,6 +26,9 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      // Visitas do portal vão ao PostHog pelo próprio domínio, para bloqueadores de anúncio não escondê-las.
+      { source: "/ingest/static/:path*", destination: "https://us-assets.i.posthog.com/static/:path*" },
+      { source: "/ingest/:path*", destination: "https://us.i.posthog.com/:path*" },
       // A raiz também abre o portal principal.
       { source: "/", destination: home },
       { source: PORTAL_HOME.path, destination: home },

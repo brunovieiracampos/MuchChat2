@@ -38,5 +38,5 @@ const isPrivate = (path: string) =>
 export const config = {
   // Páginas e ações; fica de fora o que não usa sessão (webhook, cron, arquivos estáticos).
   // Rotas internas do Workflow (.well-known/workflow) também ficam de fora: o proxy quebraria a retomada dos processos.
-  matcher: ["/((?!api/|_next/static|_next/image|\\.well-known/workflow/|favicon.ico|robots.txt|sitemap.xml|opengraph-image|.*\\.(?:png|jpg|jpeg|svg|webp|ico|mp4)$).*)"],
+  matcher: ["/((?!api/|ingest/|_next/static|_next/image|\\.well-known/workflow/|favicon.ico|robots.txt|sitemap.xml|opengraph-image|.*\\.(?:png|jpg|jpeg|svg|webp|ico|mp4)$).*)"],
 };
