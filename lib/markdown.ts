@@ -1,7 +1,7 @@
 /**
  * Markdown simples do bloco de Texto → HTML seguro. Sem dependências: roda no servidor e no navegador.
  * Aceita títulos (#, ##, ###), listas (- e 1.), citação (>), **negrito**, *itálico*, `código`, [links](https://…)
- * e /n para pular linha (sozinho numa linha, deixa uma linha em branco).
+ * /n para pular linha (sozinho numa linha, deixa uma linha em branco) e {laranja}cor{/laranja} num trecho (cores de TEXT_COLORS).
  * Todo o texto é escapado antes: HTML cru nunca passa. Links só http e https.
  */
 
@@ -12,6 +12,10 @@ export function escapeHtml(s: string): string {
 }
 
 const HELD = /\u0000(\d+)\u0000/g;
+
+/** Cores do texto: nome na marcação → classe no portal (dia-c-{nome}), com tom próprio no tema claro e no escuro. */
+export const TEXT_COLORS = ["laranja", "amarelo", "verde", "azul", "vermelho"] as const;
+const COLOR_RE = new RegExp(`\\{(${TEXT_COLORS.join("|")})\\}(.+?)\\{\\/\\1\\}`, "g");
 
 /** Formatação dentro da linha. Código e links ficam guardados para o negrito e o itálico não mexerem neles. */
 function inline(raw: string): string {
@@ -24,6 +28,7 @@ function inline(raw: string): string {
   // "/n" solto (entre espaços ou na ponta da linha) quebra a linha; dentro de palavra ou link ("/news") não.
   s = s.replace(/(^|\s)\/n(?=\s|$)/g, "$1<br>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+  s = s.replace(COLOR_RE, '<span class="dia-c-$1">$2</span>');
   // Um link pode ter código no rótulo (um marcador dentro de outro): por isso mais de uma passada.
   for (let pass = 0; pass < 3 && s.includes("\u0000"); pass++) s = s.replace(HELD, (_, i: string) => held[Number(i)]);
   return s;

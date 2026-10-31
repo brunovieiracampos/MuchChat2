@@ -139,3 +139,20 @@ body:has(> .dia-screen) { background: #0c0c0b; }
   .dia-screen .dia-glyphs.is-card { font-size: 10px; }
   .dia-screen .dia-glyphs__g.is-extra { display: block; }
 }
+
+/* Cores do bloco de Texto ({laranja}…{/laranja}, ver TEXT_COLORS em lib/markdown.ts): um tom por tema, legível no fundo. */
+.dia-screen { --c-laranja: #ff7a45; --c-amarelo: #f2c35b; --c-verde: #86d3a7; --c-azul: #8ab8ff; --c-vermelho: #ff8a80; }
+.dia-screen.dia-light { --c-laranja: #ad3d0c; --c-amarelo: #8a5a00; --c-verde: #1c7046; --c-azul: #1f5bb5; --c-vermelho: #b3261e; }
+.dia-screen .dia-prose .dia-c-laranja { color: var(--c-laranja); }
+.dia-screen .dia-prose .dia-c-amarelo { color: var(--c-amarelo); }
+.dia-screen .dia-prose .dia-c-verde { color: var(--c-verde); }
+.dia-screen .dia-prose .dia-c-azul { color: var(--c-azul); }
+.dia-screen .dia-prose .dia-c-vermelho { color: var(--c-vermelho); }
+/* Negrito colorido fica na cor do trecho, não no branco do negrito. */
+.dia-screen .dia-prose [class^="dia-c-"] strong { color: inherit; }
+
+/* Bloco JSON: o mesmo painel do prompt (sempre escuro), com as partes do JSON coloridas (jsonPieces). */
+.dia-screen .dia-prompt__body .k { color: #ffb48f; }
+.dia-screen .dia-prompt__body .s { color: #a8d8b4; }
+.dia-screen .dia-prompt__body .n { color: #9cc4ff; }
+.dia-screen .dia-prompt__body .b { color: #f2c35b; }

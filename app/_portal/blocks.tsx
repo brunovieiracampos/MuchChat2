@@ -36,6 +36,11 @@ export function BlocksView({ blocks, urls, fileHref, preview, unavailableFile }:
           prompts++;
           return <div key={b.id} className="dia-enter"><PromptBlock index={prompts} label={b.label} text={b.text} /></div>;
         }
+        if (b.type === "json") {
+          return b.code.trim()
+            ? <div key={b.id} className="dia-enter"><PromptBlock index={0} label={b.label} text={b.code} json /></div>
+            : null;
+        }
         if (b.type === "file") {
           if (!b.path) return null;
           const ext = fileExt(b.path) || fileExt(b.name);

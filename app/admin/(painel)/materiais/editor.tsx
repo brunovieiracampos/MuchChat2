@@ -10,15 +10,16 @@ import "@/app/_portal/portal.css";
 import "@/app/_portal/layout.css";
 import {
   BLOCK_META, CTA_KEYWORD_MAX, DESCRIPTION_MAX, FILE_MAX_BYTES, FILE_TYPES, LINKS_MAX, MAX_BLOCKS, TITLE_MAX,
-  blankBlock, blockSummary, fileExt, fileTypeMessage, fileTypesText, formatBytes, numberLabel, portalPath, slugify, validateMaterial,
+  blankBlock, blockSummary, fileExt, fileTypeMessage, fileTypesText, formatBytes, formatJson, jsonError, numberLabel, portalPath, slugify, validateMaterial,
   type Block, type BlockType, type LinkItem, type Material, type MaterialDraft, type MaterialIssue, type MaterialStatus, type MaterialVisibility,
 } from "@/lib/material";
+import { TEXT_COLORS } from "@/lib/markdown";
 import { deleteMaterialAction, saveMaterialAction } from "./actions";
 import { toJpeg } from "../_components/to-jpeg";
 import { ConfirmModal, Icon, useToast } from "../_components/ui";
 import { ICONS } from "../_components/icons";
 
-const TYPES: BlockType[] = ["text", "prompt", "file", "links", "image"];
+const TYPES: BlockType[] = ["text", "prompt", "json", "file", "links", "image"];
 const ACCEPT_FILES = Object.keys(FILE_TYPES).map((e) => `.${e}`).join(",");
 
 export function MaterialEditor({ material, previews, prefix, username }: {
@@ -220,11 +221,22 @@ export function MaterialEditor({ material, previews, prefix, username }: {
               </div>
             </div>
 
-            {b.type === "text" && (
+            {b.type === "text" && <TextEditor value={b.markdown} onChange={(markdown) => patch(b.id, { markdown })} />}
+
+            {b.type === "json" && (
               <>
-                <textarea className="pn-textarea" rows={8} value={b.markdown} onChange={(e) => patch(b.id, { markdown: e.target.value })}
-                  placeholder={"Escreva aqui. Dá para colar direto do Notion.\n\n# Título\n**negrito**, *itálico*, - lista, [link](https://…)"} aria-label="Texto do bloco" />
-                <span className="pn-help">Markdown simples: # título, **negrito**, *itálico*, - lista, 1. lista numerada, &gt; citação, [texto](https://link). Para pular uma linha, escreva /n.</span>
+                <label>
+                  <span className="pn-field-label">Nome (opcional)</span>
+                  <input className="pn-input" value={b.label} maxLength={120} onChange={(e) => patch(b.id, { label: e.target.value })} placeholder="Ex.: Configuração do servidor MCP" />
+                </label>
+                <textarea className="pn-textarea" rows={10} value={b.code} onChange={(e) => patch(b.id, { code: e.target.value })} spellCheck={false}
+                  style={{ fontFamily: "var(--mono)" }} placeholder={'{\n  "chave": "valor"\n}'} aria-label="Código JSON" />
+                <div className="pn-row" style={{ gap: 10 }}>
+                  <button type="button" className="pn-btn is-sm" disabled={!b.code.trim() || !!jsonError(b.code)} onClick={() => patch(b.id, { code: formatJson(b.code) })}>Formatar</button>
+                  {b.code.trim() && (jsonError(b.code)
+                    ? <span style={{ fontSize: 12.5, color: "var(--red-text)" }}>{jsonError(b.code)?.replace(/ Use "Formatar".*$/, "")}</span>
+                    : <span className="pn-help">JSON válido.</span>)}
+                </div>
               </>
             )}
 
@@ -322,7 +334,7 @@ export function MaterialEditor({ material, previews, prefix, username }: {
         </div>
       </div>
 
-      <aside className="pn-post-preview">
+      <aside className="pn-post-preview is-scroll">
         <div className="pn-field-label" style={{ margin: 0 }}>Como fica no celular</div>
         {/* O mesmo visual do portal (design/portal), na largura de um celular. */}
         <div className={`${portalRoot} is-preview`}>
@@ -345,6 +357,40 @@ export function MaterialEditor({ material, previews, prefix, username }: {
           body={<>O material sai do portal e os arquivos são apagados. {published && "Os links já enviados deixam de funcionar. "}Não dá para desfazer.</>} />
       )}
     </div>
+  );
+}
+
+/** Tom de cada cor no botão do editor (o tom do portal escuro; o portal claro usa um tom mais fechado). */
+const COLOR_SWATCH: Record<(typeof TEXT_COLORS)[number], string> = {
+  laranja: "#ff7a45", amarelo: "#f2c35b", verde: "#86d3a7", azul: "#8ab8ff", vermelho: "#ff8a80",
+};
+
+/** Texto do bloco com os botões de cor: envolvem a seleção em {cor}…{/cor}; sem seleção, inserem um exemplo selecionado. */
+function TextEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const paint = (color: string) => {
+    const ta = ref.current;
+    if (!ta) return;
+    const { selectionStart: a, selectionEnd: z } = ta;
+    const inner = value.slice(a, z) || "texto";
+    const open = `{${color}}`;
+    onChange(value.slice(0, a) + open + inner + `{/${color}}` + value.slice(z));
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(a + open.length, a + open.length + inner.length); });
+  };
+  return (
+    <>
+      <div className="pn-row" style={{ gap: 6 }}>
+        <span className="pn-help" style={{ margin: 0 }}>Cor do trecho selecionado:</span>
+        {TEXT_COLORS.map((c) => (
+          <button key={c} type="button" className="pn-btn is-sm" onClick={() => paint(c)} title={`Deixar em ${c}`} aria-label={`Deixar o trecho selecionado em ${c}`}>
+            <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 999, background: COLOR_SWATCH[c], display: "inline-block" }} />{c}
+          </button>
+        ))}
+      </div>
+      <textarea ref={ref} className="pn-textarea" rows={8} value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={"Escreva aqui. Dá para colar direto do Notion.\n\n# Título\n**negrito**, *itálico*, - lista, [link](https://…)"} aria-label="Texto do bloco" />
+      <span className="pn-help">Markdown simples: # título, **negrito**, *itálico*, - lista, 1. lista numerada, &gt; citação, [texto](https://link). Para pular uma linha, escreva /n. Para colorir, selecione o trecho e escolha a cor: fica {"{laranja}"}assim{"{/laranja}"}.</span>
+    </>
   );
 }
 

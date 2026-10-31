@@ -78,3 +78,22 @@ describe("/n para pular linha", () => {
     expect(renderMarkdown("`/n`")).toBe("<p><code>/n</code></p>");
   });
 });
+
+describe("cor num trecho", () => {
+  it("vira um span com a classe da cor", () => {
+    expect(renderMarkdown("um {laranja}destaque{/laranja} aqui")).toBe('<p>um <span class="dia-c-laranja">destaque</span> aqui</p>');
+  });
+  it("aceita negrito dentro e vale em títulos e listas", () => {
+    expect(renderMarkdown("{verde}**ok**{/verde}")).toBe('<p><span class="dia-c-verde"><strong>ok</strong></span></p>');
+    expect(renderMarkdown("## {azul}Passo{/azul}")).toBe('<h3><span class="dia-c-azul">Passo</span></h3>');
+    expect(renderMarkdown("- {vermelho}não{/vermelho}")).toBe('<ul><li><span class="dia-c-vermelho">não</span></li></ul>');
+  });
+  it("ignora cor fora da paleta, marcação sem fechar e código", () => {
+    expect(renderMarkdown("{rosa}x{/rosa}")).toBe("<p>{rosa}x{/rosa}</p>");
+    expect(renderMarkdown("{verde}x")).toBe("<p>{verde}x</p>");
+    expect(renderMarkdown("`{verde}x{/verde}`")).toBe("<p><code>{verde}x{/verde}</code></p>");
+  });
+  it("não deixa HTML passar pelo trecho colorido", () => {
+    expect(renderMarkdown("{amarelo}<b>x</b>{/amarelo}")).toBe('<p><span class="dia-c-amarelo">&lt;b&gt;x&lt;/b&gt;</span></p>');
+  });
+});

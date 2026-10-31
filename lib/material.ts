@@ -11,7 +11,8 @@ export type FileBlock = { id: string; type: "file"; path: string; name: string; 
 export type LinkItem = { title: string; description: string; url: string };
 export type LinksBlock = { id: string; type: "links"; items: LinkItem[] };
 export type ImageBlock = { id: string; type: "image"; path: string; width: number; height: number; alt: string; caption: string };
-export type Block = TextBlock | PromptBlock | FileBlock | LinksBlock | ImageBlock;
+export type JsonBlock = { id: string; type: "json"; label: string; code: string };
+export type Block = TextBlock | PromptBlock | JsonBlock | FileBlock | LinksBlock | ImageBlock;
 export type BlockType = Block["type"];
 
 export type MaterialVisibility = "public" | "exclusive";
@@ -76,6 +77,7 @@ export const fileTypeMessage = () => `Esse tipo de arquivo não é aceito. Envie
 export const BLOCK_META: Record<BlockType, { label: string; help: string }> = {
   text: { label: "Texto", help: "Parágrafos, títulos e listas, com Markdown simples" },
   prompt: { label: "Prompt", help: "Texto para copiar, com botão de copiar" },
+  json: { label: "JSON", help: "Código JSON formatado, com cores e botão de copiar" },
   file: { label: "Arquivo", help: "PDF, planilha ou outro arquivo para baixar" },
   links: { label: "Lista de links", help: "Ferramentas e referências, cada um com título e URL" },
   image: { label: "Imagem", help: "Imagem com legenda opcional" },
@@ -89,6 +91,7 @@ export function blankBlock(type: BlockType): Block {
   const id = newBlockId();
   if (type === "text") return { id, type, markdown: "" };
   if (type === "prompt") return { id, type, label: "", text: "" };
+  if (type === "json") return { id, type, label: "", code: "" };
   if (type === "file") return { id, type, path: "", name: "", size: 0, description: "" };
   if (type === "links") return { id, type, items: [{ title: "", description: "", url: "" }] };
   return { id, type, path: "", width: 0, height: 0, alt: "", caption: "" };
@@ -182,6 +185,12 @@ export function validateMaterial(m: MaterialDraft, opts: { publish: boolean }): 
       if (b.text.length > BLOCK_TEXT_MAX) add(`O prompt pode ter até ${BLOCK_TEXT_MAX.toLocaleString("pt-BR")} caracteres.`);
       else if (opts.publish && !b.text.trim()) add("Escreva o prompt ou remova o bloco.");
     }
+    if (b.type === "json") {
+      const err = b.code.trim() ? jsonError(b.code) : null;
+      if (b.code.length > BLOCK_TEXT_MAX) add(`O JSON pode ter até ${BLOCK_TEXT_MAX.toLocaleString("pt-BR")} caracteres.`);
+      else if (opts.publish && !b.code.trim()) add("Escreva o JSON ou remova o bloco.");
+      else if (opts.publish && err) add(err);
+    }
     if (b.type === "file") {
       if (b.size > FILE_MAX_BYTES) add("O arquivo passa de 25 MB.");
       else if (b.path && !FILE_TYPES[fileExt(b.path)]) add(fileTypeMessage());
@@ -257,6 +266,8 @@ export function blockSummary(blocks: Block[]): SummaryItem[] {
   const out: SummaryItem[] = [];
   const prompts = blocks.filter((b) => b.type === "prompt" && b.text.trim()).length;
   if (prompts) out.push({ n: prompts, label: prompts === 1 ? "prompt" : "prompts" });
+  const jsons = blocks.filter((b) => b.type === "json" && b.code.trim()).length;
+  if (jsons) out.push({ n: jsons, label: "JSON" });
 
   const files = new Map<string, number>();
   for (const b of blocks) {
@@ -294,6 +305,42 @@ export function promptPieces(line: string): PromptPiece[] {
     last = m.index + m[0].length;
   }
   if (last < line.length) out.push({ text: line.slice(last), variable: false });
+  return out;
+}
+
+/** JSON inválido → mensagem com o motivo; válido → null. */
+export function jsonError(code: string): string | null {
+  try { JSON.parse(code); return null; } catch (e) {
+    return `O JSON tem um erro: ${e instanceof Error ? e.message : "formato inválido"}. Use "Formatar" para conferir.`;
+  }
+}
+
+/** JSON reescrito com recuo de 2 espaços; inválido volta como está. */
+export function formatJson(code: string): string {
+  try { return JSON.stringify(JSON.parse(code), null, 2); } catch { return code; }
+}
+
+/** k = chave, s = texto, n = número, b = true/false/null; null = pontuação e espaços. */
+export type JsonPiece = { text: string; kind: "k" | "s" | "n" | "b" | null };
+
+/** Uma linha de JSON separada em pedaços para colorir. Não valida: JSON quebrado só fica com menos cor. */
+export function jsonPieces(line: string): JsonPiece[] {
+  const out: JsonPiece[] = [];
+  const plain = (text: string) => {
+    const prev = out.at(-1);
+    if (!text) return;
+    if (prev && !prev.kind) prev.text += text; else out.push({ text, kind: null });
+  };
+  let last = 0;
+  for (const m of line.matchAll(/("(?:[^"\\]|\\.)*")(\s*:)?|-?\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b|\b(?:true|false|null)\b/g)) {
+    plain(line.slice(last, m.index));
+    if (m[1]) {
+      out.push({ text: m[1], kind: m[2] ? "k" : "s" });
+      plain(m[2] ?? "");
+    } else out.push({ text: m[0], kind: /^[tfn]/.test(m[0]) ? "b" : "n" });
+    last = m.index + m[0].length;
+  }
+  plain(line.slice(last));
   return out;
 }
 

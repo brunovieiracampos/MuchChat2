@@ -28,6 +28,7 @@ const blockId = z.string().min(1).max(20);
 const blockSchema = z.discriminatedUnion("type", [
   z.object({ id: blockId, type: z.literal("text"), markdown: z.string().max(BLOCK_TEXT_MAX + 200) }).strict(),
   z.object({ id: blockId, type: z.literal("prompt"), label: z.string().max(200), text: z.string().max(BLOCK_TEXT_MAX + 200) }).strict(),
+  z.object({ id: blockId, type: z.literal("json"), label: z.string().max(200), code: z.string().max(BLOCK_TEXT_MAX + 200) }).strict(),
   z.object({
     id: blockId, type: z.literal("file"), path: z.string().max(300), name: z.string().max(200),
     size: z.number().int().nonnegative().max(FILE_MAX_BYTES + 1), description: z.string().max(400),

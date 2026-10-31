@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PROMPT_FOLD_LINES, promptPieces } from "@/lib/material";
+import { PROMPT_FOLD_LINES, jsonPieces, promptPieces } from "@/lib/material";
 import { CopyIcon, Icon } from "./parts";
 
 type State = "idle" | "copied" | "failed";
@@ -24,9 +24,9 @@ function legacyCopy(text: string): boolean {
 /**
  * O bloco-assinatura do portal: painel escuro com o texto para copiar e colar numa IA.
  * Copiar leva sempre o texto inteiro, mesmo com o prompt recolhido. Se a cópia falhar, o texto fica selecionado
- * e uma nota explica como copiar à mão.
+ * e uma nota explica como copiar à mão. Com `json`, o mesmo painel mostra o bloco JSON, com as partes coloridas.
  */
-export function PromptBlock({ index, label, text }: { index: number; label: string; text: string }) {
+export function PromptBlock({ index, label, text, json }: { index: number; label: string; text: string; json?: boolean }) {
   const [state, setState] = useState<State>("idle");
   const [open, setOpen] = useState(false);
   const body = useRef<HTMLPreElement>(null);
@@ -36,7 +36,8 @@ export function PromptBlock({ index, label, text }: { index: number; label: stri
   const lines = text.replace(/\r\n?/g, "\n").replace(/\n+$/, "").split("\n");
   const long = lines.length > PROMPT_FOLD_LINES;
   const count = `${lines.length} ${lines.length === 1 ? "linha" : "linhas"}`;
-  const name = `Prompt ${String(index).padStart(2, "0")}${label.trim() ? ` · ${label.trim()}` : ""}`;
+  const name = `${json ? "JSON" : `Prompt ${String(index).padStart(2, "0")}`}${label.trim() ? ` · ${label.trim()}` : ""}`;
+  const what = json ? "JSON" : "Prompt";
 
   const copy = async () => {
     let ok = false;
@@ -69,8 +70,12 @@ export function PromptBlock({ index, label, text }: { index: number; label: stri
           <span className="dia-copy__fail"><Icon name="select" />Selecione e copie</span>
         </button>
       </div>
-      <pre ref={body} className="dia-prompt__body" tabIndex={0} aria-label="Texto do prompt">
-        {lines.map((line, i) => (
+      <pre ref={body} className="dia-prompt__body" tabIndex={0} aria-label={json ? "Código JSON" : "Texto do prompt"}>
+        {lines.map((line, i) => json ? (
+          <span key={i} className="ln">
+            {jsonPieces(line).map((p, k) => (p.kind ? <span key={k} className={p.kind}>{p.text}</span> : p.text))}
+          </span>
+        ) : (
           <span key={i} className={`ln${line.trimStart().startsWith("#") ? " c" : ""}`}>
             {promptPieces(line).map((p, k) => (p.variable ? <span key={k} className="v">{p.text}</span> : p.text))}
           </span>
@@ -78,14 +83,14 @@ export function PromptBlock({ index, label, text }: { index: number; label: stri
       </pre>
       {long && (
         <button className="dia-prompt__more" type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          <span>{open ? "Recolher prompt" : `Ver prompt inteiro · ${count}`}</span><Icon name="down" small />
+          <span>{open ? `Recolher ${what.toLowerCase()}` : `Ver ${what.toLowerCase()} inteiro · ${count}`}</span><Icon name="down" small />
         </button>
       )}
       <div className="dia-prompt__note">
         <Icon name="warn" />
         <span>Seu navegador não deixou copiar automaticamente. O texto já está selecionado: toque e segure sobre ele e escolha <b>Copiar</b>.</span>
       </div>
-      <span className="dia-sr" role="status">{state === "copied" ? "Prompt copiado." : state === "failed" ? "Não foi possível copiar. Selecione o texto e copie." : ""}</span>
+      <span className="dia-sr" role="status">{state === "copied" ? `${what} copiado.` : state === "failed" ? "Não foi possível copiar. Selecione o texto e copie." : ""}</span>
     </figure>
   );
 }

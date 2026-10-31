@@ -3,7 +3,7 @@ import {
   BLOCK_TEXT_MAX, FILE_MAX_BYTES, MATERIAL_IMAGE_MAX_BYTES, MAX_BLOCKS,
   blankBlock, blockFiles, canOpen, downloadTarget, formatBytes, isPortalUsername, materialFiles, ownsMaterialFile,
   portalPath, portalView, slugify, uploadRule, validateMaterial,
-  blockSummary, coverLetters, dateLabel, materialCard, numberLabel, promptPieces,
+  blockSummary, coverLetters, dateLabel, formatJson, jsonError, jsonPieces, materialCard, numberLabel, promptPieces,
   type Block, type Material, type MaterialDraft,
 } from "@/lib/material";
 
@@ -224,5 +224,31 @@ describe("portalPath", () => {
     expect(portalPath("D.IA.RIAMENTE", "guia")).toBe("/portal/guia");
     expect(portalPath("outra.conta")).toBe("/m/outra.conta");
     expect(portalPath("outra.conta", "guia")).toBe("/m/outra.conta/guia");
+  });
+});
+
+describe("bloco JSON", () => {
+  const json = (code: string): Block => ({ id: "j1", type: "json", label: "", code });
+  it("só impede publicar quando está vazio ou inválido", () => {
+    expect(messages(draft({ blocks: [json('{"a": 1}')] }))).toEqual([]);
+    expect(messages(draft({ blocks: [json("  ")] }))).toEqual(["Escreva o JSON ou remova o bloco."]);
+    expect(messages(draft({ blocks: [json("{a: 1}")] }))[0]).toMatch(/^O JSON tem um erro/);
+    expect(messages(draft({ blocks: [json("{a: 1}")] }), false)).toEqual([]);
+  });
+  it("formata e aponta erro", () => {
+    expect(formatJson('{"a":[1,true]}')).toBe('{\n  "a": [\n    1,\n    true\n  ]\n}');
+    expect(formatJson("{x")).toBe("{x");
+    expect(jsonError("[]")).toBeNull();
+  });
+  it("separa chave, texto, número e literal para colorir", () => {
+    expect(jsonPieces('  "nome": "Ana", "n": -1.5, "ok": null,')).toEqual([
+      { text: "  ", kind: null }, { text: '"nome"', kind: "k" }, { text: ": ", kind: null }, { text: '"Ana"', kind: "s" },
+      { text: ", ", kind: null }, { text: '"n"', kind: "k" }, { text: ": ", kind: null }, { text: "-1.5", kind: "n" },
+      { text: ", ", kind: null }, { text: '"ok"', kind: "k" }, { text: ": ", kind: null }, { text: "null", kind: "b" }, { text: ",", kind: null },
+    ]);
+    expect(jsonPieces('"a \\"b\\" c"')).toEqual([{ text: '"a \\"b\\" c"', kind: "s" }]);
+  });
+  it("entra no resumo do cartão", () => {
+    expect(blockSummary([json("{}"), json(" ")])).toEqual([{ n: 1, label: "JSON" }]);
   });
 });

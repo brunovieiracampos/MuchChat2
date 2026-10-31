@@ -366,6 +366,10 @@ button.pn-list-row { cursor: pointer; }
 .pn-auto-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 @media (max-width: 640px) { .pn-auto-grid { grid-template-columns: 1fr; } }
 .pn-post-preview { position: sticky; top: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Pré-visualização do material: cabe na altura da área visível (100dvh - cabeçalho - respiro) e rola por dentro. */
+.pn-post-preview.is-scroll { top: 24px; max-height: calc(100dvh - 60px - 48px); }
+.pn-post-preview.is-scroll > .dia-screen { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 1020px) { .pn-post-preview.is-scroll { position: static; max-height: 70dvh; } }
 .pn-ig { background: var(--ig-bg); border: 1px solid var(--line-3); border-radius: 14px; overflow: hidden; }
 .pn-ig-head { display: flex; align-items: center; gap: 8px; padding: 9px 11px; font-size: 12.5px; }
 .pn-ig-media { position: relative; background: var(--ig-media); display: grid; place-items: center; }
